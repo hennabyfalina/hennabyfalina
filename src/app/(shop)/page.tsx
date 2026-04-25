@@ -1,0 +1,60 @@
+// src/app/(shop)/page.tsx
+
+import { getProductsWithSignedUrls } from '@/services/product.service'
+import HeroSection from '@/components/home/HeroSection'
+import CategorySection from '@/components/home/CategorySection'
+import FeaturedProductsSection from '@/components/home/FeaturedProductsSection'
+import CustomOrderSection from '@/components/home/CustomOrderSection'
+import WholesaleSection from '@/components/home/WholesaleSection'
+import WhyChooseUsSection from '@/components/home/WhyChooseUsSection'
+import TestimonialsSection from '@/components/home/TestimonialsSection'
+import ContactSection from '@/components/home/ContactSection'
+import { createClient } from '@/lib/supabase/server'
+
+export default async function HomePage() {
+  const supabase = await createClient()
+
+  const { data: categories } = await supabase
+    .from('categories')
+    .select(`
+      id,
+      name,
+      slug,
+      image,
+      products (id)
+    `)
+    .order('display_order', { ascending: true })
+
+  const categoriesWithCount = categories?.map(category => ({
+    ...category,
+    product_count: category.products?.length || 0,
+  })) || []
+
+  const allProducts = await getProductsWithSignedUrls()
+  const featuredProducts = allProducts.slice(0, 8)
+
+  return (
+    <div className="flex-1 flex flex-col w-full bg-[#eaeded] pb-8">
+      {/* Hero spans full width on mobile, max-width on desktop */}
+      <div className="w-full max-w-[1500px] mx-auto relative">
+        <HeroSection />
+        
+        {/* Main Content Container with negative margin to pull up over hero gradient */}
+        <div className="px-2 sm:px-4 relative z-10 -mt-12 sm:-mt-32 space-y-4 sm:space-y-6">
+          <CategorySection categories={categoriesWithCount} />
+          
+          <FeaturedProductsSection products={featuredProducts} title="Featured Products" />
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+            <WholesaleSection />
+            <CustomOrderSection />
+          </div>
+          
+          <WhyChooseUsSection />
+          <TestimonialsSection />
+          <ContactSection />
+        </div>
+      </div>
+    </div>
+  )
+}

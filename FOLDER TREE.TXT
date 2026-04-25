@@ -1,0 +1,245 @@
+razack-packaging-centre/
+├── public/
+│   ├── file.svg
+│   ├── globe.svg
+│   ├── hero-pattern.png
+│   ├── icon-192x192.png
+│   ├── icon-512x512.png
+│   ├── next.svg
+│   ├── placeholder-category.svg
+│   ├── placeholder-loading.svg
+│   ├── placeholder-product.svg
+│   ├── vercel.svg
+│   └── window.svg
+├── src/
+│   ├── app/
+│   │   ├── (auth)/
+│   │   │   ├── login/
+│   │   │   │   └── page.tsx
+│   │   │   └── layout.tsx
+│   │   ├── (shop)/
+│   │   │   ├── cart/
+│   │   │   │   ├── layout.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── checkout/
+│   │   │   │   ├── layout.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── contact/
+│   │   │   │   └── page.tsx
+│   │   │   ├── custom-order/
+│   │   │   │   └── page.tsx
+│   │   │   ├── faq/
+│   │   │   │   └── page.tsx
+│   │   │   ├── order/
+│   │   │   │   └── [id]/
+│   │   │   │       └── page.tsx
+│   │   │   ├── privacy/
+│   │   │   │   └── page.tsx
+│   │   │   ├── product/
+│   │   │   │   └── [slug]/
+│   │   │   │       └── page.tsx
+│   │   │   ├── products/
+│   │   │   │   ├── page.tsx
+│   │   │   │   └── ProductsClientView.tsx
+│   │   │   ├── profile/
+│   │   │   │   ├── addresses/
+│   │   │   │   │   ├── AddressesClient.tsx
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── contact/
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── orders/
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── payments/
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── security/
+│   │   │   │   │   ├── page.tsx
+│   │   │   │   │   └── SecurityClient.tsx
+│   │   │   │   ├── settings/
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── page.tsx
+│   │   │   │   └── ProfileClient.tsx
+│   │   │   ├── returns-refunds/
+│   │   │   │   └── page.tsx
+│   │   │   ├── search/
+│   │   │   │   └── page.tsx
+│   │   │   ├── support/
+│   │   │   │   └── page.tsx
+│   │   │   ├── terms/
+│   │   │   │   └── page.tsx
+│   │   │   ├── wholesale/
+│   │   │   │   └── page.tsx
+│   │   │   ├── layout.tsx
+│   │   │   ├── loading.tsx
+│   │   │   └── page.tsx
+│   │   ├── actions/
+│   │   │   ├── get-profile.ts
+│   │   │   ├── sign-out.ts
+│   │   │   └── verify-admin-gate.ts
+│   │   ├── admin/
+│   │   │   ├── categories/
+│   │   │   │   └── page.tsx
+│   │   │   ├── customers/
+│   │   │   │   └── page.tsx
+│   │   │   ├── dashboard/
+│   │   │   │   └── page.tsx
+│   │   │   ├── inventory/
+│   │   │   │   ├── logs/
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── orders/
+│   │   │   │   ├── [id]/
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── products/
+│   │   │   │   └── page.tsx
+│   │   │   └── layout.tsx
+│   │   ├── admin-gate/
+│   │   │   └── page.tsx
+│   │   ├── api/
+│   │   │   ├── admin/
+│   │   │   │   ├── inventory/
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── orders/
+│   │   │   │   │   ├── [id]/
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── products/
+│   │   │   │       ├── [id]/
+│   │   │   │       │   └── route.ts
+│   │   │   │       └── route.ts
+│   │   │   ├── clear-admin-cookie/
+│   │   │   │   └── route.ts
+│   │   │   ├── invoice/
+│   │   │   │   └── [id]/
+│   │   │   │       └── route.tsx
+│   │   │   ├── razorpay/
+│   │   │   │   └── route.ts
+│   │   │   └── webhooks/
+│   │   │       └── razorpay/
+│   │   │           └── route.ts
+│   │   ├── auth/
+│   │   │   ├── auth-code-error/
+│   │   │   │   └── page.tsx
+│   │   │   └── callback/
+│   │   │       └── route.ts
+│   │   ├── favicon.ico
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   ├── manifest.ts
+│   │   ├── not-found.tsx
+│   │   ├── robots.ts
+│   │   └── sitemap.ts
+│   ├── components/
+│   │   ├── admin/
+│   │   │   ├── CategoryForm.tsx
+│   │   │   ├── OrderModal.tsx
+│   │   │   ├── OrderStatusBadge.tsx
+│   │   │   ├── ProductForm.tsx
+│   │   │   ├── StatsCard.tsx
+│   │   │   └── StockUpdateModal.tsx
+│   │   ├── auth/
+│   │   │   └── NameModal.tsx
+│   │   ├── cart/
+│   │   │   └── CartRecommendations.tsx
+│   │   ├── checkout/
+│   │   │   ├── AddressForm.tsx
+│   │   │   ├── DeliveryMethod.tsx
+│   │   │   ├── OrderSummary.tsx
+│   │   │   ├── PaymentButton.tsx
+│   │   │   └── StorePickupInfo.tsx
+│   │   ├── home/
+│   │   │   ├── CategorySection.tsx
+│   │   │   ├── ContactSection.tsx
+│   │   │   ├── CustomOrderSection.tsx
+│   │   │   ├── FeaturedProductsSection.tsx
+│   │   │   ├── HeroSection.tsx
+│   │   │   ├── ProductCard.tsx
+│   │   │   ├── TestimonialsSection.tsx
+│   │   │   ├── WholesaleSection.tsx
+│   │   │   └── WhyChooseUsSection.tsx
+│   │   ├── layout/
+│   │   │   ├── AccountModal.tsx
+│   │   │   ├── CategoriesModal.tsx
+│   │   │   ├── Footer.tsx
+│   │   │   ├── MobileBottomNav.tsx
+│   │   │   ├── MoreMenuModal.tsx
+│   │   │   └── Navbar.tsx
+│   │   ├── order/
+│   │   │   ├── InvoiceLink.tsx
+│   │   │   ├── PrintButton.tsx
+│   │   │   ├── RetryPaymentButton.tsx
+│   │   │   └── TrackingTimeline.tsx
+│   │   ├── pdf/
+│   │   │   └── InvoiceDocument.tsx
+│   │   ├── product/
+│   │   │   ├── AddToCartButton.tsx
+│   │   │   ├── FilterDrawer.tsx
+│   │   │   ├── FilterSidebar.tsx
+│   │   │   ├── ProductCard.tsx
+│   │   │   ├── ProductHorizontalCard.tsx
+│   │   │   ├── ProductImage.tsx
+│   │   │   ├── ProductImageGallery.tsx
+│   │   │   ├── ProductsGrid.tsx
+│   │   │   ├── QuantitySelector.tsx
+│   │   │   ├── RecentlyViewed.tsx
+│   │   │   ├── RelatedProducts.tsx
+│   │   │   ├── SaveViewedProduct.tsx
+│   │   │   ├── ShareButton.tsx
+│   │   │   └── TrustBadges.tsx
+│   │   ├── ui/
+│   │   │   ├── AnimatedIcon.tsx
+│   │   │   ├── Avatar.tsx
+│   │   │   ├── Container.tsx
+│   │   │   ├── Loader.tsx
+│   │   │   ├── Modal.tsx
+│   │   │   ├── PhoneInput.tsx
+│   │   │   ├── PriceRangeInputs.tsx
+│   │   │   ├── PullToRefresh.tsx
+│   │   │   ├── Section.tsx
+│   │   │   ├── SortDropdown.tsx
+│   │   │   └── Toast.tsx
+│   │   └── CartSyncProvider.tsx
+│   ├── config/
+│   │   ├── navigation.ts
+│   │   └── site.ts
+│   ├── hooks/
+│   │   ├── useAuth.ts
+│   │   └── useCart.ts
+│   ├── lib/
+│   │   ├── supabase/
+│   │   │   ├── admin.ts
+│   │   │   ├── client.ts
+│   │   │   ├── server.ts
+│   │   │   └── storage.ts
+│   │   ├── constants.ts
+│   │   └── utils.ts
+│   ├── services/
+│   │   ├── auth.service.ts
+│   │   ├── category.service.ts
+│   │   ├── inventory.service.ts
+│   │   ├── order.service.ts
+│   │   ├── payment.service.ts
+│   │   └── product.service.ts
+│   ├── store/
+│   │   └── cart.store.ts
+│   ├── types/
+│   │   └── database.types.ts
+│   └── proxy.ts
+├── .env.local
+├── .gitignore
+├── .hintrc
+├── AGENTS.md
+├── build-check.yml
+├── CLAUDE.md
+├── components.json
+├── eslint.config.mjs
+├── FOLDER TREE.TXT
+├── FOLDER_TREE_AUTO.TXT
+├── next-env.d.ts
+├── next.config.ts
+├── package-lock.json
+├── package.json
+├── postcss.config.mjs
+├── README.md
+├── tailwind.config.ts
+└── tsconfig.json

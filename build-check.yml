@@ -1,0 +1,37 @@
+name: PR Build Check
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Matches the project's recommended node version
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run type checking
+        run: npm run typecheck
+
+      - name: Verify build
+        run: npm run build
+        env:
+          # Next.js builds often require these vars to be present at build-time.
+          # We provide dummy values here so the CI build doesn't fail due to missing envs.
+          NEXT_PUBLIC_SUPABASE_URL: "https://stub-project.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "stub-anon-key"
+          SUPABASE_SERVICE_ROLE_KEY: "stub-service-key"
