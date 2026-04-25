@@ -13,7 +13,7 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://www.razackpackagingcentre.com'),
+  metadataBase: new URL('https://razackpackagingcentre.com'),
   title: {
     default: siteConfig.name,
     template: `%s | ${siteConfig.shortName}`,
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_IN',
-    url: 'https://www.razackpackagingcentre.com',
+    url: 'https://razackpackagingcentre.com',
     title: siteConfig.name,
     description: siteConfig.description,
     siteName: siteConfig.name,
@@ -49,7 +49,7 @@ const globalJsonLd = {
   "@context": "https://schema.org",
   "@type": "LocalBusiness",
   "name": siteConfig.name,
-  "image": "https://www.razackpackagingcentre.com/icon-512x512.png", 
+  "image": "https://razackpackagingcentre.com/icon-512x512.png", 
   "telephone": siteConfig.contact.phone.primary,
   "email": siteConfig.contact.email.orders,
   "address": {

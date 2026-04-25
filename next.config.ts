@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
       // Your custom domain
       {
         protocol: 'https',
-        hostname: 'www.razackpackagingcentre.com',
+        hostname: 'razackpackagingcentre.com',
       },
       // Google user content (profile pictures, etc.)
       {
@@ -49,7 +49,7 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       // Add any other domains you plan to deploy to here
-      allowedOrigins: ['localhost:3000', 'www.razackpackagingcentre.com', 'razackpackagingcentre.com'],
+      allowedOrigins: ['localhost:3000', 'razackpackagingcentre.com'],
     },
   },
 

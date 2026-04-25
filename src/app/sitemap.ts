@@ -4,7 +4,7 @@ import { getCategories } from '@/services/category.service'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Replace with your actual production URL
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.razackpackagingcentre.com'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://razackpackagingcentre.com'
 
   // Fetch all dynamic data concurrently
   const [products, categories] = await Promise.all([
