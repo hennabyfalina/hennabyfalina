@@ -109,6 +109,7 @@ export default function Footer() {
                 <span className="text-white/60 text-xs uppercase tracking-wider">Address</span>
                 <span className="leading-relaxed">
                   {siteConfig.address.line1},<br />
+                  {siteConfig.address.line2},<br />
                   {siteConfig.address.city} - {siteConfig.address.pincode},<br />
                   {siteConfig.address.state}, {siteConfig.address.country}
                 </span>

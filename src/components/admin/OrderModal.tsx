@@ -263,7 +263,7 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
             {isPickup ? (
               <div>
                 <p className="font-medium text-gray-900 mb-2">{siteConfig.name}</p>
-                <p className="text-sm text-gray-600">{siteConfig.address.line1}</p>
+                <p className="text-sm text-gray-600">{siteConfig.address.line1}, {siteConfig.address.line2}</p>
                 <p className="text-sm text-gray-600">{siteConfig.address.city}, {siteConfig.address.state}, {siteConfig.address.country} - {siteConfig.address.pincode}</p>
                 <p className="text-sm text-gray-600">Hours: {siteConfig.business.workingHours}</p>
               </div>

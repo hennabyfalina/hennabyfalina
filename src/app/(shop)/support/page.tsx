@@ -236,6 +236,7 @@ export default function SupportPage() {
               </div>
               <p className="text-sm text-gray-700 leading-relaxed">
                 {siteConfig.address.line1},<br />
+                {siteConfig.address.line2},<br />
                 {siteConfig.address.city} - {siteConfig.address.pincode},<br />
                 {siteConfig.address.state}, {siteConfig.address.country}
               </p>

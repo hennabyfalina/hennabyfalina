@@ -153,7 +153,7 @@ export default function TermsPage() {
                 <a href={`tel:${siteConfig.contact.phone.primary}`} className="text-[#007185] hover:text-[#C7511F]">{siteConfig.contact.phone.primary}</a>,{' '}
                 <a href={`tel:${siteConfig.contact.phone.secondary}`} className="text-[#007185] hover:text-[#C7511F]">{siteConfig.contact.phone.secondary}</a>
               </p>
-              <p><strong className="font-semibold">Address:</strong> {siteConfig.address.line1}, {siteConfig.address.city} - {siteConfig.address.pincode}, {siteConfig.address.state}, {siteConfig.address.country}</p>
+              <p><strong className="font-semibold">Address:</strong> {siteConfig.address.line1}, {siteConfig.address.line2}, {siteConfig.address.city} - {siteConfig.address.pincode}, {siteConfig.address.state}, {siteConfig.address.country}</p>
             </div>
           </section>
         </div>

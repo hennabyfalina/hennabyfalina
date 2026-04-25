@@ -213,6 +213,7 @@ export default function InvoiceDocument({ order }: { order: any }) {
           <View style={styles.headerLeft}>
             <Text style={styles.title}>{siteConfig.name}</Text>
             <Text style={styles.text}>{siteConfig.address.line1}</Text>
+            <Text style={styles.text}>{siteConfig.address.line2}</Text>
             <Text style={styles.text}>{siteConfig.address.city} - {siteConfig.address.pincode}, {siteConfig.address.state}, {siteConfig.address.country}</Text>
             <Text style={styles.text}>Phone: {siteConfig.contact.phone.primary} | {siteConfig.contact.phone.secondary}</Text>
             <Text style={styles.text}>Email: {siteConfig.contact.email.orders}</Text>

@@ -451,6 +451,7 @@ export default function CheckoutPage() {
                 <p className="font-medium text-gray-900">{siteConfig.name}</p>
                 <p>
                   {siteConfig.address.line1},<br />
+                  {siteConfig.address.line2},<br />
                   {siteConfig.address.city} - {siteConfig.address.pincode},<br />
                   {siteConfig.address.state}, {siteConfig.address.country}
                 </p>

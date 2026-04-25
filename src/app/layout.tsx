@@ -55,6 +55,7 @@ const globalJsonLd = {
   "address": {
     "@type": "PostalAddress",
     "streetAddress": siteConfig.address.line1,
+    "streetAddress2": siteConfig.address.line2,
     "addressLocality": siteConfig.address.city,
     "addressRegion": siteConfig.address.state,
     "postalCode": siteConfig.address.pincode,

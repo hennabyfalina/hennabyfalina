@@ -154,6 +154,7 @@ export default function ContactPage() {
                     <div className="font-bold text-gray-900 text-sm mb-1">Head Office</div>
                     <div className="text-gray-600 text-sm leading-relaxed">
                       {siteConfig.address.line1},<br />
+                      {siteConfig.address.line2},<br />
                       {siteConfig.address.city} - {siteConfig.address.pincode},<br />
                       {siteConfig.address.state}, {siteConfig.address.country}
                     </div>

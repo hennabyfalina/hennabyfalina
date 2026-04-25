@@ -10,7 +10,7 @@ export default function StorePickupInfo() {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
-    const textToCopy = `${siteConfig.name}\n${siteConfig.address.line1}, ${siteConfig.address.city}\nHours: ${siteConfig.business.workingHours}\nPhone: ${siteConfig.contact.phone.primary}\nEmail: ${siteConfig.contact.email.orders}`
+    const textToCopy = `${siteConfig.name}\n${siteConfig.address.line1}, ${siteConfig.address.line2}, ${siteConfig.address.city}, ${siteConfig.address.state}\nHours: ${siteConfig.business.workingHours}\nPhone: ${siteConfig.contact.phone.primary}\nEmail: ${siteConfig.contact.email.orders}`
     try {
       await navigator.clipboard.writeText(textToCopy)
       setCopied(true)
@@ -35,6 +35,7 @@ export default function StorePickupInfo() {
             <p className="font-bold text-sm text-[#0F1111]">{siteConfig.name}</p>
             <p className="text-sm text-[#0F1111] leading-relaxed whitespace-pre-line mt-1">
               {siteConfig.address.line1},<br />
+              {siteConfig.address.line2},<br />
               {siteConfig.address.city} - {siteConfig.address.pincode},<br />
               {siteConfig.address.state}, {siteConfig.address.country}
             </p>
