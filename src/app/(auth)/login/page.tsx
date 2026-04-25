@@ -88,28 +88,34 @@ export default function LoginPage() {
 
   // ─── Enterprise Watchdog: BFCache "Nuclear Reload" ──────────────────────
   useEffect(() => {
-    const checkAndResetOAuthState = () => {
-      if (sessionStorage.getItem('oauth_in_progress') === 'true') {
-        console.warn('Aborted OAuth flow detected. Executing BFCache purge (Hard Reload)...')
-        sessionStorage.removeItem('oauth_in_progress')
-        window.location.reload() // Busts the frozen DOM state
+    const checkAndResetOAuthState = (force = false) => {
+      const oauthStart = sessionStorage.getItem('oauth_start_time')
+      if (oauthStart) {
+        const timePassed = Date.now() - parseInt(oauthStart)
+        // Only trigger the nuclear reload if forced (via pageshow) OR if 3 seconds have passed
+        if (force || timePassed > 3000) {
+          console.warn('Aborted OAuth flow detected. Executing BFCache purge (Hard Reload)...')
+          sessionStorage.removeItem('oauth_start_time')
+          window.location.reload() // Busts the frozen DOM state
+        }
       }
     }
 
-    checkAndResetOAuthState()
-
+    // Highly reliable on mobile Safari tab switching
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') checkAndResetOAuthState()
     }
     
+    // Catches standard browser back button (force = true because they definitely came back)
     const handlePageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) checkAndResetOAuthState()
+      if (e.persisted) checkAndResetOAuthState(true)
     }
 
     document.addEventListener('visibilitychange', handleVisibility)
     window.addEventListener('pageshow', handlePageShow)
 
-    const interval = setInterval(checkAndResetOAuthState, 500)
+    // The Ultimate Failsafe: Background interval (waits 3 seconds before acting)
+    const interval = setInterval(() => checkAndResetOAuthState(false), 500)
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility)
@@ -121,7 +127,9 @@ export default function LoginPage() {
   // ─── Google Login ───────────────────────────────────────────────────────────
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true)
-    sessionStorage.setItem('oauth_in_progress', 'true')
+    
+    // Drop a timestamp breadcrumb so the Watchdog knows to wait 3 seconds
+    sessionStorage.setItem('oauth_start_time', Date.now().toString())
     
     const params = new URLSearchParams(window.location.search)
     const redirectPath = params.get('redirect') || '/products'
@@ -139,7 +147,7 @@ export default function LoginPage() {
     })
     
     if (error) {
-      sessionStorage.removeItem('oauth_in_progress')
+      sessionStorage.removeItem('oauth_start_time')
       setError(error.message)
       setIsGoogleLoading(false)
     }
@@ -165,7 +173,7 @@ export default function LoginPage() {
       sessionStorage.removeItem('login_authMode')
       sessionStorage.removeItem('login_resendTimer')
       sessionStorage.removeItem('login_timestamp')
-      sessionStorage.removeItem('oauth_in_progress')
+      sessionStorage.removeItem('oauth_start_time')
     } catch (err) {}
 
     setLoading(false)
@@ -323,7 +331,7 @@ export default function LoginPage() {
         sessionStorage.removeItem('login_authMode')
         sessionStorage.removeItem('login_resendTimer')
         sessionStorage.removeItem('login_timestamp')
-        sessionStorage.removeItem('oauth_in_progress')
+        sessionStorage.removeItem('oauth_start_time')
       } catch (e) {}
 
     setLoading(false)
