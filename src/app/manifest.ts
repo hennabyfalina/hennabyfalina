@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: 'Razack Pkg',
     description: 'High-quality packaging materials for your business needs.',
     start_url: '/',
-    display: 'standalone', // This hides the browser URL bar to make it feel like a real app
+    display: 'fullscreen', // Changed from standalone to fullscreen to completely hide status/URL bars
     background_color: '#ffffff',
     theme_color: '#111827', // Gray-900 to match your app's top navbar
     icons: [

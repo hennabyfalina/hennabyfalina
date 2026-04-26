@@ -5,6 +5,8 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import CartSyncProvider from '@/components/CartSyncProvider'
 import InstallPrompt from '@/components/ui/InstallPrompt'
+import PWAUpdater from '@/components/ui/PWAUpdater'
+import PullToRefresh from '@/components/ui/PullToRefresh'
 import { siteConfig } from '@/config/site'
 
 const inter = Inter({ 
@@ -43,6 +45,14 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: '/',
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: siteConfig.shortName,
+  },
+  formatDetection: {
+    telephone: false,
   }
 }
 
@@ -75,6 +85,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({
@@ -97,14 +108,49 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(globalJsonLd).replace(/</g, '\\u003c') }}
         />
+        {/* iOS Native App Feel: Tap Highlights, Selection, and Safe Areas */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          :root {
+            -webkit-tap-highlight-color: transparent;
+          }
+          
+          /* Prevent text selection on interactive elements */
+          a, button, [role="button"] {
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: manipulation;
+          }
+          
+          /* Handle iOS Safe Areas for fixed bottom navigation */
+          .fixed.bottom-0 {
+            padding-bottom: env(safe-area-inset-bottom);
+          }
+        `}} />
+        {/* Auto-generate iOS PWA Splash Screens */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function() {
+            var script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/ios-pwa-splash@1.0.0/cdn.min.js';
+            script.onload = function() {
+              if (typeof iosPWASplash === 'function') {
+                var isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                iosPWASplash('/icon-512x512.png', isDark ? '#111827' : '#ffffff');
+              }
+            };
+            document.head.appendChild(script);
+          })();
+        `}} />
       </head>
       <body 
-        className="bg-white text-gray-900 antialiased w-full min-h-screen flex flex-col overflow-x-hidden"
+        className="bg-white text-gray-900 antialiased w-full min-h-screen flex flex-col overflow-x-hidden overscroll-y-none"
         suppressHydrationWarning
       >
-        {children}
+        <PullToRefresh>
+          {children}
+        </PullToRefresh>
         <CartSyncProvider />
         <InstallPrompt />
+        <PWAUpdater />
       </body>
     </html>
   )

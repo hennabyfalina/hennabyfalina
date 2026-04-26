@@ -3,7 +3,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Download, Share2 } from 'lucide-react'
+import { X, Download, Share2, CheckCircle } from 'lucide-react'
 import { siteConfig } from '@/config/site'
 
 export default function InstallPrompt() {
@@ -11,6 +11,7 @@ export default function InstallPrompt() {
   const [showPrompt, setShowPrompt] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false)
 
   useEffect(() => {
     // 1. Check if the app is already installed and running in standalone mode
@@ -53,7 +54,13 @@ export default function InstallPrompt() {
     deferredPrompt.prompt() // Show the native browser installation dialog
     const { outcome } = await deferredPrompt.userChoice
     if (outcome === 'accepted') {
-      setShowPrompt(false) // Hide our prompt if they install it
+      setIsSuccess(true)
+      setTimeout(() => {
+        setIsSuccess(false)
+        setShowPrompt(false)
+      }, 4000)
+    } else {
+      setShowPrompt(false)
     }
     setDeferredPrompt(null)
   }
@@ -65,8 +72,22 @@ export default function InstallPrompt() {
 
   if (!showPrompt || isStandalone) return null
 
+  if (isSuccess) {
+    return (
+      <div className="fixed bottom-[84px] md:bottom-4 left-4 right-4 z-[9999] md:left-auto md:w-96 animate-in slide-in-from-bottom-5 fade-in duration-300">
+        <div className="bg-[#F0FDF4] border border-[#BBF7D0] shadow-2xl rounded-xl p-4 flex items-center gap-4 relative">
+          <CheckCircle className="w-8 h-8 text-[#16A34A] shrink-0" />
+          <div>
+            <h3 className="text-sm font-bold text-[#14532D]">App Installed!</h3>
+            <p className="text-xs text-[#166534] mt-1">Thank you! You can now access it from your home screen or app drawer.</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-[9999] md:left-auto md:w-96 animate-in slide-in-from-bottom-5 fade-in duration-300">
+    <div className="fixed bottom-[84px] md:bottom-4 left-4 right-4 z-[9999] md:left-auto md:w-96 animate-in slide-in-from-bottom-5 fade-in duration-300">
       <div className="bg-white border border-gray-200 shadow-2xl rounded-xl p-4 flex items-start gap-4 relative">
         <button onClick={handleDismiss} className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors">
           <X className="w-4 h-4" />

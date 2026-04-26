@@ -194,23 +194,22 @@ export default function CartPage() {
                           <p className="text-xs text-green-700 mt-1 font-medium">In stock</p>
                           <p className="text-xs text-gray-500 mt-1">Eligible for FREE Shipping</p>
                           
-                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                          <div className="flex flex-wrap items-center gap-1.5 mt-2">
                             {item.bulk_price && item.bulk_min_quantity && item.quantity >= item.bulk_min_quantity ? (
-                              <div className="inline-flex items-center gap-1 text-xs bg-green-50 border border-green-200 px-2 py-0.5 rounded-sm animate-in zoom-in duration-300 whitespace-nowrap">
+                              <div className="inline-flex items-center gap-1 text-[10px] xs:text-xs bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-sm animate-in zoom-in duration-300 whitespace-nowrap">
                               <CheckCircle2 className="w-3.5 h-3.5 text-green-600 animate-pulse" />
                               <span className="font-bold text-green-700">Bulk Price Applied!</span>
                               <span className="text-green-600 font-medium hidden xs:inline">{formatCurrency(item.bulk_price)}/item</span>
                             </div>
                           ) : item.bulk_price && item.bulk_min_quantity && item.quantity < item.bulk_min_quantity ? (
-                            <div className="inline-flex items-center gap-1 text-xs bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-sm">
+                            <div className="inline-flex items-center gap-1 text-[10px] xs:text-xs bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-sm whitespace-nowrap">
                               <Tag className="w-3 h-3 text-amber-600" />
-                              <span className="font-medium text-amber-700">Add {item.bulk_min_quantity - item.quantity} more for Bulk Price:</span>
-                              <span className="font-bold text-amber-800">{formatCurrency(item.bulk_price)}</span>
+                              <span className="font-medium text-amber-700">Add {item.bulk_min_quantity - item.quantity} more for <span className="font-bold text-amber-800">{formatCurrency(item.bulk_price)}</span></span>
                             </div>
                           ) : null}
                           
                           {discountPercentage > 0 && (
-                            <div className="inline-flex items-center gap-1 text-xs bg-red-50 border border-red-200 px-2 py-0.5 rounded-sm">
+                            <div className="inline-flex items-center gap-1 text-[10px] xs:text-xs bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-sm whitespace-nowrap">
                               <Percent className="w-3 h-3 text-red-500" />
                               <span className="font-medium text-red-600">Save {discountPercentage}%</span>
                             </div>

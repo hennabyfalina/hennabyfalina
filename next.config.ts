@@ -1,7 +1,21 @@
 // next.config.ts
 import type { NextConfig } from "next";
+import withPWAInit from "@ducanh2912/next-pwa";
+
+const withPWA = withPWAInit({
+  dest: "public",
+  cacheOnFrontEndNav: true,
+  aggressiveFrontEndNavCaching: true,
+  reloadOnOnline: true,
+  disable: process.env.NODE_ENV === "development",
+  fallbacks: {
+    document: "/~offline",
+  }
+});
 
 const nextConfig: NextConfig = {
+  // Silences the Next.js 16 Turbopack warning caused by the PWA plugin's webpack config
+  turbopack: {},
   images: {
     remotePatterns: [
       // Supabase Storage (your main product images)
@@ -47,6 +61,7 @@ const nextConfig: NextConfig = {
   
   // Security: CSRF Protection for Server Actions
   experimental: {
+    viewTransition: true,
     serverActions: {
       // Add any other domains you plan to deploy to here
       allowedOrigins: ['localhost:3000', 'razackpackagingcentre.com'],
@@ -93,4 +108,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withPWA(nextConfig);

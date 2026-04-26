@@ -20,14 +20,14 @@ export async function generateMetadata({
 
     if (category) {
       return {
-        title: `${category.meta_title || category.name} | ${siteConfig.shortName}`,
+        title: category.meta_title || category.name,
         description: category.meta_description || `High-quality ${category.name} packaging.`,
       }
     }
   }
 
   return {
-    title: `All Products | ${siteConfig.name}`,
+    title: 'All Products',
     description: 'Explore our range of premium packaging materials.',
   }
 }

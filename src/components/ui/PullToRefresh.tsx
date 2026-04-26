@@ -84,7 +84,7 @@ export default function PullToRefresh({ children }: PullToRefreshProps) {
   }, [isPulling, pullDistance, isRefreshing, router])
 
   return (
-    <div ref={containerRef} className="w-full relative">
+    <div ref={containerRef} className="w-full relative flex-1 flex flex-col">
       <div 
         className="fixed top-16 left-0 right-0 flex justify-center z-[100] pointer-events-none md:hidden"
         style={{ 

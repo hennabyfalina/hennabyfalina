@@ -1,5 +1,6 @@
 razack-packaging-centre/
 ├── public/
+│   ├── cat.jpg
 │   ├── file.svg
 │   ├── globe.svg
 │   ├── hero-pattern.png
@@ -71,6 +72,8 @@ razack-packaging-centre/
 │   │   │   ├── layout.tsx
 │   │   │   ├── loading.tsx
 │   │   │   └── page.tsx
+│   │   ├── ~offline/
+│   │   │   └── page.tsx
 │   │   ├── actions/
 │   │   │   ├── get-profile.ts
 │   │   │   ├── sign-out.ts
@@ -122,6 +125,7 @@ razack-packaging-centre/
 │   │   │   │   └── page.tsx
 │   │   │   └── callback/
 │   │   │       └── route.ts
+│   │   ├── error.tsx
 │   │   ├── favicon.ico
 │   │   ├── globals.css
 │   │   ├── layout.tsx
@@ -197,6 +201,7 @@ razack-packaging-centre/
 │   │   │   ├── PhoneInput.tsx
 │   │   │   ├── PriceRangeInputs.tsx
 │   │   │   ├── PullToRefresh.tsx
+│   │   │   ├── PWAUpdater.tsx
 │   │   │   ├── Section.tsx
 │   │   │   ├── SortDropdown.tsx
 │   │   │   └── Toast.tsx
@@ -236,7 +241,6 @@ razack-packaging-centre/
 ├── components.json
 ├── eslint.config.mjs
 ├── FOLDER TREE.TXT
-├── FOLDER_TREE_AUTO.TXT
 ├── next-env.d.ts
 ├── next.config.ts
 ├── package-lock.json
