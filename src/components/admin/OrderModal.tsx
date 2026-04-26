@@ -1,3 +1,5 @@
+// src/components/admin/OrderModal.tsx
+
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -228,8 +230,8 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                   <tr key={item.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-gray-900">{item.products?.name || 'Product'}</td>
                     <td className="px-4 py-3 text-center text-gray-600">{item.quantity}</td>
-                    <td className="px-4 py-3 text-right text-gray-600">₹{item.price?.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-right font-medium">₹{((item.price || 0) * (item.quantity || 0)).toFixed(2)}</td>
+                    <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(item.price || 0)}</td>
+                    <td className="px-4 py-3 text-right font-medium">{formatCurrency((item.price || 0) * (item.quantity || 0))}</td>
                   </tr>
                 ))}
               </tbody>

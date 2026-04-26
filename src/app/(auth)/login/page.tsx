@@ -6,19 +6,14 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { AlertTriangle, Eye, EyeOff } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 import { siteConfig } from '@/config/site'
-
-// 🚨 Import your existing sign-in service for the backdoor
-import { signIn } from '@/services/auth.service'
 
 export default function LoginPage() {
   const router = useRouter()
 
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('') // Tester backdoor state
-  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [error, setError] = useState('')
@@ -151,35 +146,6 @@ export default function LoginPage() {
       setError(error.message)
       setIsGoogleLoading(false)
     }
-  }
-
-  // ─── Razorpay Tester Backdoor ─────────────────────────────────────────────
-  const handleTesterLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-
-    // Triggers the standard email/password flow from your auth.service.ts
-    const result = await signIn(email, password)
-
-    if (!result.success) {
-      setError(result.message)
-      setLoading(false)
-      return
-    }
-
-    try {
-      sessionStorage.removeItem('login_email')
-      sessionStorage.removeItem('login_authMode')
-      sessionStorage.removeItem('login_resendTimer')
-      sessionStorage.removeItem('login_timestamp')
-      sessionStorage.removeItem('oauth_start_time')
-    } catch (err) {}
-
-    setLoading(false)
-    const params = new URLSearchParams(window.location.search)
-    const redirectPath = params.get('redirect') || result.data?.redirectTo || '/products'
-    router.push(redirectPath)
   }
 
   // ─── Resend Timer Engine ──────────────────────────────────────────────────
@@ -392,11 +358,7 @@ export default function LoginPage() {
 
   const isActionLocked = isGoogleLoading || loading
 
-  // 🚨 Determines which submit action fires based on the typed email
-  const currentSubmitHandler = 
-    email.toLowerCase() === 'razorpay@razackpackagingcentre.com' && authMode === 'otp_send'
-      ? handleTesterLogin 
-      : (authMode === 'otp_send' ? handleSendOtp : handleVerifyOtp)
+  const currentSubmitHandler = authMode === 'otp_send' ? handleSendOtp : handleVerifyOtp
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -499,8 +461,7 @@ export default function LoginPage() {
             <div>
               <div className="flex justify-between items-center mb-1">
                 <label className="block text-sm font-bold text-gray-900">Enter your email address</label>
-                {/* Do not show return button if it's the tester account */}
-                {isOtpSent && email.toLowerCase() !== 'razorpay@razackpackagingcentre.com' && (
+                {isOtpSent && (
                   <button 
                     type="button" 
                     disabled={isActionLocked}
@@ -522,35 +483,6 @@ export default function LoginPage() {
                 title="Email"
                 className="w-full px-3 py-2 bg-white border border-gray-400 rounded-sm focus:outline-none focus:border-[#e77600] focus:ring-1 focus:ring-[#e77600] transition-shadow text-sm disabled:bg-gray-50 disabled:opacity-75 disabled:cursor-not-allowed"
               />
-
-              {/* 🚨 THE EASTER EGG: Show Password field ONLY for Razorpay */}
-              {email.toLowerCase() === 'razorpay@razackpackagingcentre.com' && (
-                <div className="mt-4 animate-in fade-in zoom-in duration-300">
-                  <label className="block text-sm font-bold text-gray-900 mb-1">Password (Tester Mode)</label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      disabled={isActionLocked}
-                      placeholder="Enter password"
-                      className="w-full px-3 py-2 bg-white border border-gray-400 rounded-sm focus:outline-none focus:border-[#e77600] focus:ring-1 focus:ring-[#e77600] transition-shadow text-sm disabled:bg-gray-50 disabled:opacity-75 disabled:cursor-not-allowed pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -583,7 +515,7 @@ export default function LoginPage() {
                 </p>
               </div>
               
-              <div className="flex justify-between gap-2 mb-4 mt-2">
+              <div className="flex justify-between gap-1 sm:gap-2 mb-4 mt-2">
                 {[0, 1, 2, 3, 4, 5].map((index) => (
                   <input
                     key={index}
@@ -600,7 +532,7 @@ export default function LoginPage() {
                     autoComplete="one-time-code"
                     title={`OTP Digit ${index + 1}`}
                     placeholder=""
-                    className="w-11 h-12 text-center text-xl font-bold text-gray-900 bg-white border border-gray-400 rounded-sm focus:outline-none focus:border-[#e77600] focus:ring-1 focus:ring-[#e77600] transition-shadow disabled:bg-gray-50 disabled:opacity-75 disabled:cursor-not-allowed"
+                    className="w-9 sm:w-11 h-10 sm:h-12 text-center text-lg sm:text-xl font-bold text-gray-900 bg-white border border-gray-400 rounded-sm focus:outline-none focus:border-[#e77600] focus:ring-1 focus:ring-[#e77600] transition-shadow disabled:bg-gray-50 disabled:opacity-75 disabled:cursor-not-allowed"
                   />
                 ))}
               </div>
@@ -615,7 +547,7 @@ export default function LoginPage() {
                 </p>
 
                 {resendTimer === 0 && (
-                  <div className="flex flex-col items-center justify-center gap-3 mt-2">
+                  <div className="flex flex-col items-center justify-center gap-3 mt-2 w-full overflow-hidden">
                     <Turnstile
                       key={`resend-${turnstileKey}`}
                       ref={turnstileRef}
@@ -623,7 +555,10 @@ export default function LoginPage() {
                       options={{
                         theme: 'light',
                         refreshExpired: 'auto',
+                        size: 'flexible',
                       }}
+                      className="w-full"
+                      style={{ width: '100%' }}
                       onSuccess={(token) => setCaptchaToken(token)}
                       onExpire={() => setCaptchaToken('')}
                       onError={() => setCaptchaToken('')}
@@ -643,9 +578,8 @@ export default function LoginPage() {
           )}
 
           {/* Turnstile Security Check (Initial Login) */}
-          {/* 🚨 Hide Turnstile entirely if the user is typing the tester email */}
-          {authMode === 'otp_send' && resendTimer === 0 && email.toLowerCase() !== 'razorpay@razackpackagingcentre.com' && (
-            <div className="flex justify-center py-2">
+          {authMode === 'otp_send' && resendTimer === 0 && (
+            <div className="flex justify-center py-2 w-full overflow-hidden">
               <Turnstile
                 key={turnstileKey}
                 ref={turnstileRef}
@@ -653,7 +587,10 @@ export default function LoginPage() {
                 options={{
                   theme: 'light',
                   refreshExpired: 'auto',
+                  size: 'flexible',
                 }}
+                className="w-full"
+                style={{ width: '100%' }}
                 onSuccess={(token) => setCaptchaToken(token)}
                 onExpire={() => setCaptchaToken('')}
                 onError={() => setCaptchaToken('')}
@@ -666,17 +603,15 @@ export default function LoginPage() {
               type="submit"
               disabled={
                 isActionLocked || 
-                (authMode === 'otp_send' && email.toLowerCase() !== 'razorpay@razackpackagingcentre.com' && (resendTimer > 0 || !email.trim() || !captchaToken)) ||
-                (authMode === 'otp_send' && email.toLowerCase() === 'razorpay@razackpackagingcentre.com' && !password) ||
+                (authMode === 'otp_send' && (resendTimer > 0 || !email.trim() || !captchaToken)) ||
                 (authMode === 'otp_verify' && otpCode.length !== 6)
               }
               className="w-full py-2.5 mt-2 text-sm font-normal text-gray-900 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-            {loading ? (
-              email.toLowerCase() === 'razorpay@razackpackagingcentre.com' ? 'Logging in...' : (authMode === 'otp_send' ? 'Sending code...' : 'Verifying...')
-            ) : (
-              email.toLowerCase() === 'razorpay@razackpackagingcentre.com' ? 'Secure Login' : (authMode === 'otp_send' ? (resendTimer > 0 ? `Wait ${resendTimer}s to send again` : 'Send OTP Code') : 'Verify Code')
-            )}
+            {loading
+              ? (authMode === 'otp_send' ? 'Sending code...' : 'Verifying...')
+              : (authMode === 'otp_send' ? (resendTimer > 0 ? `Wait ${resendTimer}s to send again` : 'Send OTP Code') : 'Verify Code')
+            }
             </button>
           </form>
 

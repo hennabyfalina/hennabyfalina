@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import React from 'react'
 import { getPublicUrl } from '@/lib/supabase/storage'
+import { formatCurrency, numberToIndianWords } from '@/lib/utils'
 
 interface OrderSummaryProps {
   items: Array<{
@@ -53,10 +54,10 @@ function OrderSummary({
               </div>
               <div className="flex-1 min-w-0">
                 <h4 className="text-sm font-medium text-gray-900 line-clamp-2 leading-snug">{item.name}</h4>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <p className="text-sm font-bold text-gray-900">₹{item.price.toFixed(2)}</p>
+                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                  <p className="text-sm font-bold text-gray-900 whitespace-nowrap">{formatCurrency(item.price)}</p>
                   {item.original_price && item.original_price > item.price && (
-                    <p className="text-xs text-gray-500 line-through">₹{item.original_price.toFixed(2)}</p>
+                    <p className="text-xs text-gray-500 line-through whitespace-nowrap">{formatCurrency(item.original_price)}</p>
                   )}
                 </div>
                 <div className="flex items-center justify-start gap-2 mt-1 flex-wrap">
@@ -68,8 +69,8 @@ function OrderSummary({
                   )}
                 </div>
               </div>
-              <div className="text-sm font-semibold text-gray-900 shrink-0 mt-0.5">
-                ₹{(item.price * item.quantity).toFixed(2)}
+              <div className="text-sm font-semibold text-gray-900 shrink-0 mt-0.5 whitespace-nowrap ml-2">
+                {formatCurrency(item.price * item.quantity)}
               </div>
             </div>
           )
@@ -77,26 +78,31 @@ function OrderSummary({
       </div>
 
       <div className="border-t border-[#D5D9D9] pt-4 space-y-3 text-sm">
-        <div className="flex justify-between">
+        <div className="flex justify-between gap-2">
           <span className="text-gray-600">Subtotal</span>
-          <span className="font-medium text-gray-900">₹{subtotal.toFixed(2)}</span>
+          <span className="font-medium text-gray-900 whitespace-nowrap ml-2">{formatCurrency(subtotal)}</span>
         </div>
-        <div className="flex justify-between">
+        <div className="flex justify-between gap-2">
           <span className="text-gray-600">Shipping</span>
           {shippingMethod === 'pickup' ? (
-            <span className="font-medium text-green-600">Free (Pickup)</span>
+            <span className="font-medium text-green-600 whitespace-nowrap ml-2">Free (Pickup)</span>
           ) : shipping === 0 ? (
-            <span className="font-medium text-green-600">Free</span>
+            <span className="font-medium text-green-600 whitespace-nowrap ml-2">Free</span>
           ) : (
-            <span className="font-medium text-gray-900">₹{shipping.toFixed(2)}</span>
+          <span className="font-medium text-gray-900 whitespace-nowrap ml-2">{formatCurrency(shipping)}</span>
           )}
         </div>
         
         <div className="border-t border-[#D5D9D9] pt-2 mt-2">
-          <div className="flex justify-between items-center">
-            <span className="text-base font-bold text-gray-900">Total</span>
-            <span className="text-lg font-bold text-gray-900">₹{total.toFixed(2)}</span>
+          <div className="flex justify-between items-center gap-2">
+            <span className="text-base font-bold text-gray-900 shrink-0">Total</span>
+            <span className="text-lg font-bold text-gray-900 whitespace-nowrap ml-2">{formatCurrency(total)}</span>
           </div>
+          {total > 0 && (
+            <div className="text-right text-[11px] text-gray-500 mt-1 italic">
+              {numberToIndianWords(total)}
+            </div>
+          )}
         </div>
       </div>
     </div>

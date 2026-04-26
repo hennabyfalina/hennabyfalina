@@ -1,6 +1,9 @@
+// src/components/admin/StockUpdateModal.tsx
+
 'use client'
 
 import { useState, useEffect } from 'react'
+import { formatCurrency } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
 
 interface Product {
@@ -164,15 +167,15 @@ export default function StockUpdateModal({ isOpen, onClose, product, onSuccess }
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">MRP Price</label>
-              <div className="text-sm font-medium text-gray-900">₹{product.price.toFixed(2)}</div>
+              <div className="text-sm font-medium text-gray-900">{formatCurrency(product.price)}</div>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Selling Price</label>
-              <div className="text-sm font-medium text-gray-900">₹{(product.selling_price || product.price).toFixed(2)}</div>
+              <div className="text-sm font-medium text-gray-900">{formatCurrency(product.selling_price || product.price)}</div>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Bulk Price</label>
-              <div className="text-sm font-medium text-green-700">{product.bulk_price ? `₹${product.bulk_price.toFixed(2)}` : 'N/A'}</div>
+              <div className="text-sm font-medium text-green-700">{product.bulk_price ? formatCurrency(product.bulk_price) : 'N/A'}</div>
             </div>
           </div>
           <div className="pt-2 border-t border-gray-200/50 mt-1">

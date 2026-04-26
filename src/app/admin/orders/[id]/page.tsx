@@ -1,3 +1,5 @@
+// src/app/admin/orders/[id]/page.tsx
+
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -115,11 +117,11 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                     <div>
                       <p className="font-medium text-gray-900">{item.products?.name || 'Product'}</p>
                       <p className="text-sm text-gray-500">
-                        Quantity: {item.quantity} × ₹{item.price?.toFixed(2) || '0.00'}
+                        Quantity: {item.quantity} × {formatCurrency(item.price || 0)}
                       </p>
                     </div>
                     <p className="font-medium text-gray-900">
-                      ₹{((item.price || 0) * (item.quantity || 0)).toFixed(2)}
+                      {formatCurrency((item.price || 0) * (item.quantity || 0))}
                     </p>
                   </div>
                 ))}

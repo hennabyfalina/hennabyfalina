@@ -13,6 +13,7 @@ import QuantitySelector from '@/components/product/QuantitySelector'
 import RecentlyViewed from '@/components/product/RecentlyViewed'
 import CartRecommendations from '@/components/cart/CartRecommendations'
 import Loader from '@/components/ui/Loader'
+import { formatCurrency, numberToIndianWords } from '@/lib/utils'
 import { getPublicUrl } from '@/lib/supabase/storage'
 import { Trash2, ShoppingBag, XCircle, Package, Box, ShieldCheck, Truck, Star, StarHalf, Tag, Percent, CheckCircle2 } from 'lucide-react'
 import { SHIPPING_THRESHOLD, SHIPPING_COST } from '@/lib/constants'
@@ -167,8 +168,8 @@ export default function CartPage() {
                     </div>
 
                     <div className="flex flex-col flex-1 min-w-0">
-                      <div className="flex justify-between items-start gap-4">
-                        <div className="flex-1">
+                      <div className="flex justify-between items-start gap-2 sm:gap-4">
+                        <div className="flex-1 min-w-0">
                           <Link href={`/product/${item.slug}`} target="_blank" rel="noopener noreferrer" className="text-sm md:text-base font-medium text-gray-900 line-clamp-2 hover:text-blue-700 hover:underline">
                             {item.name}
                           </Link>
@@ -193,38 +194,40 @@ export default function CartPage() {
                           <p className="text-xs text-green-700 mt-1 font-medium">In stock</p>
                           <p className="text-xs text-gray-500 mt-1">Eligible for FREE Shipping</p>
                           
-                          {item.bulk_price && item.bulk_min_quantity && item.quantity >= item.bulk_min_quantity ? (
-                            <div className="mt-2 inline-flex items-center gap-1.5 text-xs bg-green-50 border border-green-200 px-2.5 py-1 rounded-sm animate-in zoom-in duration-300">
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                            {item.bulk_price && item.bulk_min_quantity && item.quantity >= item.bulk_min_quantity ? (
+                              <div className="inline-flex items-center gap-1 text-xs bg-green-50 border border-green-200 px-2 py-0.5 rounded-sm animate-in zoom-in duration-300 whitespace-nowrap">
                               <CheckCircle2 className="w-3.5 h-3.5 text-green-600 animate-pulse" />
                               <span className="font-bold text-green-700">Bulk Price Applied!</span>
-                              <span className="text-green-600 font-medium">₹{item.bulk_price.toFixed(2)}/item</span>
+                              <span className="text-green-600 font-medium hidden xs:inline">{formatCurrency(item.bulk_price)}/item</span>
                             </div>
                           ) : item.bulk_price && item.bulk_min_quantity && item.quantity < item.bulk_min_quantity ? (
-                            <div className="mt-2 inline-flex items-center gap-1 text-xs bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-sm">
+                            <div className="inline-flex items-center gap-1 text-xs bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-sm">
                               <Tag className="w-3 h-3 text-amber-600" />
                               <span className="font-medium text-amber-700">Add {item.bulk_min_quantity - item.quantity} more for Bulk Price:</span>
-                              <span className="font-bold text-amber-800">₹{item.bulk_price.toFixed(2)}</span>
+                              <span className="font-bold text-amber-800">{formatCurrency(item.bulk_price)}</span>
                             </div>
                           ) : null}
                           
                           {discountPercentage > 0 && (
-                            <div className="mt-2 inline-flex items-center gap-1 text-xs bg-red-50 border border-red-200 px-2 py-0.5 rounded-sm">
+                            <div className="inline-flex items-center gap-1 text-xs bg-red-50 border border-red-200 px-2 py-0.5 rounded-sm">
                               <Percent className="w-3 h-3 text-red-500" />
                               <span className="font-medium text-red-600">Save {discountPercentage}%</span>
                             </div>
                           )}
+                          </div>
                         </div>
                         
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-lg font-bold text-gray-900">
-                            ₹{(item.price * item.quantity).toFixed(2)}
+                        <div className="text-right shrink-0 ml-2">
+                          <p className="text-base sm:text-lg font-bold text-gray-900 whitespace-nowrap">
+                            {formatCurrency(item.price * item.quantity)}
                           </p>
                           {item.quantity > 1 && (
-                            <p className="text-xs text-gray-500 mt-0.5">₹{item.price.toFixed(2)} each</p>
+                            <p className="text-xs text-gray-500 mt-0.5 whitespace-nowrap">{formatCurrency(item.price)} each</p>
                           )}
                           {item.original_price && item.original_price > item.price && (
                             <p className="text-xs text-gray-400 line-through mt-0.5">
-                              ₹{item.original_price.toFixed(2)}
+                              <span className="whitespace-nowrap">{formatCurrency(item.original_price)}</span>
                             </p>
                           )}
                         </div>
@@ -257,8 +260,8 @@ export default function CartPage() {
             </div>
 
             <div className="text-right border-t border-gray-200 pt-4 mt-2">
-              <p className="text-lg text-gray-900">
-                Subtotal ({items.length} items): <span className="font-bold">₹{totalPrice.toFixed(2)}</span>
+              <p className="text-lg text-gray-900 flex flex-wrap items-end justify-end gap-2">
+                <span>Subtotal ({items.length} items):</span> <span className="font-bold whitespace-nowrap">{formatCurrency(totalPrice)}</span>
               </p>
             </div>
           </div>
@@ -274,12 +277,12 @@ export default function CartPage() {
               ) : (
                 <div className="flex items-start gap-2 mb-4 text-sm text-gray-700">
                   <Truck className="w-5 h-5 flex-shrink-0 text-gray-500" />
-                  <span>Add <span className="text-red-600 font-bold">₹{(SHIPPING_THRESHOLD - totalPrice).toFixed(2)}</span> of eligible items to your order to qualify for FREE Delivery.</span>
+                  <span>Add <span className="text-red-600 font-bold">{formatCurrency(SHIPPING_THRESHOLD - totalPrice)}</span> of eligible items to your order to qualify for FREE Delivery.</span>
                 </div>
               )}
 
-              <div className="text-lg text-gray-900 mb-6">
-                Subtotal ({items.length} items): <span className="font-bold">₹{totalPrice.toFixed(2)}</span>
+              <div className="text-lg text-gray-900 mb-6 flex flex-wrap items-end justify-between gap-2">
+                <span>Subtotal ({items.length} items):</span> <span className="font-bold whitespace-nowrap">{formatCurrency(totalPrice)}</span>
               </div>
 
               <button
@@ -297,18 +300,23 @@ export default function CartPage() {
               </button>
 
               <div className="mt-4 pt-4 border-t border-gray-200 flex flex-col gap-2 text-xs text-gray-500">
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-2">
                   <span>Items:</span>
-                  <span>₹{totalPrice.toFixed(2)}</span>
+                  <span className="text-right whitespace-nowrap ml-2">{formatCurrency(totalPrice)}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-2">
                   <span>Delivery:</span>
-                  <span>{shippingCost === 0 ? 'Free' : `₹${shippingCost.toFixed(2)}`}</span>
+                  <span className="text-right whitespace-nowrap ml-2">{shippingCost === 0 ? 'Free' : formatCurrency(shippingCost)}</span>
                 </div>
-                <div className="flex justify-between text-gray-900 font-bold text-sm mt-2 pt-2 border-t border-gray-200">
+                <div className="flex justify-between text-gray-900 font-bold text-sm mt-2 pt-2 border-t border-gray-200 gap-2">
                   <span>Order Total:</span>
-                  <span>₹{finalTotal.toFixed(2)}</span>
+                  <span className="text-right whitespace-nowrap ml-2">{formatCurrency(finalTotal)}</span>
                 </div>
+                {finalTotal > 0 && (
+                  <div className="text-right text-[11px] text-gray-500 mt-1 italic">
+                    {numberToIndianWords(finalTotal)}
+                  </div>
+                )}
               </div>
             </div>
           </div>

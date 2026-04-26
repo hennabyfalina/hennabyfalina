@@ -190,8 +190,10 @@ razack-packaging-centre/
 │   │   │   ├── AnimatedIcon.tsx
 │   │   │   ├── Avatar.tsx
 │   │   │   ├── Container.tsx
+│   │   │   ├── InstallPrompt.tsx
 │   │   │   ├── Loader.tsx
 │   │   │   ├── Modal.tsx
+│   │   │   ├── OrderStatusBadge.tsx
 │   │   │   ├── PhoneInput.tsx
 │   │   │   ├── PriceRangeInputs.tsx
 │   │   │   ├── PullToRefresh.tsx
@@ -242,4 +244,5 @@ razack-packaging-centre/
 ├── postcss.config.mjs
 ├── README.md
 ├── tailwind.config.ts
+├── test-sync.txt
 └── tsconfig.json

@@ -1,4 +1,4 @@
-// src/app/admin/orders/[id]/page.tsx
+// src/app/admin/orders/page.tsx
 
 'use client'
 
@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import OrderModal from '@/components/admin/OrderModal'
 import OrderStatusBadge from '@/components/admin/OrderStatusBadge'
 import StatsCard from '@/components/admin/StatsCard'
+import { formatCurrency } from '@/lib/utils'
 import { ShoppingBag, Clock, RefreshCw, CheckCircle2, XOctagon } from 'lucide-react'
 
 interface Order {
@@ -178,7 +179,7 @@ export default function AdminOrders() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{order.users?.name || 'N/A'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{new Date(order.created_at).toLocaleDateString()}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">₹{order.total_amount.toFixed(2)}</td>
+                <td className="px-6 py-4 text-sm text-gray-600">{formatCurrency(order.total_amount)}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {order.payment_method_detail ? (
                         <span className="capitalize inline-flex px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">

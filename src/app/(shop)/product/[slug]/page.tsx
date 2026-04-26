@@ -165,13 +165,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
               )}
               {discountPercentage === 0 && (
                 <span className="text-2xl sm:text-3xl font-medium text-[#0F1111]">
-                  <span className="text-sm align-top">₹</span>
-                  {sellingPrice.toFixed(2)}
+                  {formatCurrency(sellingPrice)}
+                {formatCurrency(sellingPrice)}
                 </span>
               )}
               
               <div className="text-xs sm:text-sm text-gray-500">
-                M.R.P.: <span className="line-through">₹{regularPrice.toFixed(2)}</span>
+              M.R.P.: <span className="line-through">{formatCurrency(regularPrice)}</span>
               </div>
               <div className="text-sm text-[#0F1111] mt-1">
                 Inclusive of all taxes
@@ -181,7 +181,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 <div className="mt-2 inline-flex items-center gap-2 text-sm text-green-800 bg-green-50 border border-green-200 px-3 py-1.5 rounded-sm shadow-sm animate-in fade-in">
                   <Tag className="w-4 h-4 text-green-600 animate-pulse" />
                   <span className="font-bold">Bulk Discount Available:</span>
-                  <span>Buy <span className="font-extrabold">{product.bulk_min_quantity || 10}+</span> at <span className="font-extrabold">₹{product.bulk_price.toFixed(2)}</span> each</span>
+                <span>Buy <span className="font-extrabold">{product.bulk_min_quantity || 10}+</span> at <span className="font-extrabold">{formatCurrency(product.bulk_price)}</span> each</span>
                 </div>
               )}
             </div>
@@ -260,8 +260,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <div className="border border-gray-300 rounded-lg p-4 bg-white shadow-[0_0_10px_rgba(0,0,0,0.05)] flex flex-col gap-4">
               
               <div className="flex items-baseline gap-1">
-                 <span className="text-sm align-top">₹</span>
-                 <span className="text-[28px] font-medium text-[#0F1111] leading-none">{sellingPrice.toFixed(2)}</span>
+                 <span className="text-[28px] font-medium text-[#0F1111] leading-none">{formatCurrency(sellingPrice)}</span>
               </div>
 
               <div>

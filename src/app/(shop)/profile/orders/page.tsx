@@ -5,11 +5,12 @@ import { redirect } from 'next/navigation'
 import Container from '@/components/ui/Container'
 import Image from 'next/image'
 import Link from 'next/link'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate, numberToIndianWords } from '@/lib/utils'
 import { getPublicUrl } from '@/lib/supabase/storage'
 import { revalidatePath } from 'next/cache'
 import InvoiceLink from '@/components/order/InvoiceLink'
 import RetryPaymentButton from '@/components/order/RetryPaymentButton'
+import OrderStatusBadge from '@/components/ui/OrderStatusBadge'
 import { siteConfig } from '@/config/site'
 
 export const metadata = {
@@ -85,20 +86,20 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         <h1 className="text-2xl md:text-3xl font-normal text-gray-900 mb-6 tracking-tight">Your Orders</h1>
 
         {/* Filter Tabs */}
-        <div className="flex border-b border-gray-200 mb-6 gap-6 text-sm font-medium">
-          <Link href="/profile/orders" className={`pb-2 border-b-2 ${filter === 'all' ? 'text-gray-900 border-[#e77600] font-bold' : 'text-[#007185] border-transparent hover:text-[#C7511F] hover:underline'}`}>
+        <div className="flex overflow-x-auto no-scrollbar border-b border-gray-200 mb-6 gap-6 text-sm font-medium pb-1">
+          <Link href="/profile/orders" className={`whitespace-nowrap pb-2 border-b-2 ${filter === 'all' ? 'text-gray-900 border-[#e77600] font-bold' : 'text-[#007185] border-transparent hover:text-[#C7511F] hover:underline'}`}>
             Orders
           </Link>
-          <Link href="/profile/orders?filter=buy-again" className={`pb-2 border-b-2 ${filter === 'buy-again' ? 'text-gray-900 border-[#e77600] font-bold' : 'text-[#007185] border-transparent hover:text-[#C7511F] hover:underline'}`}>
+          <Link href="/profile/orders?filter=buy-again" className={`whitespace-nowrap pb-2 border-b-2 ${filter === 'buy-again' ? 'text-gray-900 border-[#e77600] font-bold' : 'text-[#007185] border-transparent hover:text-[#C7511F] hover:underline'}`}>
             Buy Again
           </Link>
-          <Link href="/profile/orders?filter=unshipped" className={`hidden sm:block pb-2 border-b-2 ${filter === 'unshipped' ? 'text-gray-900 border-[#e77600] font-bold' : 'text-[#007185] border-transparent hover:text-[#C7511F] hover:underline'}`}>
+          <Link href="/profile/orders?filter=unshipped" className={`whitespace-nowrap hidden sm:block pb-2 border-b-2 ${filter === 'unshipped' ? 'text-gray-900 border-[#e77600] font-bold' : 'text-[#007185] border-transparent hover:text-[#C7511F] hover:underline'}`}>
             Not Yet Shipped
           </Link>
-          <Link href="/profile/orders?filter=cancelled" className={`pb-2 border-b-2 ${filter === 'cancelled' ? 'text-gray-900 border-[#e77600] font-bold' : 'text-[#007185] border-transparent hover:text-[#C7511F] hover:underline'}`}>
+          <Link href="/profile/orders?filter=cancelled" className={`whitespace-nowrap pb-2 border-b-2 ${filter === 'cancelled' ? 'text-gray-900 border-[#e77600] font-bold' : 'text-[#007185] border-transparent hover:text-[#C7511F] hover:underline'}`}>
             Cancelled Orders
           </Link>
-          <Link href="/profile/orders?filter=failed" className={`pb-2 border-b-2 ${filter === 'failed' ? 'text-gray-900 border-[#e77600] font-bold' : 'text-[#007185] border-transparent hover:text-[#C7511F] hover:underline'}`}>
+          <Link href="/profile/orders?filter=failed" className={`whitespace-nowrap pb-2 border-b-2 ${filter === 'failed' ? 'text-gray-900 border-[#e77600] font-bold' : 'text-[#007185] border-transparent hover:text-[#C7511F] hover:underline'}`}>
             Pending & Failed
           </Link>
         </div>
@@ -114,32 +115,45 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
           </div>
         ) : (
           <div className="space-y-6">
-            {orders.map((order) => (
-              <div key={order.id} className="border border-gray-300 rounded-lg overflow-hidden shadow-sm">
-                
+            {orders.map((order) => {
+
+              const isStorePickup = order.shipping_method === 'pickup' || 
+                                    order.delivery_method === 'pickup' || 
+                                    order.addresses?.delivery_method === 'pickup' || 
+                                    (order.addresses?.address_line1 || '').toLowerCase().includes('pickup') || 
+                                    (order.addresses?.address || '').toLowerCase().includes('pickup')
+
+              return (
+                <div key={order.id} className="border border-gray-300 rounded-lg overflow-hidden shadow-sm">
+                  
                 {/* Order Header */}
-                <div className="bg-[#F0F2F2] px-4 md:px-5 py-3 border-b border-gray-300 text-sm text-gray-600 flex flex-wrap md:flex-nowrap justify-between gap-4">
-                  <div className="flex flex-wrap gap-6 md:gap-12 w-full md:w-auto">
+                <div className="bg-[#F0F2F2] px-4 md:px-5 py-3 border-b border-gray-300 text-sm text-gray-600 flex flex-col sm:flex-row justify-between gap-3 sm:gap-4">
+                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-4 sm:gap-6 md:gap-12 w-full sm:w-auto">
                     <div>
-                      <div className="uppercase text-[11px] md:text-xs text-gray-500 mb-1">Order Placed</div>
+                      <div className="uppercase text-[11px] md:text-xs text-gray-500 mb-0.5 sm:mb-1">Order Placed</div>
                       <div className="text-gray-900">{formatDate(order.created_at)}</div>
                     </div>
                     <div>
-                      <div className="uppercase text-[11px] md:text-xs text-gray-500 mb-1">Total</div>
-                      <div className="text-gray-900">{formatCurrency(order.total_amount)}</div>
+                      <div className="uppercase text-[11px] md:text-xs text-gray-500 mb-0.5 sm:mb-1">Total</div>
+                      <div className="text-gray-900 font-medium whitespace-nowrap">{formatCurrency(order.total_amount)}</div>
+                      {order.total_amount > 0 && (
+                        <div className="text-[10px] text-gray-500 italic mt-0.5 leading-tight w-full sm:max-w-[150px] line-clamp-2 sm:line-clamp-none">
+                          {numberToIndianWords(order.total_amount)}
+                        </div>
+                      )}
                     </div>
                     <div className="hidden sm:block">
                       <div className="uppercase text-[11px] md:text-xs text-gray-500 mb-1">Ship To</div>
-                      <div className="text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer">
+                      <div className="text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer truncate max-w-[120px] lg:max-w-[200px]">
                         {order.addresses?.name || user.user_metadata?.name || user.email?.split('@')[0]}
                       </div>
                     </div>
                   </div>
                   
-                  <div className="text-left md:text-right w-full md:w-auto flex flex-col md:items-end">
-                    <div className="uppercase text-[11px] md:text-xs text-gray-500 mb-1">Order # {order.order_number}</div>
+                  <div className="text-left sm:text-right w-full sm:w-auto flex flex-col sm:items-end border-t border-gray-200 sm:border-0 pt-2 sm:pt-0">
+                    <div className="uppercase text-[11px] md:text-xs text-gray-500 mb-0.5 sm:mb-1">Order # {order.order_number}</div>
                     {order.payment_status === 'paid' && (
-                      <div className="flex gap-2 justify-start md:justify-end mt-1 text-[#007185]">
+                      <div className="flex gap-2 justify-start sm:justify-end mt-1 text-[#007185]">
                         <Link href={`/order/${order.id}`} className="hover:text-[#C7511F] hover:underline">
                           View order details
                         </Link>
@@ -161,12 +175,13 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                       <span className="text-amber-600">Awaiting Payment</span>
                     ) : order.status.includes('cancel') ? (
                       <span className="text-red-700">Cancelled</span>
+                    ) : isStorePickup ? (
+                      <span className="text-gray-900">Store Pickup Order</span>
                     ) : (
                       <span>Arriving by {formatDate(new Date(new Date(order.created_at).getTime() + 5 * 24 * 60 * 60 * 1000).toISOString())}</span>
                     )}
-                    <span className="text-xs font-medium text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md border border-gray-200">
-                      {order.payment_status === 'failed' ? 'Payment Failed' : order.payment_status === 'pending' ? 'Pending Payment' : order.status === 'pending' ? 'Preparing for Shipment' : order.status.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
-                    </span>
+                    <OrderStatusBadge status={order.status} type="order" />
+                    <OrderStatusBadge status={order.payment_status} type="payment" />
                   </h3>
 
                   {order.payment_status === 'failed' && (
@@ -209,9 +224,9 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                               </Link>
                               
                               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                <span className="text-sm font-bold text-gray-900">{formatCurrency(item.price)}</span>
+                                <span className="text-sm font-bold text-gray-900 whitespace-nowrap">{formatCurrency(item.price)}</span>
                                 {item.original_price && item.original_price > item.price && (
-                                  <span className="text-xs text-gray-500 line-through">{formatCurrency(item.original_price)}</span>
+                                  <span className="text-xs text-gray-500 line-through whitespace-nowrap">{formatCurrency(item.original_price)}</span>
                                 )}
                                 {item.is_bulk_pricing && (
                                   <span className="text-[10px] font-bold bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded-sm">Bulk Price Applied</span>
@@ -273,7 +288,8 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                   </div>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </Container>

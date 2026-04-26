@@ -6,6 +6,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Share2 } from 'lucide-react'
+import { formatCurrency } from '@/lib/utils'
 
 function HighlightMatch({ text, query }: { text: string, query: string }) {
   if (!query) return <span>{text}</span>;
@@ -105,7 +106,7 @@ export default function ProductCard({ product, searchQuery = '', priority = fals
           </h3>
           <div className="flex items-baseline gap-2">
             <span className="text-base sm:text-lg font-semibold text-gray-900">
-              ₹{product.price.toFixed(2)}
+              {formatCurrency(product.price)}
             </span>
             {product.stock <= 0 && (
               <span className="text-[11px] sm:text-sm font-medium text-red-600">Out of stock</span>

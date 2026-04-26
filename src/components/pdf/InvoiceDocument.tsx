@@ -3,6 +3,7 @@
 import React from 'react'
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 import { siteConfig } from '@/config/site'
+import { numberToIndianWords } from '@/lib/utils'
 
 // Define the styles for the PDF
 const styles = StyleSheet.create({
@@ -106,7 +107,8 @@ const styles = StyleSheet.create({
   },
   totalsContainer: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
     marginBottom: 30,
   },
   totalsBox: {
@@ -143,38 +145,57 @@ const styles = StyleSheet.create({
   tableRowAlt: {
     backgroundColor: '#f9fafb',
   },
-  watermarkContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
+  stampContainer: {
+    alignSelf: 'flex-end',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 2,
+    backgroundColor: '#f9fafb',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
     alignItems: 'center',
-    zIndex: -1,
   },
-  watermarkText: {
-    fontSize: 90,
+  stampText: {
+    fontSize: 12,
     fontFamily: 'Helvetica-Bold',
-    transform: 'rotate(-45deg)',
-    opacity: 0.15,
+    letterSpacing: 1,
   }
 })
 
-const formatCurrency = (amount: number) => `Rs. ${amount.toFixed(2)}`
+const formatCurrency = (amount: number) => {
+  // Notice: We use "Rs." instead of "₹" because the default Helvetica font in 
+  // @react-pdf/renderer does not support the ₹ symbol natively.
+  const formattedNumber = new Intl.NumberFormat('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount)
+  return `Rs. ${formattedNumber}`
+}
 
 const formatDate = (dateString: string) => {
   if (!dateString) return ''
   const date = new Date(dateString)
   return date.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: '2-digit',
     year: 'numeric',
-    month: 'short',
-    day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
     hour12: true
-  })
+  }).replace(',', '').toUpperCase()
+}
+
+const formatPhoneNumber = (phone: string) => {
+  if (!phone) return ''
+  const cleaned = phone.replace(/\D/g, '')
+  if (cleaned.length === 10) {
+    return `+91 ${cleaned.slice(0, 5)} ${cleaned.slice(5)}`
+  } else if (cleaned.length === 12 && cleaned.startsWith('91')) {
+    return `+91 ${cleaned.slice(2, 7)} ${cleaned.slice(7)}`
+  }
+  return phone
 }
 
 export default function InvoiceDocument({ order }: { order: any }) {
@@ -190,24 +211,19 @@ export default function InvoiceDocument({ order }: { order: any }) {
   const capitalize = (str: string) => str ? str.charAt(0).toUpperCase() + str.slice(1) : ''
 
   let watermarkText = 'PENDING'
-  let watermarkColor = '#f59e0b' // Amber
+  let watermarkColor = '#d97706' // Darker amber for readability
   
   if (order.status?.toLowerCase().includes('cancel')) {
     watermarkText = 'CANCELLED'
-    watermarkColor = '#ef4444' // Red
+    watermarkColor = '#dc2626' // Darker red
   } else if (order.payment_status?.toLowerCase() === 'paid' || order.payment_status?.toLowerCase() === 'captured' || order.payment_status?.toLowerCase() === 'success') {
     watermarkText = 'PAID'
-    watermarkColor = '#22c55e' // Green
+    watermarkColor = '#15803d' // Professional dark green
   }
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Watermark Stamp */}
-        <View style={styles.watermarkContainer}>
-          <Text style={[styles.watermarkText, { color: watermarkColor }]}>{watermarkText}</Text>
-        </View>
-
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -240,7 +256,7 @@ export default function InvoiceDocument({ order }: { order: any }) {
             <View style={[styles.headerRow, { marginTop: 2 }]}>
               <Text style={styles.headerLabel}>Payment:</Text>
               <Text style={styles.headerValue}>
-                Razorpay {capitalize(order.payment_method_detail || order.payment_method || 'Standard')} ({order.payment_status})
+                Razorpay {capitalize(order.payment_method_detail || order.payment_method || 'Standard')}
               </Text>
             </View>
           </View>
@@ -281,7 +297,7 @@ export default function InvoiceDocument({ order }: { order: any }) {
           
           <View style={styles.addressRow}>
             <Text style={styles.addressLabel}>Mobile number:</Text>
-            <Text style={[styles.addressValue, { fontFamily: 'Helvetica-Bold' }]}>{order.addresses?.phone}</Text>
+            <Text style={styles.addressValue}>{formatPhoneNumber(order.addresses?.phone)}</Text>
           </View>
           
           {order.addresses?.landmark && (
@@ -334,6 +350,10 @@ export default function InvoiceDocument({ order }: { order: any }) {
 
         {/* Totals */}
         <View style={styles.totalsContainer}>
+          <View style={styles.stampContainer}>
+            <Text style={[styles.stampText, { color: watermarkColor }]}>Payment Status: {watermarkText}</Text>
+          </View>
+
           <View style={styles.totalsBox}>
             <View style={styles.totalRow}>
               <Text style={[styles.text, { fontFamily: 'Helvetica-Bold' }]}>Subtotal:</Text>
@@ -347,6 +367,13 @@ export default function InvoiceDocument({ order }: { order: any }) {
               <Text style={styles.grandTotalText}>Grand Total:</Text>
               <Text style={styles.grandTotalText}>{formatCurrency(order.total_amount)}</Text>
             </View>
+            {order.total_amount > 0 && (
+              <View style={{ marginTop: 6, paddingTop: 4, borderTopWidth: 1, borderTopColor: '#f3f4f6' }}>
+                <Text style={{ fontSize: 9, color: '#4b5563', fontStyle: 'italic', textAlign: 'right' }}>
+                  Amount in words: {numberToIndianWords(order.total_amount)}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
         

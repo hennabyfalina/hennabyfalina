@@ -1,24 +1,27 @@
 'use client'
 
-import { Check } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 interface TrackingTimelineProps {
   status: string
+  isPickup?: boolean
 }
 
-export default function TrackingTimeline({ status }: TrackingTimelineProps) {
+export default function TrackingTimeline({ status, isPickup = false }: TrackingTimelineProps) {
   const [progress, setProgress] = useState(0)
   const isCancelled = status === 'cancelled'
 
-  const steps = [
-    { id: 1, name: 'Ordered', statuses: ['pending', 'confirmed', 'processing', 'shipped', 'delivered'] },
-    { id: 2, name: 'Processing', statuses: ['processing', 'shipped', 'delivered'] },
-    { id: 3, name: 'Shipped', statuses: ['shipped', 'delivered'] },
-    { id: 4, name: 'Delivered', statuses: ['delivered'] }
+  const steps = isPickup ? [
+    { id: 1, name: 'Ordered', statuses: ['pending', 'confirmed', 'processing', 'ready_for_pickup'] },
+    { id: 2, name: 'Picked Up', statuses: ['picked_up', 'delivered'] }
+  ] : [
+    { id: 1, name: 'Ordered', statuses: ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'ready_for_pickup', 'picked_up'] },
+    { id: 2, name: 'Processing', statuses: ['processing', 'shipped', 'delivered', 'ready_for_pickup', 'picked_up'] },
+    { id: 3, name: 'Shipped', statuses: ['shipped', 'delivered', 'ready_for_pickup', 'picked_up'] },
+    { id: 4, name: 'Delivered', statuses: ['delivered', 'picked_up'] }
   ]
 
-  const currentStepIndex = isCancelled ? -1 : steps.findLastIndex(step => step.statuses.includes(status))
+  const currentStepIndex = isCancelled ? -1 : steps.reduce((acc, step, idx) => step.statuses.includes(status) ? Math.max(acc, idx) : acc, 0)
 
   // Smooth animation effect on mount
   useEffect(() => {
@@ -38,69 +41,47 @@ export default function TrackingTimeline({ status }: TrackingTimelineProps) {
     )
   }
 
+  const isDeliveredOrPickedUp = status === 'delivered' || status === 'picked_up';
+
   return (
-    <div className="w-full">
-      {/* DESKTOP: Horizontal Timeline */}
-      <div className="hidden md:block relative w-full max-w-4xl mx-auto py-8 px-6">
-        <div className="absolute left-[12.5%] right-[12.5%] top-1/2 transform -translate-y-1/2 h-2 bg-gray-200 z-0 overflow-hidden">
-          <div
-            className="absolute left-0 top-0 h-full bg-[#067D62] transition-all duration-1000 ease-out"
-            style={{ width: `${progress}%` }}
-          ></div>
-        </div>
-        
-        <div className="flex items-center justify-between relative z-10">
-          {steps.map((step, idx) => {
-            const isCompleted = idx <= currentStepIndex;
-            const isCurrent = idx === currentStepIndex;
-            return (
-              <div key={step.id} className="flex flex-col items-center gap-3 w-1/4 relative">
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center shadow-sm transition-all duration-500 delay-200 z-10 
-                  ${isCompleted ? 'bg-[#067D62] border-2 border-[#067D62]' : 'bg-gray-200 border-2 border-white'} 
-                  ${isCurrent ? 'ring-4 ring-[#067D62]/30 scale-110' : ''}`
-                }>
-                  {isCompleted && <Check className="w-4 h-4 text-white stroke-[3]" />}
-                </div>
-                <span className={`text-sm font-bold text-center transition-colors duration-500 delay-200 
-                  ${isCurrent ? 'text-[#067D62]' : isCompleted ? 'text-gray-800' : 'text-gray-400'}`
-                }>{step.name}</span>
-              </div>
-            )
-          })}
-        </div>
+    <div className="relative mt-12 mb-10 max-w-2xl mx-auto">
+      {/* Timeline Track Lines */}
+      <div className="absolute top-3 left-4 right-4 h-[3px] bg-gray-200 z-0" />
+      
+      <div className="absolute top-3 left-4 right-4 h-[3px] z-0">
+        <div 
+          className="absolute top-0 left-0 h-[3px] bg-[#007185] transition-all duration-500" 
+          style={{ width: `${progress}%` }} 
+        />
       </div>
 
-      {/* MOBILE: Vertical Timeline */}
-      <div className="block md:hidden relative w-full py-4 pl-4 pr-2">
-        <div className="absolute left-[27px] top-6 bottom-8 w-1.5 bg-gray-200 z-0 overflow-hidden">
-          <div
-            className="absolute left-0 top-0 w-full bg-[#067D62] transition-all duration-1000 ease-out"
-            style={{ height: `${progress}%` }}
-          ></div>
-        </div>
+      <div className="relative flex justify-between w-full z-10">
+        {steps.map((step, index) => {
+          const isPast = index < currentStepIndex;
+          const isCurrent = index === currentStepIndex;
 
-        <div className="flex flex-col gap-8 relative z-10">
-          {steps.map((step, idx) => {
-            const isCompleted = idx <= currentStepIndex;
-            const isCurrent = idx === currentStepIndex;
-            return (
-              <div key={step.id} className="flex items-center gap-4 relative">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 shadow-sm transition-all duration-500 delay-200 z-10 
-                  ${isCompleted ? 'bg-[#067D62] border-2 border-[#067D62]' : 'bg-gray-200 border-2 border-white'} 
-                  ${isCurrent ? 'ring-4 ring-[#067D62]/30 scale-110' : ''}`
-                }>
-                  {isCompleted && <Check className="w-3 h-3 text-white stroke-[3]" />}
-                </div>
-                <div className="flex flex-col">
-                  <span className={`text-sm font-bold transition-colors duration-500 delay-200 
-                    ${isCurrent ? 'text-[#067D62]' : isCompleted ? 'text-gray-800' : 'text-gray-400'}`
-                  }>{step.name}</span>
-                  {isCurrent && <span className="text-xs text-gray-500 mt-0.5">Your package is currently {step.name.toLowerCase()}</span>}
-                </div>
+          return (
+            <div key={step.id} className="flex flex-col items-center justify-center relative w-8">
+              {/* Dot container */}
+              <div className="h-6 w-6 bg-white flex items-center justify-center rounded-full z-10">
+                {isCurrent && !isDeliveredOrPickedUp ? (
+                  <div className="relative flex h-full w-full items-center justify-center">
+                    <span className="animate-ping absolute inline-flex h-4 w-4 rounded-full bg-[#007185] opacity-60"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-[#007185]"></span>
+                  </div>
+                ) : (isPast || (isCurrent && isDeliveredOrPickedUp)) ? (
+                  <div className="h-3 w-3 rounded-full bg-[#007185]" />
+                ) : (
+                  <div className="h-3 w-3 rounded-full bg-gray-300" />
+                )}
               </div>
-            )
-          })}
-        </div>
+              {/* Text */}
+              <span className={`absolute top-8 text-xs md:text-sm whitespace-nowrap ${isPast || isCurrent ? 'text-[#007185] font-bold' : 'text-gray-500 font-medium'}`}>
+                {step.name}
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

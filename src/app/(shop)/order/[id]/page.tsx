@@ -9,6 +9,8 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import { getPublicUrl } from '@/lib/supabase/storage'
 import { ChevronLeft } from 'lucide-react'
 import PrintButton from '@/components/order/PrintButton'
+import TrackingTimeline from '@/components/order/TrackingTimeline'
+import OrderStatusBadge from '@/components/ui/OrderStatusBadge'
 import { revalidatePath } from 'next/cache'
 
 interface OrderPageProps {
@@ -79,20 +81,15 @@ export default async function OrderPage({ params }: OrderPageProps) {
                         order.addresses?.address?.toLowerCase().includes('pickup')
   const deliveryMethodLabel = isStorePickup ? 'Store Pickup' : 'Standard Delivery'
 
-  // Timeline Logic
+  const formatPhoneNumber = (phone?: string) => {
+    if (!phone) return ''
+    const cleaned = phone.replace(/\D/g, '')
+    if (cleaned.length === 10) return `+91 ${cleaned.slice(0, 5)} ${cleaned.slice(5)}`
+    if (cleaned.length === 12 && cleaned.startsWith('91')) return `+91 ${cleaned.slice(2, 7)} ${cleaned.slice(7)}`
+    return phone
+  }
+
   const deliveryDate = new Date(new Date(order.created_at).getTime() + 5 * 24 * 60 * 60 * 1000).toISOString()
-  const timelineSteps = isStorePickup ? [
-    { id: 'pending', label: 'Ordered' },
-    { id: 'delivered', label: 'Picked Up' }
-  ] : [
-    { id: 'pending', label: 'Ordered' },
-    { id: 'processing', label: 'Processing' },
-    { id: 'shipped', label: 'Shipped' },
-    { id: 'delivered', label: 'Delivered' }
-  ]
-  const statuses = timelineSteps.map(s => s.id)
-  const currentStatus = order.status === 'confirmed' ? 'pending' : order.status
-  const currentIndex = Math.max(0, statuses.indexOf(currentStatus))
 
   return (
     <Container className="py-8 md:py-12 max-w-5xl">
@@ -108,9 +105,12 @@ export default async function OrderPage({ params }: OrderPageProps) {
         {/* Header Info */}
         <div className="flex flex-col md:flex-row justify-between gap-4 border-b border-gray-200 pb-6">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">
-              Order Details
-            </h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">
+                Order Details
+              </h1>
+              <OrderStatusBadge status={order.status} type="order" className="mt-0.5 md:mt-1" />
+            </div>
             <div className="flex flex-col sm:flex-row sm:items-center text-sm text-gray-600 mt-2 gap-2 sm:gap-4">
               <p>Ordered on {formatDate(order.created_at)}</p>
               <span className="hidden sm:inline border-l border-gray-300 h-4"></span>
@@ -154,52 +154,17 @@ export default async function OrderPage({ params }: OrderPageProps) {
         {!isCancelled && !order.status.includes('cancel') && !order.status.includes('return') && (
           <div className="bg-white border border-gray-200 rounded-lg p-6 md:p-8 shadow-sm">
             <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">
-              {order.status === 'delivered' ? (
-                <span className="text-[#007185]">Delivered on {formatDate(order.updated_at || order.created_at)}</span>
+              {order.status === 'delivered' || order.status === 'picked_up' ? (
+                <span className="text-[#007185]">{isStorePickup ? 'Picked up on' : 'Delivered on'} {formatDate(order.updated_at || order.created_at)}</span>
+              ) : isStorePickup ? (
+                <span>Ready for Store Pickup</span>
               ) : (
                 <span>Arriving by {formatDate(deliveryDate)}</span>
               )}
             </h2>
             
-            <div className="relative mt-12 mb-10 max-w-2xl mx-auto">
-              {/* Timeline Track Lines */}
-              <div className="absolute top-3 left-4 right-4 h-[3px] bg-gray-200 z-0" />
-              
-              <div className="absolute top-3 left-4 right-4 h-[3px] z-0">
-                <div 
-                  className="absolute top-0 left-0 h-[3px] bg-[#007185] transition-all duration-500" 
-                  style={{ width: `${(currentIndex / (timelineSteps.length - 1)) * 100}%` }} 
-                />
-              </div>
-
-              <div className="relative flex justify-between w-full z-10">
-                {timelineSteps.map((step, index) => {
-                  const isCompleted = index < currentIndex;
-                  const isCurrent = index === currentIndex;
-
-                  return (
-                    <div key={step.id} className="flex flex-col items-center justify-center relative w-8">
-                      {/* Dot container */}
-                      <div className="h-6 w-6 bg-white flex items-center justify-center rounded-full z-10">
-                        {isCurrent && order.status !== 'delivered' ? (
-                          <div className="relative flex h-full w-full items-center justify-center">
-                            <span className="animate-ping absolute inline-flex h-4 w-4 rounded-full bg-[#007185] opacity-60"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-[#007185]"></span>
-                          </div>
-                        ) : isCompleted ? (
-                          <div className="h-3 w-3 rounded-full bg-[#007185]" />
-                        ) : (
-                          <div className="h-3 w-3 rounded-full bg-gray-300" />
-                        )}
-                      </div>
-                      {/* Text */}
-                      <span className={`absolute top-8 text-xs md:text-sm whitespace-nowrap ${isCompleted ? 'text-[#007185] font-bold' : 'text-gray-500 font-medium'}`}>
-                        {step.label}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
+            <div className="mt-8">
+              <TrackingTimeline status={order.status} isPickup={isStorePickup} />
             </div>
           </div>
         )}
@@ -234,7 +199,7 @@ export default async function OrderPage({ params }: OrderPageProps) {
               </div>
               <div className="flex gap-2 mt-1">
                 <span className="font-semibold text-gray-500 w-32 shrink-0">Mobile number:</span> 
-                <span className="font-bold text-gray-900">{order.addresses.phone}</span>
+                <span className="text-gray-900">{formatPhoneNumber(order.addresses?.phone)}</span>
               </div>
               {order.addresses.landmark && (
                 <div className="flex gap-2 border-t border-gray-100 pt-2 mt-2">
@@ -253,30 +218,33 @@ export default async function OrderPage({ params }: OrderPageProps) {
 
           <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
             <h3 className="font-bold text-gray-900 mb-3">Payment Method</h3>
-            <div className="text-sm text-gray-700 space-y-1">
-              <p className="capitalize">{order.payment_method_detail || order.payment_method || 'Standard'}</p>
-              <p>Status: <span className="font-medium text-gray-900">{order.payment_status}</span></p>
+          <div className="text-sm text-gray-700 space-y-2">
+            <p className="capitalize">Razorpay {order.payment_method_detail || order.payment_method || 'Standard'}</p>
+            <div className="flex items-center gap-2">
+              <span>Status:</span>
+              <OrderStatusBadge status={order.payment_status} type="payment" />
+            </div>
             </div>
           </div>
 
           <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
             <h3 className="font-bold text-gray-900 mb-3">Order Summary</h3>
             <div className="space-y-2">
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between gap-2 text-sm">
                 <span className="text-gray-600">Subtotal</span>
-                <span className="text-gray-900">
+                <span className="text-gray-900 whitespace-nowrap ml-2">
                   {formatCurrency(subtotal)}
                 </span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between gap-2 text-sm">
                 <span className="text-gray-600">Shipping</span>
-                <span className="text-gray-900">
+                <span className="text-gray-900 whitespace-nowrap ml-2">
                   {shippingCost === 0 ? 'Free' : formatCurrency(shippingCost)}
                 </span>
               </div>
-              <div className="flex justify-between font-bold pt-2 border-t border-gray-200 mt-2">
+              <div className="flex justify-between gap-2 font-bold pt-2 border-t border-gray-200 mt-2">
                 <span className="text-gray-900">Total</span>
-                <span className="text-gray-900">
+                <span className="text-gray-900 whitespace-nowrap ml-2">
                   {formatCurrency(order.total_amount)}
                 </span>
               </div>
@@ -323,16 +291,16 @@ export default async function OrderPage({ params }: OrderPageProps) {
                       )}
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-sm font-bold text-gray-900">
+                  <div className="text-right shrink-0 ml-2">
+                    <div className="text-sm font-bold text-gray-900 whitespace-nowrap">
                       {formatCurrency(item.price * item.quantity)}
                     </div>
                     {item.quantity > 1 && (
                       <div className="flex flex-col items-end mt-1">
                         <div className="flex items-center gap-1">
-                          <span className="text-xs text-gray-500">{formatCurrency(item.price)} each</span>
+                          <span className="text-xs text-gray-500 whitespace-nowrap">{formatCurrency(item.price)} each</span>
                           {item.original_price && item.original_price > item.price && (
-                            <span className="text-[10px] text-gray-400 line-through">{formatCurrency(item.original_price)}</span>
+                          <span className="text-[10px] text-gray-400 line-through whitespace-nowrap">{formatCurrency(item.original_price)}</span>
                           )}
                         </div>
                       </div>

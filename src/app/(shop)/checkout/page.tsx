@@ -16,6 +16,7 @@ import OrderSummary from '@/components/checkout/OrderSummary'
 import PaymentButton from '@/components/checkout/PaymentButton'
 import Loader from '@/components/ui/Loader'
 import { SHIPPING_THRESHOLD, SHIPPING_COST } from '@/lib/constants'
+import { formatCurrency, numberToIndianWords } from '@/lib/utils'
 import { AddressFormData } from '@/components/checkout/AddressForm'
 import { showToast } from '@/components/ui/Toast'
 import { Lock, ChevronLeft, ArrowRight, X, Check } from 'lucide-react'
@@ -496,18 +497,23 @@ export default function CheckoutPage() {
         <div>
           <p className="text-sm font-bold text-gray-900 mb-1">Order Summary</p>
           <div className="space-y-1 text-sm text-gray-700">
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-2">
               <span>Items ({totalItems}):</span>
-              <span>₹{totalPrice.toFixed(2)}</span>
+              <span className="whitespace-nowrap ml-2">{formatCurrency(totalPrice)}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-2">
               <span>Shipping:</span>
-              <span>{shippingCost === 0 ? 'Free' : `₹${shippingCost.toFixed(2)}`}</span>
+              <span className="whitespace-nowrap ml-2">{shippingCost === 0 ? 'Free' : formatCurrency(shippingCost)}</span>
             </div>
-            <div className="flex justify-between font-bold pt-2 border-t border-[#D5D9D9] mt-2">
+            <div className="flex justify-between gap-2 font-bold pt-2 border-t border-[#D5D9D9] mt-2">
               <span>Total:</span>
-              <span>₹{finalTotal.toFixed(2)}</span>
+              <span className="whitespace-nowrap ml-2">{formatCurrency(finalTotal)}</span>
             </div>
+            {finalTotal > 0 && (
+              <div className="text-right text-[11px] text-gray-500 mt-1 italic">
+                {numberToIndianWords(finalTotal)}
+              </div>
+            )}
           </div>
         </div>
       </div>

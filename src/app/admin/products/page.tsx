@@ -1,3 +1,5 @@
+// src/app/admin/products/page.tsx
+
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -8,6 +10,7 @@ import Modal from '@/components/ui/Modal'
 import ProductForm from '@/components/admin/ProductForm'
 import { Product as BaseProduct } from '@/types/database.types'
 import { getPublicUrl } from '@/lib/supabase/storage'
+import { formatCurrency } from '@/lib/utils'
 import StatsCard from '@/components/admin/StatsCard'
 import { Package, CheckCircle } from 'lucide-react'
 
@@ -452,7 +455,7 @@ export default function AdminProducts() {
                         {(product.category_id && categoryMap.get(product.category_id)) || '-'}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">
-                        ₹{product.price.toFixed(2)}
+                        {formatCurrency(product.price)}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">
                         <span className={product.stock <= 5 ? 'text-orange-600 font-medium' : ''}>
