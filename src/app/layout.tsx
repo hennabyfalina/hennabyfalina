@@ -8,6 +8,7 @@ import InstallPrompt from '@/components/ui/InstallPrompt'
 import PWAUpdater from '@/components/ui/PWAUpdater'
 import PullToRefresh from '@/components/ui/PullToRefresh'
 import { siteConfig } from '@/config/site'
+import { Analytics } from '@vercel/analytics/next'
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -151,6 +152,7 @@ export default function RootLayout({
         <CartSyncProvider />
         <InstallPrompt />
         <PWAUpdater />
+        <Analytics />
       </body>
     </html>
   )
