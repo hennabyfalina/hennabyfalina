@@ -37,13 +37,13 @@ export default async function OrderPage({ params }: OrderPageProps) {
   const supabase = await createClient()
   const { id } = await params
   
-  // Get current user
   const { data: { user }, error: userError } = await supabase.auth.getUser()
+  
+  // 🔥 SMART REDIRECT: If they open from WhatsApp without being logged in
   if (userError || !user) {
-    notFound()
+    redirect(`/login?next=/order/${id}`)
   }
 
-  // Fetch order details
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .select(`
@@ -62,7 +62,6 @@ export default async function OrderPage({ params }: OrderPageProps) {
     notFound()
   }
 
-  // Security check: only allow viewing details for paid orders
   if (order.payment_status !== 'paid') {
     redirect('/profile/orders?filter=failed')
   }
@@ -70,11 +69,9 @@ export default async function OrderPage({ params }: OrderPageProps) {
   const isPaymentPending = order.payment_status === 'pending'
   const isCancelled = order.status === 'cancelled'
 
-  // Fallback for older orders without shipping_cost saved directly
   const shippingCost = order.shipping_cost ?? (order.total_amount > 1000 ? 0 : 50)
   const subtotal = order.total_amount - shippingCost
 
-  // Address Formatting Logic
   const isStorePickup = order.delivery_method === 'pickup' || 
                         order.addresses?.delivery_method === 'pickup' ||
                         order.addresses?.address_line1?.toLowerCase().includes('pickup') || 
@@ -93,16 +90,13 @@ export default async function OrderPage({ params }: OrderPageProps) {
 
   return (
     <Container className="py-8 md:py-12 max-w-5xl">
-      {/* Top Actions */}
       <div className="mb-6 flex items-center justify-between">
         <Link href="/profile/orders" className="text-sm font-medium text-[#007185] hover:text-[#C7511F] hover:underline flex items-center gap-1">
           <ChevronLeft className="w-4 h-4" /> Back to Orders
         </Link>
       </div>
 
-      {/* Website View */}
       <div className="space-y-6 md:space-y-8">
-        {/* Header Info */}
         <div className="flex flex-col md:flex-row justify-between gap-4 border-b border-gray-200 pb-6">
           <div>
             <div className="flex items-center gap-3 flex-wrap">
@@ -124,7 +118,6 @@ export default async function OrderPage({ params }: OrderPageProps) {
               </div>
             )}
             
-            {/* Dynamic Cancel Order Button */}
             {['pending', 'confirmed', 'processing'].includes((order.status || '').toLowerCase()) && (
               <form action={cancelOrderAction.bind(null, order.id)} className="w-full sm:w-auto">
                 <button type="submit" className="text-sm px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 rounded-md text-gray-900 font-medium shadow-sm transition-colors w-full focus:ring-2 focus:ring-[#007185] focus:outline-none">
@@ -133,7 +126,6 @@ export default async function OrderPage({ params }: OrderPageProps) {
               </form>
             )}
 
-            {/* Dynamic Return Item Button */}
             {(order.status || '').toLowerCase() === 'delivered' && (
               <form action={returnOrderAction.bind(null, order.id)} className="w-full sm:w-auto">
                 <button type="submit" className="text-sm px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 rounded-md text-gray-900 font-medium shadow-sm transition-colors w-full focus:ring-2 focus:ring-[#007185] focus:outline-none">
@@ -150,7 +142,6 @@ export default async function OrderPage({ params }: OrderPageProps) {
           </div>
         </div>
 
-        {/* Tracking Timeline */}
         {!isCancelled && !order.status.includes('cancel') && !order.status.includes('return') && (
           <div className="bg-white border border-gray-200 rounded-lg p-6 md:p-8 shadow-sm">
             <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">
@@ -162,14 +153,12 @@ export default async function OrderPage({ params }: OrderPageProps) {
                 <span>Arriving by {formatDate(deliveryDate)}</span>
               )}
             </h2>
-            
             <div className="mt-8">
               <TrackingTimeline status={order.status} isPickup={isStorePickup} />
             </div>
           </div>
         )}
 
-        {/* Order Info Panels */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
             <h3 className="font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">Billing & Shipping Address</h3>
@@ -201,29 +190,17 @@ export default async function OrderPage({ params }: OrderPageProps) {
                 <span className="font-semibold text-gray-500 w-32 shrink-0">Mobile number:</span> 
                 <span className="text-gray-900">{formatPhoneNumber(order.addresses?.phone)}</span>
               </div>
-              {order.addresses.landmark && (
-                <div className="flex gap-2 border-t border-gray-100 pt-2 mt-2">
-                  <span className="font-semibold text-gray-500 w-32 shrink-0">Landmark:</span> 
-                  <span className="font-medium text-gray-900">{order.addresses.landmark}</span>
-                </div>
-              )}
-              {order.addresses.delivery_instructions && (
-                <div className="flex gap-2 pt-1 mt-1">
-                  <span className="font-semibold text-gray-500 w-32 shrink-0">Instructions:</span> 
-                  <span className="font-medium text-gray-900">{order.addresses.delivery_instructions}</span>
-                </div>
-              )}
             </div>
           </div>
 
           <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
             <h3 className="font-bold text-gray-900 mb-3">Payment Method</h3>
-          <div className="text-sm text-gray-700 space-y-2">
-            <p className="capitalize">Razorpay {order.payment_method_detail || order.payment_method || 'Standard'}</p>
-            <div className="flex items-center gap-2">
-              <span>Status:</span>
-              <OrderStatusBadge status={order.payment_status} type="payment" />
-            </div>
+            <div className="text-sm text-gray-700 space-y-2">
+              <p className="capitalize">Razorpay {order.payment_method_detail || order.payment_method || 'Standard'}</p>
+              <div className="flex items-center gap-2">
+                <span>Status:</span>
+                <OrderStatusBadge status={order.payment_status} type="payment" />
+              </div>
             </div>
           </div>
 
@@ -252,7 +229,6 @@ export default async function OrderPage({ params }: OrderPageProps) {
           </div>
         </div>
 
-        {/* Items Table */}
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
           <div className="bg-gray-50 px-5 py-3 border-b border-gray-200 font-bold text-gray-900">
             Order Items
@@ -261,24 +237,15 @@ export default async function OrderPage({ params }: OrderPageProps) {
             {order.order_items.map((item: any) => {
               let imageUrl = '/placeholder-product.svg'
               const rawImage = item.products?.images?.[0]
-
               if (rawImage) {
                 imageUrl = rawImage.startsWith('http') || rawImage.startsWith('/') || rawImage.startsWith('data:')
                   ? rawImage
                   : getPublicUrl(rawImage)
               }
-
               return (
                 <div key={item.id} className="p-5 flex flex-col sm:flex-row gap-5 items-start sm:items-center">
                   <div className="relative w-16 h-16 md:w-20 md:h-20 rounded-md bg-gray-50 border border-gray-200 overflow-hidden shrink-0">
-                    <Image 
-                      src={imageUrl}
-                      fill 
-                      sizes="80px"
-                      unoptimized={imageUrl.includes('token=') || imageUrl.includes('supabase')}
-                      className="object-contain p-1 mix-blend-multiply" 
-                      alt={item.products?.name || 'Product'} 
-                    />
+                    <Image src={imageUrl} fill sizes="80px" unoptimized={imageUrl.includes('token=') || imageUrl.includes('supabase')} className="object-contain p-1 mix-blend-multiply" alt={item.products?.name || 'Product'} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <Link href={`/product/${item.products?.slug}`} className="text-sm md:text-base font-medium text-[#007185] hover:text-[#C7511F] hover:underline">
@@ -286,25 +253,12 @@ export default async function OrderPage({ params }: OrderPageProps) {
                     </Link>
                     <div className="mt-1 flex items-center gap-2 flex-wrap">
                       <span className="text-sm text-gray-600">Qty: <span className="font-medium text-gray-900">{item.quantity}</span></span>
-                      {item.is_bulk_pricing && (
-                        <span className="text-[10px] font-bold bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded-sm">Bulk Price Applied</span>
-                      )}
                     </div>
                   </div>
                   <div className="text-right shrink-0 ml-2">
                     <div className="text-sm font-bold text-gray-900 whitespace-nowrap">
                       {formatCurrency(item.price * item.quantity)}
                     </div>
-                    {item.quantity > 1 && (
-                      <div className="flex flex-col items-end mt-1">
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs text-gray-500 whitespace-nowrap">{formatCurrency(item.price)} each</span>
-                          {item.original_price && item.original_price > item.price && (
-                          <span className="text-[10px] text-gray-400 line-through whitespace-nowrap">{formatCurrency(item.original_price)}</span>
-                          )}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               )

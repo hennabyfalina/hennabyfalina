@@ -1,11 +1,12 @@
+// src/components/ui/PWAUpdater.tsx
+
 'use client'
 
 import { useEffect, useState } from 'react'
-import { RefreshCw, X } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 
 export default function PWAUpdater() {
-  const [showUpdate, setShowUpdate] = useState(false)
-  const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null)
+  const [isUpdating, setIsUpdating] = useState(false)
 
   useEffect(() => {
     // Only run in browser environments that support Service Workers
@@ -17,48 +18,46 @@ export default function PWAUpdater() {
         registration.addEventListener('updatefound', () => {
           if (registration.installing) {
             registration.installing.addEventListener('statechange', () => {
-              if (registration.waiting) {
-                // If there is a pre-existing controller, it means it's an update!
-                if (navigator.serviceWorker.controller) {
-                  setWaitingWorker(registration.waiting)
-                  setShowUpdate(true)
-                }
+              if (registration.waiting && navigator.serviceWorker.controller) {
+                // 1. Show the Amazon-style update banner
+                setIsUpdating(true)
+                // 2. Tell the new service worker to take over immediately (Silent update)
+                registration.waiting.postMessage({ type: 'SKIP_WAITING' })
               }
             })
           }
         })
       })
+
+      // Listen for the controlling service worker changing (meaning the update is ready)
+      let refreshing = false
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true
+          // Wait 1.5 seconds so the user can read the "Updating" banner before it auto-refreshes
+          setTimeout(() => {
+            window.location.reload()
+          }, 1500)
+        }
+      })
     }
   }, [])
 
-  const handleUpdate = () => {
-    if (waitingWorker) {
-      // Tell the new service worker to take over immediately
-      waitingWorker.postMessage({ type: 'SKIP_WAITING' })
-      setShowUpdate(false)
-      
-      // Reload the page to utilize the fresh cache
-      window.location.reload()
-    }
-  }
-
-  if (!showUpdate) return null
+  if (!isUpdating) return null
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-[9999] md:left-auto md:w-96 animate-in slide-in-from-bottom-5 fade-in duration-300">
-      <div className="bg-gray-900 border border-gray-800 shadow-2xl rounded-xl p-4 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center shrink-0">
-            <RefreshCw className="w-5 h-5 text-white animate-spin-slow" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-white">Update Available</p>
-            <p className="text-xs text-gray-400">A new version of the app is ready.</p>
-          </div>
+    <div className="fixed bottom-[84px] md:bottom-4 left-4 right-4 z-[9999] md:left-auto md:w-96 animate-in slide-in-from-bottom-5 fade-in duration-300">
+      <div className="bg-white border border-gray-200 shadow-2xl rounded-xl p-4 flex items-center gap-4 relative">
+        <div className="w-12 h-12 bg-[#F0F8FA] rounded-lg flex items-center justify-center shrink-0">
+          {/* Amazon Blue Accent Spinner */}
+          <RefreshCw className="w-6 h-6 text-[#007185] animate-spin" />
         </div>
-        <button onClick={handleUpdate} className="bg-white hover:bg-gray-100 text-gray-900 px-4 py-2 rounded-lg text-xs font-bold transition-colors shadow-sm shrink-0">
-          Update Now
-        </button>
+        <div className="flex-1 pr-2">
+          <h3 className="text-sm font-bold text-gray-900">Updating App</h3>
+          <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+            Applying the latest features. Refreshing automatically...
+          </p>
+        </div>
       </div>
     </div>
   )

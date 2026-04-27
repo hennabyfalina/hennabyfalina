@@ -6,30 +6,26 @@ const TOKEN = process.env.WHATSAPP_API_TOKEN;
 export const WhatsAppService = {
   
   // ─── 1. Send Order Confirmation to Customer ──────────────────────────────
-  async sendCustomerConfirmation(customerPhone: string, orderId: string, trackLink: string) {
-    // Note: Meta requires phone numbers to have the country code but NO plus sign (e.g., '919876543210')
+  async sendCustomerConfirmation(customerPhone: string, orderNumber: string, amount: number, itemsList: string, trackLink: string) {
     const formattedPhone = customerPhone.replace('+', '');
     
-    const message = `Hi there! Your order #${orderId} at Razack Packaging Centre is confirmed.\n\nTrack your order and download your invoice here:\n${trackLink}\n\nThank you for choosing us!`;
+    const message = `Hi there! Your order *${orderNumber}* at Razack Packaging Centre is confirmed.\n\n*Order Summary:*\n${itemsList}\n\n*Total Paid:* ₹${amount.toLocaleString('en-IN')}\n\nTrack your order here:\n${trackLink}\n\nThank you for choosing us!`;
     
     return this.sendTextMessage(formattedPhone, message);
   },
 
   // ─── 2. Send Alert to Admin (Uncle Ismath) ───────────────────────────────
-  async sendAdminAlert(adminPhone: string, orderId: string, amount: number, customerName: string) {
+  async sendAdminAlert(adminPhone: string, orderNumber: string, amount: number, customerName: string, itemsList: string) {
     const formattedPhone = adminPhone.replace('+', '');
     
-    const message = `NEW ORDER RECEIVED!\n\nOrder ID: #${orderId}\n👤 Customer: ${customerName}\nAmount: ₹${amount}\n\nPlease check the admin dashboard for full details.`;
+    const message = `NEW ORDER RECEIVED!\n\nOrder: *${orderNumber}*\n👤 Customer: ${customerName}\nAmount: ₹${amount.toLocaleString('en-IN')}\n\n*Items:*\n${itemsList}\n\nPlease check the admin dashboard for full details.`;
     
     return this.sendTextMessage(formattedPhone, message);
   },
 
   // ─── 3. Core Meta API Fetch Logic ────────────────────────────────────────
   async sendTextMessage(to: string, text: string) {
-    if (!TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) {
-      console.error('Missing WhatsApp Environment Variables');
-      return { success: false, error: 'Missing ENV variables' };
-    }
+    if (!TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) return { success: false, error: 'Missing ENV variables' };
 
     try {
       const response = await fetch(WHATSAPP_API_URL, {
@@ -43,25 +39,15 @@ export const WhatsAppService = {
           recipient_type: 'individual',
           to: to,
           type: 'text',
-          text: { 
-            preview_url: true, 
-            body: text 
-          },
+          text: { preview_url: true, body: text },
         }),
       });
 
       const data = await response.json();
-      
-      if (!response.ok) {
-        console.error('Meta API Error:', data.error);
-        return { success: false, error: data.error };
-      }
-
-      console.log(`WhatsApp message sent successfully to ${to}`);
+      if (!response.ok) return { success: false, error: data.error };
       return { success: true, data };
       
     } catch (error) {
-      console.error('Internal Fetch Error:', error);
       return { success: false, error };
     }
   }
