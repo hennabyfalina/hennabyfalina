@@ -5,6 +5,7 @@ import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
+import { WhatsAppService } from '@/lib/whatsapp.service'
 
 // Serverless Rate Limiter (Falls back to bypassed if Redis env vars are missing during local dev)
 const ratelimit = process.env.UPSTASH_REDIS_REST_URL
@@ -38,10 +39,7 @@ export async function POST(request: NextRequest) {
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET
     if (!secret) {
       console.error('[WEBHOOK] Missing RAZORPAY_WEBHOOK_SECRET')
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
     }
 
     const expectedSignature = crypto
@@ -51,10 +49,7 @@ export async function POST(request: NextRequest) {
 
     if (signature !== expectedSignature) {
       console.error(`[WEBHOOK] Invalid signature from IP: ${clientIp}`)
-      return NextResponse.json(
-        { error: 'Invalid signature' },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
     const event = JSON.parse(body)
@@ -73,7 +68,7 @@ export async function POST(request: NextRequest) {
       auth: { persistSession: false }
     })
 
-    // Handle payment captured event
+    // ─── HANDLE PAYMENT CAPTURED ─────────────────────────────────────────────
     if (event.event === 'payment.captured') {
       const payment = event.payload.payment.entity
       const { notes, method, id: razorpayPaymentId, order_id: razorpayOrderId, amount, currency } = payment
@@ -83,14 +78,10 @@ export async function POST(request: NextRequest) {
 
       if (!internalOrderId) {
         console.error('[WEBHOOK] No internal order ID in payment notes')
-        return NextResponse.json(
-          { error: 'Missing order reference' },
-          { status: 400 }
-        )
+        return NextResponse.json({ error: 'Missing order reference' }, { status: 400 })
       }
 
-      // 🔒 SECURITY: Atomic Update (Optimistic Concurrency Control)
-      // Prevents double-stock-deduction if 2 webhooks arrive at the exact same millisecond.
+      // 1. Update Order Status in Supabase
       const { data: updatedOrder, error: updateError } = await supabase
         .from('orders')
         .update({
@@ -102,8 +93,8 @@ export async function POST(request: NextRequest) {
           paid_at: new Date().toISOString(),
         })
         .eq('id', internalOrderId)
-        .neq('payment_status', 'paid') // 🔒 Only update if NOT already paid
-        .select()
+        .neq('payment_status', 'paid') // Prevent double-processing
+        .select('*') // Select all so we get customer details for WhatsApp
         .single()
 
       if (updateError || !updatedOrder) {
@@ -111,17 +102,38 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ received: true, alreadyProcessed: true })
       }
 
-      console.log(`[WEBHOOK] Order ${internalOrderId} updated successfully`)
-
-      // Update product stock
+      // 2. Update Product Stock
       const stockUpdateResult = await updateProductStock(internalOrderId, supabase)
       console.log(`[WEBHOOK] Stock update result: ${stockUpdateResult}`)
 
+      // 3. Trigger WhatsApp Notifications
+      const customerPhone = updatedOrder.phone || updatedOrder.shipping_phone; 
+      const customerName = updatedOrder.full_name || updatedOrder.first_name || 'Customer';
+      const actualAmount = amount / 100; // Convert paise back to rupees
+
+      if (customerPhone) {
+        // Use production URL for tracking link
+        const trackLink = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://razackpackagingcentre.com'}/order/${internalOrderId}`;
+        
+        try {
+          // Alert Customer
+          await WhatsAppService.sendCustomerConfirmation(customerPhone, internalOrderId, trackLink);
+          // Alert Admin (Your Uncle's number)
+          await WhatsAppService.sendAdminAlert("916383151922", internalOrderId, actualAmount, customerName);
+          console.log(`[WEBHOOK] WhatsApp notifications dispatched for ${internalOrderId}`);
+        } catch (waError) {
+          console.error(`[WEBHOOK] WhatsApp dispatch failed:`, waError);
+          // We don't fail the webhook if WhatsApp fails, order is still paid!
+        }
+      } else {
+        console.warn(`[WEBHOOK] No phone number found for order ${internalOrderId}, skipping WhatsApp.`);
+      }
+
       const duration = Date.now() - startTime
-      console.log(`[WEBHOOK] Payment captured for order ${internalOrderId}: ${method} (took ${duration}ms)`)
+      console.log(`[WEBHOOK] Payment captured for order ${internalOrderId} took ${duration}ms`)
     }
 
-    // Handle payment failed event
+    // ─── HANDLE PAYMENT FAILED ───────────────────────────────────────────────
     if (event.event === 'payment.failed') {
       const payment = event.payload.payment.entity
       const { notes, error_description, error_reason, amount, currency } = payment
@@ -130,7 +142,6 @@ export async function POST(request: NextRequest) {
       console.log(`[WEBHOOK] Payment failed: order=${internalOrderId}, reason=${error_reason}, amount=${amount / 100} ${currency}`)
 
       if (internalOrderId) {
-        // Check if order already has a failed record
         const { data: existingOrder } = await supabase
           .from('orders')
           .select('payment_status')
@@ -138,7 +149,6 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (existingOrder?.payment_status === 'failed') {
-          console.log(`[WEBHOOK] Order ${internalOrderId} already marked as failed, skipping`)
           return NextResponse.json({ received: true, alreadyProcessed: true })
         }
 
@@ -153,8 +163,6 @@ export async function POST(request: NextRequest) {
 
         if (updateError) {
           console.error(`[WEBHOOK] Failed to update order on payment failure:`, updateError)
-        } else {
-          console.log(`[WEBHOOK] Payment failed for order ${internalOrderId}: ${error_reason}`)
         }
       }
     }
@@ -162,45 +170,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true })
   } catch (error: any) {
     console.error('[WEBHOOK] Error:', error)
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
 
-// Helper function to update product stock after successful payment
+// ─── HELPER FUNCTIONS ────────────────────────────────────────────────────────
 async function updateProductStock(orderId: string, supabase: any): Promise<string> {
   try {
-    // Get order items
     const { data: orderItems, error: itemsError } = await supabase
       .from('order_items')
       .select('product_id, quantity')
       .eq('order_id', orderId)
 
-    if (itemsError) {
-      console.error(`[WEBHOOK] Error fetching order items for ${orderId}:`, itemsError)
-      return 'failed - items fetch error'
-    }
-
-    if (!orderItems || orderItems.length === 0) {
-      console.warn(`[WEBHOOK] No items found for order ${orderId}`)
-      return 'no items'
-    }
+    if (itemsError) return 'failed - items fetch error'
+    if (!orderItems || orderItems.length === 0) return 'no items'
 
     let successCount = 0
     let failCount = 0
 
-    // Update stock for each product
     for (const item of orderItems) {
-      // 🔒 SECURITY: Try Atomic RPC to prevent race conditions during high traffic
       const { error: rpcError } = await supabase.rpc('decrement_product_stock', {
         p_id: item.product_id,
         decrement_qty: item.quantity
       })
 
       if (rpcError) {
-        // Fallback if RPC doesn't exist in Supabase yet
         const { data: product } = await supabase
           .from('products')
           .select('stock')
@@ -220,7 +214,6 @@ async function updateProductStock(orderId: string, supabase: any): Promise<strin
           failCount++
         }
       } else {
-        console.log(`[WEBHOOK] Safely decremented stock for product ${item.product_id} via RPC`)
         successCount++
       }
     }

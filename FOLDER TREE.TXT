@@ -1,6 +1,7 @@
 razack-packaging-centre/
 ├── public/
 │   ├── cat.jpg
+│   ├── fallback-ce627215c0e4a9af.js
 │   ├── file.svg
 │   ├── globe.svg
 │   ├── hero-pattern.png
@@ -10,8 +11,11 @@ razack-packaging-centre/
 │   ├── placeholder-category.svg
 │   ├── placeholder-loading.svg
 │   ├── placeholder-product.svg
+│   ├── sw.js
+│   ├── swe-worker-5c72df51bb1f6ee0.js
 │   ├── vercel.svg
-│   └── window.svg
+│   ├── window.svg
+│   └── workbox-f1770938.js
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/
@@ -117,8 +121,11 @@ razack-packaging-centre/
 │   │   │   │       └── route.tsx
 │   │   │   ├── razorpay/
 │   │   │   │   └── route.ts
-│   │   │   └── webhooks/
-│   │   │       └── razorpay/
+│   │   │   ├── webhooks/
+│   │   │   │   └── razorpay/
+│   │   │   │       └── route.ts
+│   │   │   └── whatsapp/
+│   │   │       └── webhook/
 │   │   │           └── route.ts
 │   │   ├── auth/
 │   │   │   ├── auth-code-error/
@@ -219,7 +226,8 @@ razack-packaging-centre/
 │   │   │   ├── server.ts
 │   │   │   └── storage.ts
 │   │   ├── constants.ts
-│   │   └── utils.ts
+│   │   ├── utils.ts
+│   │   └── whatsapp.service.ts
 │   ├── services/
 │   │   ├── auth.service.ts
 │   │   ├── category.service.ts
