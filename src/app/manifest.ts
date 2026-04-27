@@ -8,7 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/',
     display: 'fullscreen', // Changed from standalone to fullscreen to completely hide status/URL bars
     background_color: '#ffffff',
-    theme_color: '#111827', // Gray-900 to match your app's top navbar
+    theme_color: '#ffffff',
     icons: [
       {
         src: '/icon-192x192.png',
