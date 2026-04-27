@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', internalOrderId)
         .neq('payment_status', 'paid') // Prevent double-processing
-        .select('*') // Select all so we get customer details for WhatsApp
+        .select('*') 
         .single()
 
       if (updateError || !updatedOrder) {
@@ -106,27 +106,44 @@ export async function POST(request: NextRequest) {
       const stockUpdateResult = await updateProductStock(internalOrderId, supabase)
       console.log(`[WEBHOOK] Stock update result: ${stockUpdateResult}`)
 
-      // 3. Trigger WhatsApp Notifications
-      const customerPhone = updatedOrder.phone || updatedOrder.shipping_phone; 
-      const customerName = updatedOrder.full_name || updatedOrder.first_name || 'Customer';
+      // 3. Trigger WhatsApp Notifications (Fetching from addresses table)
+      let customerPhone = null;
+      let customerName = 'Customer';
+
+      if (updatedOrder.address_id) {
+        const { data: addressData, error: addressError } = await supabase
+          .from('addresses')
+          .select('phone, name')
+          .eq('id', updatedOrder.address_id)
+          .single();
+
+        if (addressData && !addressError) {
+          customerPhone = addressData.phone;
+          customerName = addressData.name || 'Customer';
+        }
+      }
+
       const actualAmount = amount / 100; // Convert paise back to rupees
 
+      // 🚨 ALWAYS ALERT ADMIN (Uncle Ismath) 🚨
+      try {
+        await WhatsAppService.sendAdminAlert("916383151922", internalOrderId, actualAmount, customerName);
+        console.log(`[WEBHOOK] Admin alert dispatched for ${internalOrderId}`);
+      } catch (e) {
+        console.error(`[WEBHOOK] Admin WhatsApp failed:`, e);
+      }
+
+      // 👤 ALERT CUSTOMER 👤
       if (customerPhone) {
-        // Use production URL for tracking link
         const trackLink = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://razackpackagingcentre.com'}/order/${internalOrderId}`;
-        
         try {
-          // Alert Customer
           await WhatsAppService.sendCustomerConfirmation(customerPhone, internalOrderId, trackLink);
-          // Alert Admin (Your Uncle's number)
-          await WhatsAppService.sendAdminAlert("916383151922", internalOrderId, actualAmount, customerName);
-          console.log(`[WEBHOOK] WhatsApp notifications dispatched for ${internalOrderId}`);
-        } catch (waError) {
-          console.error(`[WEBHOOK] WhatsApp dispatch failed:`, waError);
-          // We don't fail the webhook if WhatsApp fails, order is still paid!
+          console.log(`[WEBHOOK] Customer confirmation dispatched to ${customerPhone}`);
+        } catch (e) {
+          console.error(`[WEBHOOK] Customer WhatsApp failed:`, e);
         }
       } else {
-        console.warn(`[WEBHOOK] No phone number found for order ${internalOrderId}, skipping WhatsApp.`);
+        console.warn(`[WEBHOOK] No phone number found in addresses for order ${internalOrderId}, skipped Customer message.`);
       }
 
       const duration = Date.now() - startTime
