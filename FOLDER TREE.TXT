@@ -1,7 +1,6 @@
 razack-packaging-centre/
 ├── public/
 │   ├── cat.jpg
-│   ├── fallback-ce627215c0e4a9af.js
 │   ├── file.svg
 │   ├── globe.svg
 │   ├── hero-pattern.png
@@ -11,11 +10,8 @@ razack-packaging-centre/
 │   ├── placeholder-category.svg
 │   ├── placeholder-loading.svg
 │   ├── placeholder-product.svg
-│   ├── sw.js
-│   ├── swe-worker-5c72df51bb1f6ee0.js
 │   ├── vercel.svg
-│   ├── window.svg
-│   └── workbox-f1770938.js
+│   └── window.svg
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/
@@ -136,6 +132,7 @@ razack-packaging-centre/
 │   │   ├── favicon.ico
 │   │   ├── globals.css
 │   │   ├── layout.tsx
+│   │   ├── loading.tsx
 │   │   ├── manifest.ts
 │   │   ├── not-found.tsx
 │   │   ├── robots.ts
@@ -249,7 +246,6 @@ razack-packaging-centre/
 ├── components.json
 ├── eslint.config.mjs
 ├── FOLDER TREE.TXT
-├── FOLDER_TREE_AUTO.TXT
 ├── next-env.d.ts
 ├── next.config.ts
 ├── package-lock.json
@@ -257,5 +253,4 @@ razack-packaging-centre/
 ├── postcss.config.mjs
 ├── README.md
 ├── tailwind.config.ts
-├── test-sync.txt
 └── tsconfig.json

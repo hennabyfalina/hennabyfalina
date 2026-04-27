@@ -19,7 +19,7 @@ export default function Footer() {
   }
 
   return (
-    <footer className="bg-black text-gray-300 w-full mt-auto print:hidden">
+    <footer className="bg-black text-gray-300 w-full mt-auto print:hidden pwa-hide">
       {/* Amazon-style Back to Top Banner */}
       <button 
         onClick={scrollToTop} 

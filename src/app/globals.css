@@ -399,3 +399,10 @@
 .cursor-pointer {
   cursor: pointer;
 }
+
+/* Hiding elements in app mode (Mobile & Desktop) */
+@media all and (display-mode: standalone) {
+  .pwa-hide {
+    display: none !important;
+  }
+}

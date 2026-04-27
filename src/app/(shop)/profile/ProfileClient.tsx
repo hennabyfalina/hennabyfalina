@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { signOut } from '@/services/auth.service'
 import type { User } from '@supabase/supabase-js'
 import type { UserProfile } from '@/app/actions/get-profile'
-import { Package, ShoppingBag, ShieldCheck, MapPin, HeadphonesIcon, LogOut, Settings, CreditCard } from 'lucide-react'
+import { Package, ShoppingBag, ShieldCheck, Lock, MapPin, HeadphonesIcon, LogOut, Settings, CreditCard } from 'lucide-react'
 import Container from '@/components/ui/Container'
 
 interface ProfileClientProps {
@@ -61,6 +61,12 @@ export default function ProfileClient({ user, profile }: ProfileClientProps) {
       desc: 'Contact our customer service via phone or chat',
       icon: HeadphonesIcon,
       href: '/profile/contact'
+    },
+        {
+      title: 'Legal & Privacy',
+      desc: 'Terms of service and privacy policies',
+      icon: Lock,
+      href: '/terms'
     },
     {
       title: 'Account Settings',
