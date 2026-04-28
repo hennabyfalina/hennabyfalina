@@ -31,11 +31,11 @@ function getRazorpayInstance() {
 
 export async function POST(request: NextRequest) {
   try {
-    // 🔒 SECURITY: We no longer extract 'amount' from the client. 
+    // SECURITY: We no longer extract 'amount' from the client. 
     // We solely rely on the database to determine the price!
     const { orderId, orderNumber, userId } = await request.json()
 
-    // 🔒 Validate required fields
+    // Validate required fields
     if (!orderId || !orderNumber || !userId) {
       return NextResponse.json(
         { error: 'Missing required fields' },
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 🔒 Rate limiting by user ID
+    // Rate limiting by user ID
     if (ratelimit) {
       const { success, reset } = await ratelimit.limit(`razorpay_init_${userId}`)
       if (!success) {
@@ -57,18 +57,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 🔒 Verify user is authenticated
+    // Verify user is authenticated (UPDATED TO SECURE getUser)
     const supabase = await createClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
     
-    if (!session || session.user.id !== userId) {
+    if (userError || !user || user.id !== userId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
 
-    // 🔒 Verify the order belongs to this user and is pending
+    // Verify the order belongs to this user and is pending
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select('status, payment_status, total_amount')
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 🔒 Verify order hasn't been paid already
+    // Verify order hasn't been paid already
     if (order.payment_status === 'paid') {
       return NextResponse.json(
         { error: 'Order already paid' },
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 🔒 Initialize Razorpay here (lazy)
+    // Initialize Razorpay here (lazy)
     let razorpay
     try {
       razorpay = getRazorpayInstance()
@@ -106,9 +106,9 @@ export async function POST(request: NextRequest) {
 
     // Create Razorpay order
     const options = {
-      amount: Math.round(order.total_amount * 100), // 🔒 Securely use DB amount only!
+      amount: Math.round(order.total_amount * 100), // Securely use DB amount only!
       currency: 'INR',
-      receipt: orderNumber.substring(0, 40), // 🔒 Prevent Razorpay 40-char limit crash
+      receipt: orderNumber.substring(0, 40), // Prevent Razorpay 40-char limit crash
       notes: {
         internal_order_id: orderId, // ← Important for webhook
         user_id: userId,
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
 
     const razorpayOrder = await razorpay.orders.create(options)
 
-    console.log(`✅ Razorpay order created: ${razorpayOrder.id} for order ${orderId}`)
+    console.log(`Razorpay order created: ${razorpayOrder.id} for order ${orderId}`)
 
     return NextResponse.json({
       orderId: razorpayOrder.id,
