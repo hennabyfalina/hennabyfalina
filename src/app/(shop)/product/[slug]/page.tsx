@@ -8,7 +8,8 @@ import AddToCartButton from '@/components/product/AddToCartButton'
 import ProductImageGallery from '@/components/product/ProductImageGallery'
 import SaveViewedProduct from '@/components/product/SaveViewedProduct'
 import ShareButton from '@/components/product/ShareButton'
-import { Star, StarHalf, MapPin, Lock, Tag } from 'lucide-react'
+import StarRating from '@/components/product/StarRating'
+import { MapPin, Lock, Tag } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { siteConfig } from '@/config/site'
 import dynamic from 'next/dynamic'
@@ -91,6 +92,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
           bulk_price: product.bulk_price,
           bulk_min_quantity: product.bulk_min_quantity,
           description: product.description,
+          rating: product.rating,
+          review_count: product.review_count
         }}
       />
 
@@ -131,20 +134,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 <ShareButton productName={product.name} productSlug={product.slug} />
               </div>
               
-              <div className="flex items-center gap-4 mt-2">
-                <div className="flex items-center gap-1 cursor-pointer group">
-                  <div className="flex text-[#FFA41C]">
-                    <Star className="w-4 h-4 fill-current" />
-                    <Star className="w-4 h-4 fill-current" />
-                    <Star className="w-4 h-4 fill-current" />
-                    <Star className="w-4 h-4 fill-current" />
-                    <StarHalf className="w-4 h-4 fill-current" />
-                  </div>
-                  <span className="text-sm text-[#007185] group-hover:text-[#C7511F] group-hover:underline transition-colors">4.5</span>
-                </div>
-                <div className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer">
-                  128 ratings
-                </div>
+              <div className="flex items-center gap-2 mb-4 mt-2">
+                <StarRating 
+                  rating={product.rating ?? 4.5} 
+                  reviewCount={product.review_count ?? 128} 
+                  size="md"
+                />
               </div>
             </div>
 
@@ -158,15 +153,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
                     -{discountPercentage}%
                   </span>
                   <span className="text-2xl sm:text-3xl font-medium text-[#0F1111]">
-                    <span className="text-sm align-top">₹</span>
-                    {sellingPrice.toFixed(2)}
+                  {formatCurrency(sellingPrice)}
                   </span>
                 </div>
               )}
               {discountPercentage === 0 && (
                 <span className="text-2xl sm:text-3xl font-medium text-[#0F1111]">
                   {formatCurrency(sellingPrice)}
-                {formatCurrency(sellingPrice)}
                 </span>
               )}
               

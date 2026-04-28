@@ -1,4 +1,6 @@
 export type Product = {
+  review_count: number
+  rating: number
   selling_price: number
   bulk_min_quantity: number
   meta_title: string

@@ -61,7 +61,6 @@ const nextConfig: NextConfig = {
   
   // Security: CSRF Protection for Server Actions
   experimental: {
-    viewTransition: true,
     serverActions: {
       // Add any other domains you plan to deploy to here
       allowedOrigins: ['localhost:3000', 'razackpackagingcentre.com'],

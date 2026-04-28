@@ -82,10 +82,10 @@ export async function createOrder(orderData: CreateOrderInput) {
       order_number: orderNumber,
       user_id: user.id,
       address_id: orderData.addressId,
-      total_amount: actualTotalAmount, // 🔒 Using DB-validated total
+      total_amount: actualTotalAmount, 
       payment_method: orderData.paymentMethod,
       shipping_method: orderData.shippingMethod,
-      shipping_cost: actualShippingCost, // 🔒 Using DB-validated shipping
+      shipping_cost: actualShippingCost, 
       status: 'pending',
       payment_status: 'pending',
     })
@@ -177,6 +177,7 @@ export async function getSavedAddresses() {
   return data || []
 }
 
+// 🚨 SMART UPSERT: Enforces max 2 addresses and prevents duplicates
 export async function saveAddress(addressData: {
   name: string;
   phone: string;
@@ -193,10 +194,52 @@ export async function saveAddress(addressData: {
   const supabase = await createClient()
   
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    throw new Error('User not authenticated')
+  if (!user) throw new Error('User not authenticated')
+
+  // Fetch existing addresses to check for duplicates and limits
+  const { data: existingAddresses } = await supabase
+    .from('addresses')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: true }) // Oldest first
+
+  if (existingAddresses && existingAddresses.length > 0) {
+    // 1. DUPLICATE CHECK: Does an exact match already exist?
+    const exactMatch = existingAddresses.find(addr => 
+      addr.name === addressData.name &&
+      addr.phone === addressData.phone &&
+      addr.pincode === addressData.pincode &&
+      (addr.address_line1 || '') === (addressData.address_line1 || '')
+    )
+
+    if (exactMatch) {
+      // Just update any minor instruction changes, but reuse the same ID!
+      const { data, error } = await supabase
+        .from('addresses')
+        .update({ ...addressData })
+        .eq('id', exactMatch.id)
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    }
+
+    // 2. LIMIT CHECK: If no exact match but they already have 2 addresses
+    if (existingAddresses.length >= 2) {
+      // Overwrite the oldest address (index 0) to stay within the limit
+      const oldestId = existingAddresses[0].id
+      const { data, error } = await supabase
+        .from('addresses')
+        .update({ ...addressData })
+        .eq('id', oldestId)
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    }
   }
 
+  // 3. INSERT NEW: If they have less than 2 addresses and no exact match
   const { data, error } = await supabase
     .from('addresses')
     .insert({

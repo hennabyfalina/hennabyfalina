@@ -7,44 +7,37 @@ import { createClient } from '@/lib/supabase/server'
 import Container from '@/components/ui/Container'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { getPublicUrl } from '@/lib/supabase/storage'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, X } from 'lucide-react'
 import PrintButton from '@/components/order/PrintButton'
 import TrackingTimeline from '@/components/order/TrackingTimeline'
 import OrderStatusBadge from '@/components/ui/OrderStatusBadge'
 import { revalidatePath } from 'next/cache'
+import { siteConfig } from '@/config/site'
 
 interface OrderPageProps {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ msg?: string }>;
 }
 
-async function cancelOrderAction(orderId: string) {
-  'use server'
-  const supabaseServer = await createClient()
-  await supabaseServer.from('orders').update({ status: 'cancel_requested' }).eq('id', orderId)
-  revalidatePath(`/order/${orderId}`)
-  revalidatePath('/profile/orders')
-}
-
-async function returnOrderAction(orderId: string) {
-  'use server'
-  const supabaseServer = await createClient()
-  await supabaseServer.from('orders').update({ status: 'return_requested' }).eq('id', orderId)
-  revalidatePath(`/order/${orderId}`)
-  revalidatePath('/profile/orders')
-}
-
-export default async function OrderPage({ params }: OrderPageProps) {
+export default async function OrderPage({ params, searchParams }: OrderPageProps) {
   const supabase = await createClient()
   const { id } = await params
   
+  const resolvedSearchParams = await searchParams
+  const msg = resolvedSearchParams?.msg
+
   const { data: { user }, error: userError } = await supabase.auth.getUser()
   
-  // 🔥 SMART REDIRECT: If they open from WhatsApp without being logged in
+  // SMART REDIRECT: If they open from WhatsApp without being logged in
   if (userError || !user) {
     redirect(`/login?next=/order/${id}`)
   }
 
-  const { data: order, error: orderError } = await supabase
+  // 1. Check if the URL parameter is a long UUID or the new short Order Number
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+
+  // 2. Build the query dynamically based on the URL type
+  let query = supabase
     .from('orders')
     .select(`
       *,
@@ -54,9 +47,16 @@ export default async function OrderPage({ params }: OrderPageProps) {
         products (*)
       )
     `)
-    .eq('id', id)
-    .eq('user_id', user.id)
-    .single()
+    .eq('user_id', user.id) // Security check
+
+  if (isUUID) {
+    query = query.eq('id', id)
+  } else {
+    query = query.eq('order_number', id)
+  }
+
+  // 3. Execute the query
+  const { data: order, error: orderError } = await query.single()
 
   if (orderError || !order) {
     notFound()
@@ -96,6 +96,30 @@ export default async function OrderPage({ params }: OrderPageProps) {
         </Link>
       </div>
 
+      {(msg === 'cancel_soon' || msg === 'return_soon') && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-sm relative pr-8 lg:pr-4">
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <p className="font-medium">
+              {msg === 'cancel_soon' ? 'Cancelling order feature is coming soon. Please contact support for manual cancellation.' : 'Return item feature is coming soon. Please contact support for manual returns.'}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <a href={`mailto:${siteConfig.contact.email.orders}?subject=${msg === 'cancel_soon' ? 'Cancel' : 'Return'} Request - Order ${order.order_number}`} className="px-3 py-1.5 bg-white border border-yellow-400 hover:bg-yellow-100 text-yellow-800 rounded-md font-medium text-xs transition-colors text-center whitespace-nowrap">
+              Email Us
+            </a>
+            <Link href="/support" className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white border border-transparent rounded-md font-medium text-xs transition-colors text-center whitespace-nowrap">
+              Support
+            </Link>
+            <Link href={`/order/${id}`} className="absolute top-2 right-2 lg:static p-1 text-yellow-500 hover:text-yellow-800 hover:bg-yellow-200 rounded-md transition-colors" title="Dismiss">
+              <X className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-6 md:space-y-8">
         <div className="flex flex-col md:flex-row justify-between gap-4 border-b border-gray-200 pb-6">
           <div>
@@ -119,19 +143,15 @@ export default async function OrderPage({ params }: OrderPageProps) {
             )}
             
             {['pending', 'confirmed', 'processing'].includes((order.status || '').toLowerCase()) && (
-              <form action={cancelOrderAction.bind(null, order.id)} className="w-full sm:w-auto">
-                <button type="submit" className="text-sm px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 rounded-md text-gray-900 font-medium shadow-sm transition-colors w-full focus:ring-2 focus:ring-[#007185] focus:outline-none">
-                  Cancel Order
-                </button>
-              </form>
+              <Link href={`/order/${id}?msg=cancel_soon`} className="text-sm px-4 py-2 bg-white hover:bg-red-50 border border-red-300 rounded-md text-red-700 font-medium shadow-sm transition-colors w-full sm:w-auto text-center focus:ring-2 focus:ring-red-500 focus:outline-none block sm:inline-block">
+                Cancel Order
+              </Link>
             )}
 
             {(order.status || '').toLowerCase() === 'delivered' && (
-              <form action={returnOrderAction.bind(null, order.id)} className="w-full sm:w-auto">
-                <button type="submit" className="text-sm px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 rounded-md text-gray-900 font-medium shadow-sm transition-colors w-full focus:ring-2 focus:ring-[#007185] focus:outline-none">
-                  Return Item
-                </button>
-              </form>
+              <Link href={`/order/${id}?msg=return_soon`} className="text-sm px-4 py-2 bg-white hover:bg-orange-50 border border-orange-300 rounded-md text-orange-700 font-medium shadow-sm transition-colors w-full sm:w-auto text-center focus:ring-2 focus:ring-orange-500 focus:outline-none block sm:inline-block">
+                Return Item
+              </Link>
             )}
 
             <div className="shrink-0 w-full sm:w-auto flex">

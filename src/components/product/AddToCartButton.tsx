@@ -17,6 +17,8 @@ interface AddToCartButtonProps {
     category_id?: string | null
     description?: string | null
     bulk_min_quantity?: number | null
+    rating?: number | null
+    review_count?: number | null
   }
   quantity?: number
   showQuantitySelector?: boolean
@@ -73,6 +75,8 @@ export default function AddToCartButton({
           original_price: product.price,
           bulk_price: product.bulk_price || null,
           bulk_min_quantity: product.bulk_min_quantity || null,
+          rating: product.rating || null,
+          review_count: product.review_count || null,
           selling_price: sellingPrice,
         }),
         new Promise((resolve) => setTimeout(resolve, 400))

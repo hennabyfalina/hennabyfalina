@@ -50,6 +50,7 @@ export default function StorePickupInfo() {
         <div className="flex items-center gap-3">
           <Phone className="w-5 h-5 text-[#565959] flex-shrink-0" />
           <p className="text-sm text-[#0F1111]">{siteConfig.contact.phone.primary}</p>
+          <p className="text-sm text-[#0F1111]">{siteConfig.contact.phone.secondary}</p>
         </div>
 
         <div className="flex items-center gap-3">

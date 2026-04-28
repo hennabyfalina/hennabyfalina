@@ -4,16 +4,12 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 
-// Auth-only pages — redirect to /products if already logged in
 const AUTH_ROUTES = ['/login', '/signup', '/forgot-password']
 
-// Pages that require a valid session
-const PROTECTED_ROUTES = ['/profile', '/checkout']
+// Strictly protect it at the edge level
+const PROTECTED_ROUTES = ['/profile', '/checkout', '/wishlist']
 
-// Admin pages — require session + role === 'admin' + gate passed
 const ADMIN_ROUTES = ['/admin']
-
-// Gate page — must be accessible to admins without gate cookie
 const GATE_PAGE = '/admin-gate'
 
 export async function proxy(request: NextRequest) {
@@ -21,15 +17,11 @@ export async function proxy(request: NextRequest) {
     request: { headers: request.headers },
   })
 
-  // ============================================
-  // SECURITY HEADERS (from your first middleware)
-  // ============================================
   response.headers.set('X-Frame-Options', 'DENY')
   response.headers.set('X-Content-Type-Options', 'nosniff')
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()')
   
-  // HSTS - Enable in production
   if (process.env.NODE_ENV === 'production') {
     response.headers.set(
       'Strict-Transport-Security',
@@ -37,9 +29,6 @@ export async function proxy(request: NextRequest) {
     )
   }
 
-  // ============================================
-  // AUTHENTICATION LOGIC (from your second middleware)
-  // ============================================
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -68,17 +57,16 @@ export async function proxy(request: NextRequest) {
   const isAdminRoute = ADMIN_ROUTES.some((r) => path.startsWith(r))
   const isGatePage = path === GATE_PAGE
 
-  // Unauthenticated user
   if (!user) {
     if (isProtectedRoute || isAdminRoute || isGatePage) {
       const redirectUrl = new URL('/login', request.url)
-      redirectUrl.searchParams.set('redirect', path)
+      // SMART REDIRECT: Captures full path AND query parameters seamlessly
+      redirectUrl.searchParams.set('redirect', path + request.nextUrl.search)
       return NextResponse.redirect(redirectUrl)
     }
     return response
   }
 
-  // Role-based routing for authenticated users
   const { data: profile, error } = await supabase
     .from('users')
     .select('role')
@@ -87,7 +75,6 @@ export async function proxy(request: NextRequest) {
 
   const isAdmin = !error && profile?.role === 'admin'
 
-  // Authenticated user on auth pages → redirect appropriately
   if (isAuthRoute) {
     if (isAdmin) {
       return NextResponse.redirect(new URL('/admin-gate', request.url))
@@ -102,12 +89,10 @@ export async function proxy(request: NextRequest) {
   }
 
   if (path.startsWith('/profile') || isAdminRoute || isGatePage) {
-    // Prevent admins from accessing regular user profile
     if (isAdmin && path.startsWith('/profile')) {
       return NextResponse.redirect(new URL('/admin/dashboard', request.url))
     }
 
-    // Admin Gate Page — Only allow admins
     if (isGatePage) {
       if (!isAdmin) {
         return NextResponse.redirect(new URL('/', request.url))
@@ -115,7 +100,6 @@ export async function proxy(request: NextRequest) {
       return response
     }
 
-    // Admin Routes — Require admin role AND gate cookie
     if (isAdminRoute) {
       if (!isAdmin) {
         return NextResponse.redirect(new URL('/', request.url))

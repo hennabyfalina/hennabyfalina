@@ -5,7 +5,7 @@ import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
-import { WhatsAppService } from '@/lib/whatsapp.service'
+import { notifyOrderConfirmed } from '@/services/whatsapp.service'
 
 const ratelimit = process.env.UPSTASH_REDIS_REST_URL
   ? new Ratelimit({
@@ -42,6 +42,9 @@ export async function POST(request: NextRequest) {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } })
 
+    // ==========================================
+    // PAYMENT SUCCESS FLOW
+    // ==========================================
     if (event.event === 'payment.captured') {
       const payment = event.payload.payment.entity
       const { notes, method, id: razorpayPaymentId, order_id: razorpayOrderId, amount } = payment
@@ -49,6 +52,7 @@ export async function POST(request: NextRequest) {
 
       if (!internalOrderId) return NextResponse.json({ error: 'Missing order reference' }, { status: 400 })
 
+      // 1. Mark Order as Paid
       const { data: updatedOrder, error: updateError } = await supabase
         .from('orders')
         .update({
@@ -66,46 +70,42 @@ export async function POST(request: NextRequest) {
 
       if (updateError || !updatedOrder) return NextResponse.json({ received: true, alreadyProcessed: true })
 
+      // 2. Reduce Stock
       await updateProductStock(internalOrderId, supabase)
 
-      // ─── WHATSAPP DATA PREP ───
-      let customerPhone = null;
-      let customerName = 'Customer';
+      // 3. WHATSAPP DATA PREP (Smart Fetching)
+      // We fetch the FULL order including joined addresses & products so WhatsApp gets all details
+      const { data: fullOrder } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          addresses (*),
+          order_items (
+            *,
+            products (name)
+          )
+        `)
+        .eq('id', internalOrderId)
+        .single();
 
-      if (updatedOrder.address_id) {
-        const { data: addressData } = await supabase.from('addresses').select('phone, name').eq('id', updatedOrder.address_id).single();
-        if (addressData) {
-          customerPhone = addressData.phone;
-          customerName = addressData.name || 'Customer';
+      if (fullOrder) {
+        // Fallback safety: If name isn't on the order directly, grab it from the address
+        if (!fullOrder.customer_name && fullOrder.addresses?.name) {
+          fullOrder.customer_name = fullOrder.addresses.name;
         }
-      }
 
-      // Fetch Order Items
-      const { data: itemsData } = await supabase.from('order_items').select('quantity, products(name)').eq('order_id', internalOrderId);
-      let itemsList = '';
-      if (itemsData && itemsData.length > 0) {
-        itemsList = itemsData.map((item: any) => {
-          const productName = Array.isArray(item.products) ? item.products[0]?.name : item.products?.name;
-          return `• ${item.quantity}x ${productName || 'Item'}`;
-        }).join('\n');
-      }
-
-      const actualAmount = amount / 100;
-      const displayOrderNum = updatedOrder.order_number; // The RPC- number
-      const trackLink = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://razackpackagingcentre.com'}/order/${internalOrderId}`;
-
-      // SEND MESSAGES
-      try {
-        await WhatsAppService.sendAdminAlert("916383151922", displayOrderNum, actualAmount, customerName, itemsList);
-      } catch (e) { console.error(e); }
-
-      if (customerPhone) {
         try {
-          await WhatsAppService.sendCustomerConfirmation(customerPhone, displayOrderNum, actualAmount, itemsList, trackLink);
-        } catch (e) { console.error(e); }
+          // Trigger the Smart WhatsApp Service
+          await notifyOrderConfirmed(fullOrder);
+        } catch (e) {
+          console.error('[Webhook] WhatsApp Notification Error:', e);
+        }
       }
     }
 
+    // ==========================================
+    // PAYMENT FAILED FLOW
+    // ==========================================
     if (event.event === 'payment.failed') {
       const { notes, error_description, error_reason } = event.payload.payment.entity
       if (notes?.internal_order_id) {

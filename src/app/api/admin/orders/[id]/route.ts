@@ -13,7 +13,7 @@ export async function GET(
 
     const supabase = await createClient()
     
-    // 🔒 Use getUser() for security
+    // Use getUser() for security
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {
@@ -102,7 +102,7 @@ export async function PATCH(
 
     const supabase = await createClient()
     
-    // 🔒 Use getUser() for security
+    // Use getUser() for security
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {

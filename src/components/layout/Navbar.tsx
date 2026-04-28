@@ -8,7 +8,8 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { signOut } from '@/services/auth.service'
 import { useCartStore } from '@/store/cart.store'
-import { ShoppingCart, UserCircle2, Search, ChevronDown, X } from 'lucide-react'
+import { useWishlistStore } from '@/store/wishlist.store'
+import { ShoppingCart, UserCircle2, Search, ChevronDown, X, Heart } from 'lucide-react'
 import { EXPLORE_LINKS, CATEGORIES_LIST } from '@/config/navigation'
 import NameModal from '@/components/auth/NameModal'
 import { searchProductsWithSignedUrls } from '@/services/product.service'
@@ -25,6 +26,7 @@ export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState('')
   
   const cartItems = useCartStore((state) => state.items)
+  const wishlistItems = useWishlistStore((state) => state.savedProductIds)
   const [mounted, setMounted] = useState(false)
   const [badgePop, setBadgePop] = useState(false)
   const cartItemCount = cartItems.reduce((acc, item) => acc + item.quantity, 0)
@@ -85,7 +87,7 @@ export default function Navbar() {
     return () => clearTimeout(timer)
   }, [searchQuery, searchParams])
 
-  if (pathname === '/checkout') return null
+  if (pathname.startsWith('/checkout')) return null
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -135,13 +137,27 @@ export default function Navbar() {
       <div className="sticky top-0 z-50 w-full print:hidden">
         <header className="w-full bg-[#131921] text-white border-b border-white/10 shadow-md">
         <div className="max-w-[1400px] mx-auto px-2 sm:px-4 lg:px-6 py-2 sm:py-3">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 xl:gap-6">
             
-            <div className="flex items-center justify-between shrink-0">
+            <div className="flex items-center justify-between shrink-0 w-full xl:w-auto">
               <Link href="/" className="block text-lg sm:text-xl lg:text-2xl font-extrabold tracking-tight text-white hover:opacity-90 transition-opacity flex items-center border border-transparent hover:border-white p-1 rounded-sm">
                 <span className="hidden sm:inline">{siteConfig.name}</span>
                 <span className="sm:hidden">{siteConfig.shortName}</span>
               </Link>
+
+              {/* 🚨 NEW: Mobile Top-Right - Clean Standalone Wishlist */}
+              <div className="flex xl:hidden items-center pr-1">
+                {!isAdmin && (
+                  <Link href="/wishlist" className="relative flex items-center p-1.5" aria-label="Your Wishlist">
+                    <Heart className={`w-[22px] h-[22px] ${isExactActive('/wishlist') ? 'fill-red-500 text-red-500' : 'text-white'}`} strokeWidth={2} />
+                    {mounted && wishlistItems.length > 0 && (
+                      <span className="absolute -top-0.5 -right-1 bg-[#f08804] text-[#131921] text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                        {wishlistItems.length}
+                      </span>
+                    )}
+                  </Link>
+                )}
+              </div>
             </div>
 
             <div ref={searchContainerRef} className="flex flex-1 w-full max-w-4xl relative z-40">
@@ -276,6 +292,7 @@ export default function Navbar() {
                             <>
                               <Link href="/profile" target="_blank" className="block px-2 py-1.5 text-sm text-gray-700 hover:text-[#007185] hover:underline transition-colors">Your Profile</Link>
                               <Link href="/profile/orders" target="_blank" className="block px-2 py-1.5 text-sm text-gray-700 hover:text-[#007185] hover:underline transition-colors">Your Orders</Link>
+                              <Link href="/wishlist" target="_blank" className="block px-2 py-1.5 text-sm text-gray-700 hover:text-[#007185] hover:underline transition-colors">Your Wishlist</Link>
                             </>
                           )}
                         </div>

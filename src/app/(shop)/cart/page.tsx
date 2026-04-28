@@ -15,13 +15,14 @@ import CartRecommendations from '@/components/cart/CartRecommendations'
 import Loader from '@/components/ui/Loader'
 import { formatCurrency, numberToIndianWords } from '@/lib/utils'
 import { getPublicUrl } from '@/lib/supabase/storage'
-import { Trash2, ShoppingBag, XCircle, Package, Box, ShieldCheck, Truck, Star, StarHalf, Tag, Percent, CheckCircle2 } from 'lucide-react'
+import { Trash2, ShoppingBag, XCircle, Package, Box, ShieldCheck, Truck, Tag, Percent, CheckCircle2 } from 'lucide-react'
+import StarRating from '@/components/product/StarRating'
 import { SHIPPING_THRESHOLD, SHIPPING_COST } from '@/lib/constants'
 import { showToast } from '@/components/ui/Toast'
 
 export default function CartPage() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, isLoading } = useAuth()
   const items = useCartStore((state) => state.items)
   const removeItem = useCartStore((state) => state.removeItem)
   const clearCart = useCartStore((state) => state.clearCart)
@@ -36,7 +37,7 @@ export default function CartPage() {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-[#F0F2F2] flex items-center justify-center">
+      <div className="flex-1 min-h-[60vh] bg-[#ffffff] flex items-center justify-center">
         <Loader />
       </div>
     )
@@ -77,18 +78,18 @@ export default function CartPage() {
               Check your saved for later items below or continue shopping.
             </p>
             
-            <div className="flex flex-row gap-3 w-full max-w-sm justify-center">
-              {!user && (
+            <div className="flex flex-row gap-3 w-full max-w-md justify-center">
+              {!user && !isLoading && (
                 <Link
                   href="/login"
-                  className="flex-1 py-2 px-4 bg-gray-900 text-white rounded-sm font-bold hover:bg-gray-800 transition-colors text-center text-sm"
+                  className="flex-1 py-2 px-4 bg-gray-900 text-white rounded-sm font-bold hover:bg-gray-800 transition-colors text-center text-sm whitespace-nowrap"
                 >
                   Sign in to your account
                 </Link>
               )}
               <Link
                 href="/products"
-                className="flex-1 py-2 px-4 border border-gray-300 bg-white text-gray-800 rounded-sm font-bold hover:bg-gray-50 transition-colors text-center text-sm shadow-sm"
+                className="flex-1 py-2 px-4 border border-gray-300 bg-white text-gray-800 rounded-sm font-bold hover:bg-gray-50 transition-colors text-center text-sm shadow-sm whitespace-nowrap"
               >
                 Shop Now
               </Link>
@@ -180,15 +181,8 @@ export default function CartPage() {
                             </p>
                           )}
                           
-                          <div className="flex items-center gap-1 mt-2">
-                            <div className="flex text-[#FFA41C]">
-                              <Star className="w-3.5 h-3.5 fill-current" />
-                              <Star className="w-3.5 h-3.5 fill-current" />
-                              <Star className="w-3.5 h-3.5 fill-current" />
-                              <Star className="w-3.5 h-3.5 fill-current" />
-                              <StarHalf className="w-3.5 h-3.5 fill-current" />
-                            </div>
-                            <span className="text-[11px] text-[#007185]">4.5 (128)</span>
+                          <div className="mt-2">
+                            <StarRating rating={(item as any).rating ?? 4.5} reviewCount={(item as any).review_count ?? 128} size="sm" />
                           </div>
                           
                           <p className="text-xs text-green-700 mt-1 font-medium">In stock</p>
@@ -232,22 +226,21 @@ export default function CartPage() {
                         </div>
                       </div>
 
-                      <div className="mt-auto pt-4 flex items-center gap-4">
-                        <div className="bg-gray-100 rounded-sm inline-block shadow-sm">
-                          <QuantitySelector
-                            quantity={item.quantity}
-                            onQuantityChange={(q) => updateQuantity(item.product_id, q)}
-                            max={item.stock > 0 ? item.stock : 999}
-                          />
-                        </div>
-                        <div className="h-4 w-px bg-gray-300"></div>
+                      <div className="mt-auto pt-4 flex flex-wrap items-center gap-5 sm:gap-6">
+                        <QuantitySelector
+                          quantity={item.quantity}
+                          onQuantityChange={(q) => updateQuantity(item.product_id, q)}
+                          max={item.stock > 0 ? item.stock : 999}
+                        />
+                        
+                        {/* The standard red link for Delete */}
                         <button
                           type="button"
                           onClick={async () => {
                             await removeItem(item.product_id)
-                            showToast(`${item.name} was removed from your cart.`)
+                            showToast('Item removed')
                           }}
-                          className="text-xs font-medium text-blue-700 hover:text-red-700 hover:underline"
+                          className="text-sm font-medium text-red-600 hover:text-red-800 hover:underline"
                         >
                           Delete
                         </button>

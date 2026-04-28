@@ -1,3 +1,5 @@
+// src/components/admin/ProductForm.tsx
+
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
@@ -22,6 +24,8 @@ interface ProductFormData {
   updated_at?: string
   meta_title?: string | null
   meta_description?: string | null
+  rating?: number | null
+  review_count?: number | null
 }
 
 interface ProductFormProps {
@@ -63,6 +67,14 @@ const validateProduct = (data: ProductFormData): { isValid: boolean; errors: str
   if (data.bulk_price && data.bulk_price < 0) errors.push('Bulk price cannot be negative')
   if (data.bulk_min_quantity && data.bulk_min_quantity < 1) errors.push('Bulk minimum quantity must be at least 1')
   
+  // Amazon Trust Metrics validation
+  if (data.rating !== null && data.rating !== undefined) {
+    if (data.rating < 0 || data.rating > 5) errors.push('Rating must be between 0.0 and 5.0')
+  }
+  if (data.review_count !== null && data.review_count !== undefined) {
+    if (data.review_count < 0) errors.push('Review count cannot be negative')
+  }
+  
   // Validate slug format
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.slug)) {
     errors.push('Slug must contain only lowercase letters, numbers, and hyphens')
@@ -103,6 +115,8 @@ export default function ProductForm({
     updated_at: initialData.updated_at,
     meta_title: initialData.meta_title || null,
     meta_description: initialData.meta_description || null,
+    rating: initialData.rating ?? 4.5,
+    review_count: initialData.review_count ?? 128,
   })
 
   const [formData, setFormData] = useState<ProductFormData>(initialFormData)
@@ -465,7 +479,42 @@ export default function ProductForm({
               <label className="text-sm text-gray-700">Featured Product (show on homepage)</label>
             </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* 🚨 Amazon Trust Metrics Section */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-100">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Rating (0 - 5.0)
+                </label>
+                <input
+                  type="number"
+                  name="rating"
+                  value={formData.rating ?? ''}
+                  placeholder="4.5"
+                  onChange={handleNumberChange}
+                  min="0"
+                  max="5"
+                  step="0.1"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Total Reviews (e.g. 128)
+                </label>
+                <input
+                  type="number"
+                  name="review_count"
+                  value={formData.review_count ?? ''}
+                  placeholder="128"
+                  onChange={handleNumberChange}
+                  min="0"
+                  step="1"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-gray-100">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Price (₹) *

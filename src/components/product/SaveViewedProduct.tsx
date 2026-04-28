@@ -15,6 +15,9 @@ interface Product {
   bulk_price?: number | null
   bulk_min_quantity?: number | null
   description?: string | null
+  stock?: number
+  rating?: number | null
+  review_count?: number | null
 }
 
 interface SaveViewedProductProps {
@@ -24,7 +27,6 @@ interface SaveViewedProductProps {
 export default function SaveViewedProduct({ product }: SaveViewedProductProps) {
   useEffect(() => {
     try {
-      // Get existing recently viewed products from localStorage
       const stored = localStorage.getItem('razack_recently_viewed')
       let recent: Product[] = stored ? JSON.parse(stored) : []
 
@@ -34,8 +36,8 @@ export default function SaveViewedProduct({ product }: SaveViewedProductProps) {
       // Add new product to the beginning of the array
       recent.unshift(product)
 
-      // Keep only the last 5 viewed products
-      recent = recent.slice(0, 5)
+      // Keep only the last 8 viewed products to give a nice scrollable shelf
+      recent = recent.slice(0, 8)
 
       // Save back to localStorage
       localStorage.setItem('razack_recently_viewed', JSON.stringify(recent))
@@ -44,6 +46,6 @@ export default function SaveViewedProduct({ product }: SaveViewedProductProps) {
     }
   }, [product])
 
-  // This component doesn't render anything
+  // This component doesn't render anything, it's just a data tracker
   return null
 }

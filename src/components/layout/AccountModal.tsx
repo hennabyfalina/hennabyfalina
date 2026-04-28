@@ -107,6 +107,14 @@ export default function AccountModal({ isOpen, onClose }: AccountModalProps) {
                     >
                       Your Orders
                     </Link>
+                    <Link
+                      href="/wishlist"
+                      target="_blank"
+                      onClick={onClose}
+                      className="block py-3 px-2 text-sm font-medium text-gray-700 hover:text-[#007185] hover:bg-gray-50 border-b border-gray-100"
+                    >
+                      Your Wishlist
+                    </Link>
                   </>
                 )}
                 

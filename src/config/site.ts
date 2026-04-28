@@ -25,7 +25,7 @@ export const siteConfig = {
   },
   business: {
     gstin: "33AATPI7728L1Z3",
-    workingHours: "Mon - Sat: 10:00 AM - 8:00 PM (Sunday Closed)",
+    workingHours: "Mon - Sun (10:00 AM - 10:00 PM)",
   },
   socialLinks: {
     instagram: "https://instagram.com/razackpackagingcentre",

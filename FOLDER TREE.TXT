@@ -27,6 +27,8 @@ razack-packaging-centre/
 │   │   │   │   ├── layout.tsx
 │   │   │   │   └── page.tsx
 │   │   │   ├── checkout/
+│   │   │   │   ├── processing/
+│   │   │   │   │   └── page.tsx
 │   │   │   │   ├── layout.tsx
 │   │   │   │   └── page.tsx
 │   │   │   ├── contact/
@@ -73,6 +75,9 @@ razack-packaging-centre/
 │   │   │   │   └── page.tsx
 │   │   │   ├── wholesale/
 │   │   │   │   └── page.tsx
+│   │   │   ├── wishlist/
+│   │   │   │   ├── page.tsx
+│   │   │   │   └── WishlistClient.tsx
 │   │   │   ├── layout.tsx
 │   │   │   ├── loading.tsx
 │   │   │   └── page.tsx
@@ -157,7 +162,6 @@ razack-packaging-centre/
 │   │   │   ├── AddressForm.tsx
 │   │   │   ├── DeliveryMethod.tsx
 │   │   │   ├── OrderSummary.tsx
-│   │   │   ├── PaymentButton.tsx
 │   │   │   └── StorePickupInfo.tsx
 │   │   ├── home/
 │   │   │   ├── CategorySection.tsx
@@ -197,7 +201,10 @@ razack-packaging-centre/
 │   │   │   ├── RelatedProducts.tsx
 │   │   │   ├── SaveViewedProduct.tsx
 │   │   │   ├── ShareButton.tsx
+│   │   │   ├── StarRating.tsx
 │   │   │   └── TrustBadges.tsx
+│   │   ├── providers/
+│   │   │   └── WishlistProvider.tsx
 │   │   ├── ui/
 │   │   │   ├── AnimatedIcon.tsx
 │   │   │   ├── Avatar.tsx
@@ -227,17 +234,20 @@ razack-packaging-centre/
 │   │   │   ├── server.ts
 │   │   │   └── storage.ts
 │   │   ├── constants.ts
-│   │   ├── utils.ts
-│   │   └── whatsapp.service.ts
+│   │   ├── states.ts
+│   │   └── utils.ts
 │   ├── services/
 │   │   ├── auth.service.ts
 │   │   ├── category.service.ts
 │   │   ├── inventory.service.ts
 │   │   ├── order.service.ts
 │   │   ├── payment.service.ts
-│   │   └── product.service.ts
+│   │   ├── product.service.ts
+│   │   ├── whatsapp.service.ts
+│   │   └── wishlist.service.ts
 │   ├── store/
-│   │   └── cart.store.ts
+│   │   ├── cart.store.ts
+│   │   └── wishlist.store.ts
 │   ├── types/
 │   │   └── database.types.ts
 │   └── proxy.ts
@@ -250,6 +260,7 @@ razack-packaging-centre/
 ├── components.json
 ├── eslint.config.mjs
 ├── FOLDER TREE.TXT
+├── FOLDER_TREE_AUTO.TXT
 ├── next-env.d.ts
 ├── next.config.ts
 ├── package-lock.json

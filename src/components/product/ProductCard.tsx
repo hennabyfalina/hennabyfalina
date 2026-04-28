@@ -4,10 +4,15 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { Star, StarHalf, Share2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Share2, Heart } from 'lucide-react'
+import { getPublicUrl } from '@/lib/supabase/storage'
+import StarRating from '@/components/product/StarRating'
 import AddToCartButton from '@/components/product/AddToCartButton'
 import { formatCurrency } from '@/lib/utils'
 import { siteConfig } from '@/config/site'
+import { useWishlistStore } from '@/store/wishlist.store'
+import { showToast } from '@/components/ui/Toast'
 
 function HighlightMatch({ text, query }: { text: string, query: string }) {
   if (!query) return <span>{text}</span>;
@@ -34,33 +39,58 @@ interface ProductCardProps {
     price: number
     selling_price?: number | null
     bulk_price?: number | null
+    bulk_min_quantity?: number | null
+    description?: string | null
     images: string[]
     stock: number
+    rating?: number | null
+    review_count?: number | null
   }
   priority?: boolean
   searchQuery?: string
 }
 
 export default function ProductCard({ product, priority = false, searchQuery = '' }: ProductCardProps) {
-  const imageUrl = product.images?.[0] || '/placeholder-product.svg'
+  const router = useRouter()
+  
+  const rawImage = product.images?.[0]
+  const imageUrl = !rawImage 
+    ? '/placeholder-product.svg' 
+    : (rawImage.startsWith('http') || rawImage.startsWith('/') ? rawImage : getPublicUrl(rawImage))
 
   const isOutOfStock = product.stock <= 0
   const sellingPrice = product.selling_price ?? product.price ?? 0
   const regularPrice = product.price ?? 0
   const hasDiscount = regularPrice > sellingPrice
 
+  const rating = product.rating ?? 4.5;
+  const reviewCount = product.review_count ?? 128;
+
+  const { savedProductIds, toggleItem } = useWishlistStore()
+  const isSaved = savedProductIds.includes(product.id)
+
+  const handleWishlist = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    try {
+      await toggleItem(product.id)
+      showToast(isSaved ? 'Removed from Wishlist' : 'Saved to Wishlist', 'success')
+    } catch (error: any) {
+      if (error.message === 'unauthorized') {
+        const currentUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
+        router.push(`/login?redirect=${currentUrl}`)
+      } else {
+        showToast('Failed to update wishlist', 'error')
+      }
+    }
+  }
+
   const handleShare = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    
     const url = `${window.location.origin}/product/${product.slug}`
-    
     if (navigator.share) {
-      try {
-        await navigator.share({ title: product.name, url })
-      } catch (err) {
-        console.error('Error sharing:', err)
-      }
+      try { await navigator.share({ title: product.name, url }) } catch (err) {}
     } else {
       navigator.clipboard.writeText(url)
       alert('Product link copied to clipboard!')
@@ -68,7 +98,16 @@ export default function ProductCard({ product, priority = false, searchQuery = '
   }
 
   return (
-    <div className="relative bg-white rounded-sm p-4 border border-gray-200 hover:border-gray-300 flex flex-col h-full shadow-sm">
+    <div className="relative bg-white rounded-sm p-4 border border-gray-200 hover:border-gray-300 flex flex-col h-full shadow-sm group/card">
+      
+      <button 
+        onClick={handleWishlist}
+        className="absolute top-5 right-5 z-10 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-sm hover:scale-110 transition-all duration-200"
+        title={isSaved ? "Remove from Wishlist" : "Add to Wishlist"}
+      >
+        <Heart className={`w-5 h-5 transition-colors ${isSaved ? 'fill-red-500 text-red-500' : 'text-gray-500 hover:text-red-500'}`} />
+      </button>
+
       <Link href={`/product/${product.slug}`} target="_blank" className="block flex-1 flex flex-col group">
         
         <div className="relative aspect-square bg-[#F8F8F8] rounded-sm overflow-hidden mb-3 p-4 flex items-center justify-center">
@@ -81,6 +120,7 @@ export default function ProductCard({ product, priority = false, searchQuery = '
               className="object-contain mix-blend-multiply"
               priority={priority}
               loading={priority ? 'eager' : 'lazy'}
+              unoptimized={imageUrl.startsWith('http') || imageUrl.includes('supabase')}
             />
           </div>
         </div>
@@ -90,15 +130,8 @@ export default function ProductCard({ product, priority = false, searchQuery = '
             <HighlightMatch text={product.name} query={searchQuery} />
           </h3>
 
-          <div className="flex items-center gap-1 mb-2">
-            <div className="flex text-[#FFA41C]">
-              <Star className="w-4 h-4 fill-current" />
-              <Star className="w-4 h-4 fill-current" />
-              <Star className="w-4 h-4 fill-current" />
-              <Star className="w-4 h-4 fill-current" />
-              <StarHalf className="w-4 h-4 fill-current" />
-            </div>
-            <span className="text-xs text-[#007185]">4.5</span>
+          <div className="mb-2">
+            <StarRating rating={rating} reviewCount={reviewCount} size="sm" />
           </div>
 
           <div className="mt-auto pt-1">

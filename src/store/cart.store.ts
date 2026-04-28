@@ -18,6 +18,8 @@ export interface CartItem {
   original_price?: number
   bulk_price?: number | null
   bulk_min_quantity?: number | null
+  rating?: number | null
+  review_count?: number | null
   selling_price?: number
 }
 
@@ -104,6 +106,8 @@ export const useCartStore = create<CartState>()(
             original_price: newItem.original_price,
             bulk_price: newItem.bulk_price || null,
             bulk_min_quantity: newItem.bulk_min_quantity || null,
+            rating: newItem.rating || null,
+            review_count: newItem.review_count || null,
             selling_price: newItem.selling_price,
           }
           updatedItems = [...currentItems, cartItem]
@@ -218,6 +222,8 @@ export const useCartStore = create<CartState>()(
                   original_price: item.products.price,
                   bulk_price: item.products.bulk_price,
                   bulk_min_quantity: item.products.bulk_min_quantity,
+                  rating: item.products.rating,
+                  review_count: item.products.review_count,
                   selling_price: item.products.selling_price,
                 }
               })
@@ -237,7 +243,7 @@ export const useCartStore = create<CartState>()(
 
         const { data: products, error } = await supabase
           .from('products')
-          .select('id, name, slug, price, selling_price, bulk_price, bulk_min_quantity, stock, images, category_id, description')
+          .select('id, name, slug, price, selling_price, bulk_price, bulk_min_quantity, stock, images, category_id, description, rating, review_count')
           .in('id', productIds)
 
         if (!error && products) {
@@ -258,6 +264,8 @@ export const useCartStore = create<CartState>()(
               original_price: product.price,
               bulk_price: product.bulk_price,
               bulk_min_quantity: product.bulk_min_quantity,
+              rating: product.rating,
+              review_count: product.review_count,
               selling_price: product.selling_price,
             }
           })

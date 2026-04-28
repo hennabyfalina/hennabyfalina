@@ -34,7 +34,7 @@ export default function MobileBottomNav() {
   const cartItemCount = cartItems.reduce((acc, item) => acc + item.quantity, 0)
 
   if (!mounted) return null
-  if (pathname === '/checkout') return null
+  if (pathname.startsWith('/checkout')) return null
 
   // Define base nav items
   const baseNavItems = [

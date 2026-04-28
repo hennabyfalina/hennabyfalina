@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import PhoneInput from '@/components/ui/PhoneInput'
+import { INDIAN_STATES } from '@/lib/states' // 🚨 Clean Reusable Import
 
 export interface AddressFormData {
   name: string
@@ -78,9 +79,7 @@ export default function AddressForm({
 
   const validateState = (state: string): string => {
     if (shippingMethod !== 'delivery') return ''
-    if (!state.trim()) return 'State is required'
-    if (state.trim().length < 2) return 'State must be at least 2 characters'
-    if (!/^[a-zA-Z\s.-]+$/.test(state.trim())) return 'State can only contain letters'
+    if (!state.trim() || state === '') return 'Please select a state'
     return ''
   }
 
@@ -255,16 +254,21 @@ export default function AddressForm({
 
                 <div className="col-span-1 md:col-span-1">
                   <label htmlFor="state" className={labelClass}>State <span className="text-red-600">*</span></label>
-                  <input 
-                    id="state" 
-                    type="text" 
-                    value={formData.state} 
-                    onChange={(e) => handleStateChange(e.target.value)} 
-                    disabled={disabled} 
-                    required 
-                    className={errors.state ? errorInputClass : inputClass} 
-                    placeholder="State" 
-                  />
+                  <select
+                    id="state"
+                    value={formData.state}
+                    onChange={(e) => handleStateChange(e.target.value)}
+                    disabled={disabled}
+                    required
+                    className={errors.state ? errorInputClass : inputClass}
+                  >
+                    <option value="" disabled>Select State</option>
+                    {INDIAN_STATES.map((stateName) => (
+                      <option key={stateName} value={stateName}>
+                        {stateName}
+                      </option>
+                    ))}
+                  </select>
                   {errors.state && <p className={errorClass}>{errors.state}</p>}
                 </div>
 
@@ -321,7 +325,6 @@ export default function AddressForm({
         )}
       </div>
 
-      {/* Clear All Confirmation Modal */}
       {showClearConfirm && (
         <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="relative w-full max-w-sm bg-white rounded-sm shadow-2xl animate-in zoom-in-95 duration-200">

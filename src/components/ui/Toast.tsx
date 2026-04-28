@@ -88,9 +88,11 @@ export default function Toaster() {
         const msgLower = toast.message.toLowerCase()
         const isError = msgLower.includes('fail') || msgLower.includes('error') || msgLower.includes('out of stock')
         const isCartPage = pathname === '/cart'
+        const isWishlistPage = pathname === '/wishlist'
         
-        // Determine which button to show
-        const showGoToCart = !isCartPage && (msgLower.includes('cart') || msgLower.includes('added'))
+        // 🚨 Determine which button to show cleanly
+        const showGoToWishlist = !isWishlistPage && msgLower.includes('wishlist')
+        const showGoToCart = !isCartPage && !showGoToWishlist && (msgLower.includes('cart') || msgLower.includes('added'))
         const showGoToShopping = isCartPage && (msgLower.includes('cart') || msgLower.includes('cleared'))
         
         return (
@@ -129,6 +131,16 @@ export default function Toaster() {
                     className="px-3 py-1.5 text-xs font-bold bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] text-[#0F1111] rounded-sm shadow-sm transition-colors whitespace-nowrap"
                   >
                     Go to Shopping
+                  </Link>
+                )}
+                {/* Wishlist Link Button */}
+                {showGoToWishlist && !isError && (
+                  <Link 
+                    href="/wishlist" 
+                    onClick={() => removeToast(toast.id, true)}
+                    className="px-3 py-1.5 text-xs font-bold bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] text-[#0F1111] rounded-sm shadow-sm transition-colors whitespace-nowrap"
+                  >
+                    View Wishlist
                   </Link>
                 )}
                 <button 

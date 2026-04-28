@@ -10,6 +10,7 @@ import PhoneInput from '@/components/ui/PhoneInput'
 import { Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
+import { INDIAN_STATES } from '@/lib/states' // 🚨 Clean Reusable Import
 
 interface Address {
   id: string
@@ -45,7 +46,7 @@ const emptyForm = {
   country: 'India',
   delivery_instructions: '',
   address_type: 'Home',
-  is_default: true // Force default since only 1 is allowed
+  is_default: false
 }
 
 export default function AddressesClient({ initialAddresses, userId }: AddressesClientProps) {
@@ -57,13 +58,11 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
   const [isSaving, setIsSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   
-  // State for delete confirmation modal
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
   const supabase = createClient()
 
-  // 🔒 Validation functions
   const validateName = (name: string): string => {
     if (!name.trim()) return 'Full name is required'
     if (name.trim().length < 2) return 'Name must be at least 2 characters'
@@ -90,9 +89,9 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
     return ''
   }
 
+  // 🚨 Updated validation specifically for dropdowns
   const validateState = (state: string): string => {
-    if (!state.trim()) return 'State is required'
-    if (state.trim().length < 2) return 'State must be at least 2 characters'
+    if (!state || state.trim() === '') return 'Please select a state'
     return ''
   }
 
@@ -116,7 +115,11 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
   }
 
   const openAddModal = () => {
-    setFormData({ ...emptyForm, is_default: true })
+    if (addresses.length >= 2) {
+      showToast('You can only have up to 2 saved addresses.')
+      return
+    }
+    setFormData({ ...emptyForm, is_default: addresses.length === 0 }) 
     setEditingId(null)
     setErrors({})
     setIsModalOpen(true)
@@ -135,7 +138,7 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
       country: addr.country || 'India',
       delivery_instructions: addr.delivery_instructions || '',
       address_type: addr.address_type || 'Home',
-      is_default: true // Always true for the single address
+      is_default: addr.is_default
     })
     setEditingId(addr.id)
     setErrors({})
@@ -145,7 +148,6 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // 🔒 Validate before saving
     if (!validateForm()) {
       showToast('Please fix the errors in the form.')
       return
@@ -154,7 +156,7 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
     setIsSaving(true)
 
     try {
-      let result;
+      let result: any; 
 
       if (editingId) {
         const { data, error } = await supabase
@@ -179,13 +181,12 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
         if (error) throw error
         result = data
         
-        setAddresses([result])
+        setAddresses(addresses.map(a => a.id === editingId ? result : a))
         showToast('Address updated successfully')
 
       } else {
-        // Double-check to prevent multiple addresses just in case
-        if (addresses.length >= 1) {
-          showToast('You can only have one address.')
+        if (addresses.length >= 2) {
+          showToast('You can only have up to two addresses.')
           setIsModalOpen(false)
           return
         }
@@ -212,7 +213,7 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
         if (error) throw error
         result = data
 
-        setAddresses([result])
+        setAddresses([...addresses, result])
         showToast('Address added successfully')
       }
 
@@ -236,7 +237,7 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
     try {
       const { error } = await supabase.from('addresses').delete().eq('id', deleteConfirmId)
       if (error) throw error
-      setAddresses([])
+      setAddresses(addresses.filter(a => a.id !== deleteConfirmId))
       showToast('Address removed')
     } catch (error: any) {
       showToast('Failed to remove address')
@@ -272,8 +273,7 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           
-          {/* Add Address Card - Only show if no addresses exist */}
-          {addresses.length === 0 && (
+          {addresses.length < 2 && (
             <button 
               onClick={openAddModal}
               className="h-[280px] border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors group cursor-pointer shadow-sm"
@@ -283,11 +283,10 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
             </button>
           )}
 
-          {/* Saved Addresses */}
-          {addresses.map((addr) => (
+          {addresses.map((addr, index) => (
             <div key={addr.id} className="h-[280px] border border-gray-300 rounded-lg p-5 flex flex-col shadow-sm relative bg-white">
               <div className="text-xs font-bold text-gray-500 mb-2 border-b border-gray-200 pb-2">
-                Default Address
+                {index === 0 ? 'Primary Address' : 'Secondary Address'}
               </div>
               <div className="flex-1 text-sm text-gray-900 leading-relaxed overflow-hidden">
                 <p className="font-bold">{addr.name}</p>
@@ -298,7 +297,6 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
                 <p className="mt-2">Phone number: {addr.phone}</p>
               </div>
               
-              {/* Actions Row - Edit on left, Remove on right */}
               <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-200 text-sm">
                 <button 
                   onClick={() => openEditModal(addr)} 
@@ -319,7 +317,6 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
         </div>
       </Container>
 
-      {/* Delete Confirmation Modal */}
       {deleteConfirmId && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-md shadow-xl max-w-sm w-full p-6 text-center border border-gray-200 animate-in fade-in zoom-in duration-200">
@@ -347,7 +344,6 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
         </div>
       )}
 
-      {/* Address Form Modal */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Update your address" : "Add a new address"}>
         <form onSubmit={handleSave} className="space-y-4">
           
@@ -462,19 +458,29 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
               />
               {errors.city && <p className={errorClass}>{errors.city}</p>}
             </div>
+            
+            {/* 🚨 REUSABLE DROPDOWN IMPORTED FROM states.ts */}
             <div>
               <label className={labelClass}>State <span className="text-red-600">*</span></label>
-              <input
-                type="text"
+              <select
+                aria-label="State"
+                title="Select State"
                 required
-                placeholder="State"
-                value={formData.state}
+                value={formData.state || ""}
                 onChange={(e) => {
                   setFormData({ ...formData, state: e.target.value })
                   setErrors(prev => ({ ...prev, state: validateState(e.target.value) }))
                 }}
+                disabled={isSaving}
                 className={errors.state ? inputErrorClass : inputClass}
-              />
+              >
+                <option value="" disabled>Select State</option>
+                {INDIAN_STATES.map((stateName) => (
+                  <option key={stateName} value={stateName}>
+                    {stateName}
+                  </option>
+                ))}
+              </select>
               {errors.state && <p className={errorClass}>{errors.state}</p>}
             </div>
           </div>
@@ -484,7 +490,7 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
             <select
               aria-label="Address Type"
               title="Select Address Type"
-              value={formData.address_type}
+              value={formData.address_type || 'Home'}
               onChange={(e) => setFormData({ ...formData, address_type: e.target.value })}
               className={inputClass}
             >

@@ -7,6 +7,7 @@ import CartSyncProvider from '@/components/CartSyncProvider'
 import InstallPrompt from '@/components/ui/InstallPrompt'
 import PWAUpdater from '@/components/ui/PWAUpdater'
 import PullToRefresh from '@/components/ui/PullToRefresh'
+import WishlistProvider from '@/components/providers/WishlistProvider'
 import { siteConfig } from '@/config/site'
 import { Analytics } from '@vercel/analytics/next'
 
@@ -146,13 +147,15 @@ export default function RootLayout({
         className="bg-white text-gray-900 antialiased w-full min-h-screen flex flex-col overflow-x-hidden overscroll-y-none"
         suppressHydrationWarning
       >
-        <PullToRefresh>
-          {children}
-        </PullToRefresh>
-        <CartSyncProvider />
-        <InstallPrompt />
-        <PWAUpdater />
-        <Analytics />
+        <WishlistProvider>
+          <PullToRefresh>
+            {children}
+          </PullToRefresh>
+          <CartSyncProvider />
+          <InstallPrompt />
+          <PWAUpdater />
+          <Analytics />
+        </WishlistProvider>
       </body>
     </html>
   )

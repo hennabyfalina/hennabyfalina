@@ -48,7 +48,7 @@ export default async function ProductsPage({
         <Suspense fallback={<div className="py-20 text-center">Loading products...</div>}>
           <ProductsClientView 
             initialProducts={products} 
-            categories={categories} 
+            categories={categories}
           />
         </Suspense>
       </Container>
