@@ -13,7 +13,7 @@ export default function Footer() {
   const [openSection, setOpenSection] = useState<string | null>(null)
 
   // 🚨 SMART ROUTING: Add any URL paths here where you want the footer completely HIDDEN
-  const hiddenRoutes = ['/checkout', '/products', '/categories', '/contact', '/terms', '/privacy', '/faq', '/returns-refunds', '/support', '/search', '/profile', '/admin-gate', '/login', '/cart', '/profile/orders', '/profile/settings', '/profile/addresses', '/profile/payments', '/profile/security']
+  const hiddenRoutes = ['/', '/checkout', '/products', '/categories', '/contact', '/terms', '/privacy', '/faq', '/returns-refunds', '/support', '/search', '/profile', '/admin-gate', '/login', '/cart', '/profile/orders', '/profile/settings', '/profile/addresses', '/profile/payments', '/profile/security']
   
   // If the current URL starts with any of the hidden routes, render nothing!
   const shouldHideFooter = hiddenRoutes.some(route => pathname.startsWith(route))
