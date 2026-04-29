@@ -80,7 +80,7 @@ export default function CartRecommendations() {
 
   return (
     <div className="mt-8 w-full bg-white p-5 md:p-6 rounded-sm border border-gray-200 shadow-sm">
-      <h3 className="font-bold text-gray-900 text-xl mb-6 tracking-tight">Recommended for you</h3>
+      <h3 className="font-bold text-gray-900 text-lg mb-4">Recommended for you</h3>
       <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 snap-x">
         {recommendations.map((product) => (
           <div key={product.id} className="w-[220px] flex-shrink-0 snap-start h-full">
