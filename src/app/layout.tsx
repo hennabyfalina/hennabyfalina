@@ -8,6 +8,7 @@ import InstallPrompt from '@/components/ui/InstallPrompt'
 import PWAUpdater from '@/components/ui/PWAUpdater'
 import PullToRefresh from '@/components/ui/PullToRefresh'
 import WishlistProvider from '@/components/providers/WishlistProvider'
+import QuickViewModal from '@/components/product/QuickViewModal'
 import { siteConfig } from '@/config/site'
 import { Analytics } from '@vercel/analytics/next'
 
@@ -155,6 +156,7 @@ export default function RootLayout({
           <InstallPrompt />
           <PWAUpdater />
           <Analytics />
+          <QuickViewModal />
         </WishlistProvider>
       </body>
     </html>

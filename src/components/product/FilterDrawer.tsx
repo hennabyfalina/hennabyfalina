@@ -11,6 +11,10 @@ interface FilterDrawerProps {
   currentSort: string
   minPrice: string
   maxPrice: string
+  rating?: string
+  discount?: string
+  bulk?: string
+  inStock?: string
   updateFilters: (updates: Record<string, string | null>) => void
   clearFilters: () => void
 }

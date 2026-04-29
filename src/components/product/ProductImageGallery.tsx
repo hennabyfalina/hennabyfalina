@@ -24,6 +24,7 @@ export default function ProductImageGallery({ images, productName }: ProductImag
   const [touchEndX, setTouchEndX] = useState<number | null>(null)
   const [pinchDist, setPinchDist] = useState<number | null>(null)
   const [zoomScale, setZoomScale] = useState(1)
+  const [fsZoomOrigin, setFsZoomOrigin] = useState('50% 50%')
   
   const imageRef = useRef<HTMLDivElement>(null)
   const mainImage = images[selectedIndex] || '/placeholder-product.svg'
@@ -43,6 +44,20 @@ export default function ProductImageGallery({ images, productName }: ProductImag
     const x = Math.max(0, Math.min(100, ((e.clientX - left) / width) * 100))
     const y = Math.max(0, Math.min(100, ((e.clientY - top) / height) * 100))
     setZoomOrigin(`${x}% ${y}%`)
+  }
+
+  // 🚨 Double Tap to Zoom Logic
+  const lastTapAt = useRef<number>(0)
+  const handleDoubleTapZoom = (clientX: number, clientY: number, currentTarget: HTMLElement) => {
+    if (zoomScale > 1) {
+      setZoomScale(1)
+    } else {
+      const rect = currentTarget.getBoundingClientRect()
+      const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100))
+      const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100))
+      setFsZoomOrigin(`${x}% ${y}%`)
+      setZoomScale(2.5)
+    }
   }
 
   // 🚨 Native Mobile Pinch & Swipe Logic
@@ -75,8 +90,18 @@ export default function ProductImageGallery({ images, productName }: ProductImag
     }
   }
 
-  const onTouchEnd = () => {
+  const onTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
     setPinchDist(null)
+    
+    const now = Date.now()
+    if (now - lastTapAt.current < 300) {
+      // It's a double tap! Trigger Zoom and prevent swipe check
+      handleDoubleTapZoom(e.changedTouches[0].clientX, e.changedTouches[0].clientY, e.currentTarget)
+      lastTapAt.current = 0
+      return
+    }
+    lastTapAt.current = now
+
     // If currently pinched/zoomed in, don't trigger swipe changes
     if (zoomScale > 1) return
 
@@ -84,6 +109,10 @@ export default function ProductImageGallery({ images, productName }: ProductImag
     const distance = touchStartX - touchEndX
     if (distance > minSwipeDistance && selectedIndex < images.length - 1) setSelectedIndex(prev => prev + 1)
     if (distance < -minSwipeDistance && selectedIndex > 0) setSelectedIndex(prev => prev - 1)
+  }
+
+  const onDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    handleDoubleTapZoom(e.clientX, e.clientY, e.currentTarget)
   }
 
   useEffect(() => {
@@ -181,6 +210,7 @@ export default function ProductImageGallery({ images, productName }: ProductImag
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
+            onDoubleClick={onDoubleClick}
           >
             {selectedIndex > 0 && (
               <button 
@@ -201,7 +231,11 @@ export default function ProductImageGallery({ images, productName }: ProductImag
                 className="object-contain select-none p-4 transition-transform duration-75"
                 draggable={false}
                 priority
-                style={{ transform: `scale(${zoomScale})` }} // 🚨 Pinch to Zoom Applied here
+                style={{ 
+                  transform: `scale(${zoomScale})`, 
+                  transformOrigin: fsZoomOrigin,
+                  transition: pinchDist ? 'none' : 'transform 0.2s ease-out' 
+                }} // 🚨 Pinch and Double Tap to Zoom Applied here
               />
             </div>
 

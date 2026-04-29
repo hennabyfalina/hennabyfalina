@@ -21,6 +21,11 @@ export default async function SearchPage({
     getCategories()
   ])
 
+  const initialProducts = products.map((product) => ({
+    ...product,
+    bulk_min_quantity: null,
+  }))
+
   return (
     <div className="w-full max-w-[1500px] mx-auto px-4 py-8 min-h-screen">
       {/* Search Header */}
@@ -31,7 +36,7 @@ export default async function SearchPage({
       </div>
 
       <ProductsClientView 
-        initialProducts={products} 
+        initialProducts={initialProducts} 
         categories={categories} 
       />
     </div>

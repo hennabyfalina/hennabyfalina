@@ -2,7 +2,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Container from '@/components/ui/Container'
 import Modal from '@/components/ui/Modal'
@@ -57,16 +57,26 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
   const [isPhoneValid, setIsPhoneValid] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [originalData, setOriginalData] = useState<typeof emptyForm | null>(null)
   
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
   const supabase = createClient()
 
+  // Save form data to local storage as a draft whenever it changes
+  useEffect(() => {
+    if (isModalOpen) {
+      const draftKey = editingId ? `address_draft_edit_${editingId}` : 'address_draft_new'
+      localStorage.setItem(draftKey, JSON.stringify(formData))
+    }
+  }, [formData, isModalOpen, editingId])
+
   const validateName = (name: string): string => {
     if (!name.trim()) return 'Full name is required'
     if (name.trim().length < 2) return 'Name must be at least 2 characters'
     if (name.trim().length > 100) return 'Name is too long'
+    if (!/^[a-zA-Z\s.'-]+$/.test(name.trim())) return 'Name can only contain letters'
     return ''
   }
 
@@ -79,13 +89,20 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
 
   const validateAddressLine1 = (address: string): string => {
     if (!address.trim()) return 'Address is required'
-    if (address.trim().length < 5) return 'Address must be at least 5 characters'
+    if (address.trim().length < 2) return 'Address must be at least 2 characters'
+    return ''
+  }
+
+  const validateAddressLine2 = (address: string): string => {
+    if (!address.trim()) return 'Area, Street, Sector, Village is required'
+    if (address.trim().length < 3) return 'Must be at least 3 characters'
     return ''
   }
 
   const validateCity = (city: string): string => {
     if (!city.trim()) return 'City is required'
     if (city.trim().length < 2) return 'City must be at least 2 characters'
+    if (!/^[a-zA-Z\s.-]+$/.test(city.trim())) return 'City can only contain letters'
     return ''
   }
 
@@ -100,6 +117,7 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
     
     newErrors.name = validateName(formData.name)
     newErrors.address_line1 = validateAddressLine1(formData.address_line1)
+    newErrors.address_line2 = validateAddressLine2(formData.address_line2 || '')
     newErrors.city = validateCity(formData.city)
     newErrors.state = validateState(formData.state)
     newErrors.pincode = validatePincode(formData.pincode)
@@ -119,14 +137,27 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
       showToast('You can only have up to 2 saved addresses.')
       return
     }
-    setFormData({ ...emptyForm, is_default: addresses.length === 0 }) 
+    const baseForm = { ...emptyForm, is_default: addresses.length === 0 }
+    let initial = { ...baseForm }
+    
+    try {
+      const draft = localStorage.getItem('address_draft_new')
+      if (draft) {
+        initial = { ...initial, ...JSON.parse(draft) }
+      }
+    } catch (e) {
+      console.error('Failed to parse address draft', e)
+    }
+    
+    setFormData(initial)
+    setOriginalData(baseForm)
     setEditingId(null)
     setErrors({})
     setIsModalOpen(true)
   }
 
   const openEditModal = (addr: Address) => {
-    setFormData({
+    const baseForm = {
       name: addr.name,
       phone: addr.phone,
       address_line1: addr.address_line1,
@@ -139,7 +170,20 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
       delivery_instructions: addr.delivery_instructions || '',
       address_type: addr.address_type || 'Home',
       is_default: addr.is_default
-    })
+    }
+    let initial = { ...baseForm }
+    
+    try {
+      const draft = localStorage.getItem(`address_draft_edit_${addr.id}`)
+      if (draft) {
+        initial = { ...initial, ...JSON.parse(draft) }
+      }
+    } catch (e) {
+      console.error('Failed to parse address draft', e)
+    }
+    
+    setFormData(initial)
+    setOriginalData(baseForm)
     setEditingId(addr.id)
     setErrors({})
     setIsModalOpen(true)
@@ -217,6 +261,9 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
         showToast('Address added successfully')
       }
 
+      const draftKey = editingId ? `address_draft_edit_${editingId}` : 'address_draft_new'
+      localStorage.removeItem(draftKey)
+
       setIsModalOpen(false)
     } catch (error: any) {
       console.error(error)
@@ -260,6 +307,20 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
   const inputClass = "w-full px-3 py-2 bg-white border border-gray-400 rounded-sm focus:outline-none focus:border-[#e77600] focus:ring-1 focus:ring-[#e77600] shadow-sm text-sm"
   const labelClass = "block text-sm font-bold text-gray-900 mb-1"
   const errorClass = "text-xs text-red-600 mt-1 font-medium"
+
+  const hasValidationErrors = Object.values(errors).some(err => err !== '')
+  const isFormFilled = Boolean(
+    formData.name.trim() &&
+    formData.phone &&
+    isPhoneValid &&
+    formData.address_line1.trim() &&
+    formData.address_line2?.trim() &&
+    formData.city.trim() &&
+    formData.state &&
+    formData.pincode.replace(/\D/g, '').length === 6
+  )
+  const isDirty = !editingId || JSON.stringify(formData) !== JSON.stringify(originalData)
+  const isButtonDisabled = isSaving || !isFormFilled || hasValidationErrors || !isDirty
 
   return (
     <div className="min-h-screen bg-white py-6 md:py-10 relative">
@@ -345,10 +406,11 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
       )}
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Update your address" : "Add a new address"}>
-        <form onSubmit={handleSave} className="space-y-4">
+        <form onSubmit={handleSave} className="flex flex-col max-h-[85vh] sm:max-h-[80vh] relative">
           
-          <div>
-            <label className={labelClass}>Country/Region</label>
+          <div className="flex-1 overflow-y-auto overscroll-contain space-y-4 px-1 pb-10">
+            <div>
+              <label className={labelClass}>Country/Region</label>
             <select
               aria-label="Country or Region"
               title="Select Country"
@@ -387,24 +449,6 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
           </div>
 
           <div>
-            <label className={labelClass}>Pincode <span className="text-red-600">*</span></label>
-            <input
-              type="text"
-              required
-              maxLength={6}
-              placeholder="6 digits [0-9] PIN code"
-              value={formData.pincode}
-              onChange={(e) => {
-                const val = e.target.value.replace(/\D/g, '')
-                setFormData({ ...formData, pincode: val })
-                setErrors(prev => ({ ...prev, pincode: validatePincode(val) }))
-              }}
-              className={errors.pincode ? inputErrorClass : inputClass}
-            />
-            {errors.pincode && <p className={errorClass}>{errors.pincode}</p>}
-          </div>
-
-          <div>
             <label className={labelClass}>Flat, House no., Building, Company, Apartment <span className="text-red-600">*</span></label>
             <input
               type="text"
@@ -421,25 +465,19 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
           </div>
 
           <div>
-            <label className={labelClass}>Area, Street, Sector, Village</label>
+            <label className={labelClass}>Area, Street, Sector, Village <span className="text-red-600">*</span></label>
             <input
               type="text"
+              required
               placeholder="Area, Street, Sector, Village"
               value={formData.address_line2}
-              onChange={(e) => setFormData({ ...formData, address_line2: e.target.value })}
-              className={inputClass}
+              onChange={(e) => {
+                setFormData({ ...formData, address_line2: e.target.value })
+                setErrors(prev => ({ ...prev, address_line2: validateAddressLine2(e.target.value) }))
+              }}
+              className={errors.address_line2 ? inputErrorClass : inputClass}
             />
-          </div>
-
-          <div>
-            <label className={labelClass}>Landmark</label>
-            <input
-              type="text"
-              placeholder="E.g. near apollo hospital"
-              value={formData.landmark}
-              onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
-              className={inputClass}
-            />
+            {errors.address_line2 && <p className={errorClass}>{errors.address_line2}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -486,24 +524,55 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
           </div>
 
           <div>
-            <label className={labelClass}>Address Type</label>
-            <select
-              aria-label="Address Type"
-              title="Select Address Type"
-              value={formData.address_type || 'Home'}
-              onChange={(e) => setFormData({ ...formData, address_type: e.target.value })}
-              className={inputClass}
-            >
-              <option value="Home">Home (7 am - 9 pm delivery)</option>
-              <option value="Office">Office/Commercial (10 am - 6 pm delivery)</option>
-            </select>
+            <label className={labelClass}>Pincode <span className="text-red-600">*</span></label>
+            <input
+              type="text"
+              required
+              maxLength={6}
+              placeholder="6 digits [0-9] PIN code"
+              value={formData.pincode}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, '')
+                setFormData({ ...formData, pincode: val })
+                setErrors(prev => ({ ...prev, pincode: validatePincode(val) }))
+              }}
+              className={errors.pincode ? inputErrorClass : inputClass}
+            />
+            {errors.pincode && <p className={errorClass}>{errors.pincode}</p>}
           </div>
 
-          <div className="pt-4 border-t border-gray-200 mt-6">
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <h3 className="text-base font-bold text-gray-900 mb-4">Delivery Instructions  <span className="text-gray-500 font-normal">(Optional)</span> </h3>
+            <div className="space-y-4">
+              <div>
+                <label className={labelClass}>Landmark</label>
+                <input
+                  type="text"
+                  placeholder="E.g. near apollo hospital"
+                  value={formData.landmark}
+                  onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Preferences</label>
+                <textarea
+                  rows={2}
+                  placeholder="E.g., Leave at the back gate, call before arriving..."
+                  value={formData.delivery_instructions}
+                  onChange={(e) => setFormData({ ...formData, delivery_instructions: e.target.value })}
+                  className={`${inputClass} resize-none`}
+                />
+              </div>
+            </div>
+          </div>
+          </div>
+
+          <div className="pt-4 border-t border-gray-200 mt-2 bg-white flex-shrink-0 sticky bottom-0 z-10 pb-24 sm:pb-4 px-1">
             <button
               type="submit"
-              disabled={isSaving}
-              className="py-2.5 px-6 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm text-sm font-medium text-gray-900 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isButtonDisabled}
+              className="w-full sm:w-auto py-2.5 px-6 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm text-sm font-medium text-gray-900 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSaving ? 'Saving...' : editingId ? 'Save changes' : 'Add address'}
             </button>

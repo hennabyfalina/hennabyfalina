@@ -1,0 +1,79 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useCartStore } from '@/store/cart.store'
+import { showToast } from '@/components/ui/Toast'
+
+interface BuyNowButtonProps {
+  product: any
+  quantity?: number
+  className?: string
+}
+
+export default function BuyNowButton({ product, quantity = 1, className = '' }: BuyNowButtonProps) {
+  const [isBuying, setIsBuying] = useState(false)
+  const addItem = useCartStore((state) => state.addItem)
+  const router = useRouter()
+
+  const handleBuyNow = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    if (!product || product.stock <= 0) {
+      showToast('Out of stock', 'error')
+      return
+    }
+
+    setIsBuying(true)
+    const sellingPrice = product.selling_price ?? product.price ?? 0;
+    const finalPrice = product.bulk_price && product.bulk_price < sellingPrice ? product.bulk_price : sellingPrice;
+
+    try {
+      await addItem({
+        product_id: product.id,
+        name: product.name,
+        slug: product.slug,
+        price: finalPrice,
+        quantity: quantity,
+        image: product.images?.[0] || '',
+        stock: product.stock,
+        category_id: product.category_id || null,
+        description: product.description || null,
+        original_price: product.price,
+        bulk_price: product.bulk_price || null,
+        bulk_min_quantity: product.bulk_min_quantity || null,
+        rating: product.rating || null,
+        review_count: product.review_count || null,
+        selling_price: sellingPrice,
+      })
+      
+      router.push('/checkout')
+    } catch (error) {
+      showToast('Failed to proceed to checkout', 'error')
+    } finally {
+      setIsBuying(false)
+    }
+  }
+
+  const isOutOfStock = product.stock <= 0
+  const defaultClasses = "w-full h-9 flex items-center justify-center gap-2 text-sm font-bold bg-[#FFA41C] hover:bg-[#FA8900] text-[#0F1111] border border-[#FF8F00] rounded-full shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+
+  return (
+    <button
+      type="button"
+      onClick={handleBuyNow}
+      disabled={isBuying || isOutOfStock}
+      className={className || defaultClasses}
+    >
+      {isBuying ? (
+        <>
+          <div className="w-4 h-4 border-2 border-[#0F1111] border-t-transparent rounded-full animate-spin" />
+          <span>Processing...</span>
+        </>
+      ) : (
+          <span>Buy Now</span>
+      )}
+    </button>
+  )
+}

@@ -85,7 +85,7 @@ export default function CartRecommendations() {
         {recommendations.map((product) => (
           <div key={product.id} className="w-[220px] flex-shrink-0 snap-start h-full">
             {/* ✅ Reusing the exact logic and design of your main ProductCard */}
-            <ProductCard product={product} priority={false} />
+            <ProductCard product={product} priority={false} productList={recommendations} />
           </div>
         ))}
       </div>

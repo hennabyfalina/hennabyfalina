@@ -287,20 +287,6 @@ export default function AddressForm({
                   />
                   {errors.pincode && <p className={errorClass}>{errors.pincode}</p>}
                 </div>
-
-                <div className="col-span-1 md:col-span-2">
-                  <label htmlFor="landmark" className={labelClass}>Landmark</label>
-                  <input 
-                    id="landmark" 
-                    type="text" 
-                    value={formData.landmark} 
-                    onChange={(e) => onChange('landmark', e.target.value)} 
-                    disabled={disabled} 
-                    className={inputClass} 
-                    placeholder="E.g. near apollo hospital" 
-                  />
-                </div>
-
               </>
             )}
           </div>
@@ -308,18 +294,32 @@ export default function AddressForm({
 
         {shippingMethod === 'delivery' && (
           <div className="bg-white p-5 rounded-sm border border-[#D5D9D9]">
-            <h3 className="text-lg font-bold text-[#0F1111] mb-4">Add delivery instructions</h3>
-            <div>
-              <label htmlFor="delivery-instructions" className="block text-sm font-bold text-[#0F1111] mb-1">Preferences <span className="text-[#565959] font-normal">(Optional)</span></label>
-              <textarea 
-                id="delivery-instructions"
-                value={formData.delivery_instructions} 
-                onChange={(e) => onChange('delivery_instructions', e.target.value)} 
-                disabled={disabled}
-                rows={2} 
-                className={`${inputClass} resize-none`} 
-                placeholder="E.g., Leave at the back gate, call before arriving..." 
-              />
+            <h3 className="text-lg font-bold text-[#0F1111] mb-4">Delivery Instructions  <span className="text-gray-500 font-normal">(Optional)</span> </h3>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="landmark" className="block text-sm font-bold text-[#0F1111] mb-1">Landmark</label>
+                <input 
+                  id="landmark" 
+                  type="text" 
+                  value={formData.landmark} 
+                  onChange={(e) => onChange('landmark', e.target.value)} 
+                  disabled={disabled} 
+                  className={inputClass} 
+                  placeholder="E.g. near apollo hospital" 
+                />
+              </div>
+              <div>
+                <label htmlFor="delivery-instructions" className="block text-sm font-bold text-[#0F1111] mb-1">Preferences</label>
+                <textarea 
+                  id="delivery-instructions"
+                  value={formData.delivery_instructions} 
+                  onChange={(e) => onChange('delivery_instructions', e.target.value)} 
+                  disabled={disabled}
+                  rows={2} 
+                  className={`${inputClass} resize-none`} 
+                  placeholder="E.g., Leave at the back gate, call before arriving..." 
+                />
+              </div>
             </div>
           </div>
         )}

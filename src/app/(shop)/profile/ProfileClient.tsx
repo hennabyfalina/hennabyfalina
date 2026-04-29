@@ -27,7 +27,7 @@ export default function ProfileClient({ user, profile }: ProfileClientProps) {
 
   const accountLinks = [
     {
-      title: 'Buy Products',
+      title: 'Products',
       desc: 'Browse our full catalog and start shopping',
       icon: ShoppingBag,
       href: '/products'
@@ -38,9 +38,8 @@ export default function ProfileClient({ user, profile }: ProfileClientProps) {
       icon: Package,
       href: '/profile/orders'
     },
-    // 🚨 Added Wishlist Link
     {
-      title: 'Your Wishlist',
+      title: 'Wishlist',
       desc: 'View and manage your saved products',
       icon: Heart,
       href: '/wishlist'

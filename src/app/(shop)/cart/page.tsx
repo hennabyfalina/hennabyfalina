@@ -8,6 +8,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useCartStore } from '@/store/cart.store'
 import { useAuth } from '@/hooks/useAuth'
+import { useWishlistStore } from '@/store/wishlist.store'
 import Container from '@/components/ui/Container'
 import QuantitySelector from '@/components/product/QuantitySelector'
 import RecentlyViewed from '@/components/product/RecentlyViewed'
@@ -28,6 +29,7 @@ export default function CartPage() {
   const clearCart = useCartStore((state) => state.clearCart)
   const updateQuantity = useCartStore((state) => state.updateQuantity)
   const totalPrice = useCartStore((state) => state.getTotalPrice())
+  const { savedProductIds, toggleItem } = useWishlistStore()
   
   const [mounted, setMounted] = useState(false)
   const [showConfirmClear, setShowConfirmClear] = useState(false)
@@ -110,7 +112,7 @@ export default function CartPage() {
   const handleClearCart = () => {
     clearCart()
     setShowConfirmClear(false)
-    showToast('Cart cleared successfully')
+    showToast('Cart cleared')
   }
 
   const handleProceedToBuy = () => {
@@ -134,7 +136,7 @@ export default function CartPage() {
                 {items.length > 1 && (
                   <button
                     onClick={() => setShowConfirmClear(true)}
-                    className="text-sm text-blue-700 hover:text-red-700 hover:underline mt-1"
+                    className="text-sm text-blue-700 hover:text-red-700 hover:underline mt-1 cursor-pointer"
                   >
                     Deselect all items
                   </button>
@@ -146,6 +148,7 @@ export default function CartPage() {
             <div className="flex flex-col">
               {items.map((item, index) => {
                 const discountPercentage = calculateDiscount(item.original_price || item.price, item.price)
+                const isSaved = savedProductIds.includes(item.product_id)
                 let imageSrc = '/placeholder-product.svg'
                 if (item.image) {
                   imageSrc = item.image.startsWith('http') || item.image.startsWith('/') 
@@ -171,7 +174,7 @@ export default function CartPage() {
                     <div className="flex flex-col flex-1 min-w-0">
                       <div className="flex justify-between items-start gap-2 sm:gap-4">
                         <div className="flex-1 min-w-0">
-                          <Link href={`/product/${item.slug}`} target="_blank" rel="noopener noreferrer" className="text-sm md:text-base font-medium text-gray-900 line-clamp-2 hover:text-blue-700 hover:underline">
+                          <Link href={`/product/${item.slug}`} target="_blank" rel="noopener noreferrer" className="text-sm md:text-base font-medium text-gray-900 line-clamp-2 hover:text-blue-700 hover:underline cursor-pointer">
                             {item.name}
                           </Link>
                           
@@ -233,6 +236,26 @@ export default function CartPage() {
                           max={item.stock > 0 ? item.stock : 999}
                         />
                         
+                        {/* Save to Wishlist Link */}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await toggleItem(item.product_id)
+                              showToast(isSaved ? 'Removed from Wishlist' : 'Saved to Wishlist')
+                            } catch (error: any) {
+                              if (error.message === 'unauthorized') {
+                                router.push('/login?redirect=/cart')
+                              } else {
+                                showToast('Failed to update wishlist')
+                              }
+                            }
+                          }}
+                          className="text-sm font-medium text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer"
+                        >
+                          {isSaved ? 'Remove from Wishlist' : 'Save to Wishlist'}
+                        </button>
+
                         {/* The standard red link for Delete */}
                         <button
                           type="button"
@@ -240,7 +263,7 @@ export default function CartPage() {
                             await removeItem(item.product_id)
                             showToast('Item removed')
                           }}
-                          className="text-sm font-medium text-red-600 hover:text-red-800 hover:underline"
+                          className="text-sm font-medium text-red-600 hover:text-red-800 hover:underline cursor-pointer"
                         >
                           Delete
                         </button>

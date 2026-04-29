@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useCartStore } from '@/store/cart.store'
 import { showToast } from '@/components/ui/Toast'
+import BuyNowButton from '@/components/product/BuyNowButton'
 
 interface AddToCartButtonProps {
   product: {
@@ -118,7 +119,7 @@ export default function AddToCartButton({
           type="button"
           onClick={handleAddToCart}
           disabled={isAdding || isOutOfStock}
-          className={`flex items-center justify-center gap-2 font-medium transition-all duration-300 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed ${buttonClasses}`}
+          className={`flex items-center justify-center gap-2 font-medium transition-all duration-300 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer ${buttonClasses}`}
         >
           {isAdding ? (
             <>
@@ -132,18 +133,7 @@ export default function AddToCartButton({
         
         {/* Buy Now Button */}
         {!isOutOfStock && showQuantitySelector && (
-          <button
-            type="button"
-            onClick={(e) => {
-              handleAddToCart(e).then(() => {
-                window.location.href = '/checkout';
-              })
-            }}
-            disabled={isAdding || isOutOfStock}
-            className={`flex items-center justify-center gap-2 font-medium transition-all duration-300 active:scale-[0.98] w-full h-9 text-sm bg-[#FFA41C] hover:bg-[#FA8900] text-[#0F1111] border border-[#FF8F00] rounded-full shadow-sm`}
-          >
-             Buy Now
-          </button>
+          <BuyNowButton product={product} quantity={quantity} />
         )}
       </div>
     </div>

@@ -13,6 +13,7 @@ interface ViewedProduct {
   slug: string
   price: number
   image: string
+  images?: string[]
   original_price?: number
   selling_price?: number
   bulk_price?: number | null
@@ -90,26 +91,27 @@ export default function RecentlyViewed() {
       </div>
       
       <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 snap-x">
-        {recentItems.map((prod) => {
-          // Map the local storage data precisely to the shape ProductCard expects
-          const mappedProduct = {
-            id: prod.id,
-            name: prod.name,
-            slug: prod.slug,
-            price: prod.price,
-            selling_price: prod.selling_price,
-            bulk_price: prod.bulk_price,
-            bulk_min_quantity: prod.bulk_min_quantity,
-            description: prod.description,
-            images: [prod.image],
-            stock: prod.stock ?? 99, 
-            rating: prod.rating ?? 4.5,
-            review_count: prod.review_count ?? 128
-          }
+        {recentItems.map((prod, _, arr) => {
+          // Pre-map all items so QuickView can cycle through them perfectly
+          const mappedList = arr.map(p => ({
+            id: p.id,
+            name: p.name,
+            slug: p.slug,
+            price: p.price,
+            selling_price: p.selling_price,
+            bulk_price: p.bulk_price,
+            bulk_min_quantity: p.bulk_min_quantity,
+            description: p.description,
+            images: p.images && p.images.length > 0 ? p.images : [p.image],
+            stock: p.stock ?? 99, 
+            rating: p.rating ?? 4.5,
+            review_count: p.review_count ?? 128
+          }))
+          const mappedProduct = mappedList.find(p => p.id === prod.id)!
 
           return (
             <div key={prod.id} className="w-[220px] flex-shrink-0 snap-start h-full">
-              <ProductCard product={mappedProduct} priority={false} />
+              <ProductCard product={mappedProduct} priority={false} productList={mappedList} />
             </div>
           )
         })}

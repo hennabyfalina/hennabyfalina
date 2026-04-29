@@ -89,7 +89,7 @@ export default function QuantitySelector({
           type="button"
           onClick={decrement}
           disabled={disabled || quantity <= min}
-          className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 disabled:opacity-40 shadow-sm transition-colors"
+        className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 disabled:opacity-40 shadow-sm transition-colors cursor-pointer disabled:cursor-not-allowed"
           aria-label="Decrease quantity"
         >
           <Minus className="w-3.5 h-3.5" strokeWidth={2.5} />
@@ -103,7 +103,7 @@ export default function QuantitySelector({
           type="button"
           onClick={increment}
           disabled={disabled || quantity >= max}
-          className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 disabled:opacity-40 shadow-sm transition-colors"
+        className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 disabled:opacity-40 shadow-sm transition-colors cursor-pointer disabled:cursor-not-allowed"
           aria-label="Increase quantity"
         >
           <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
@@ -114,7 +114,7 @@ export default function QuantitySelector({
           <button
             type="button"
             onClick={openModal}
-            className="w-8 h-8 ml-1 flex items-center justify-center rounded-full border border-[#007185]/30 bg-[#F2FAFA] text-[#007185] hover:bg-[#E3F2F2] hover:border-[#007185] transition-all shadow-sm"
+          className="w-8 h-8 ml-1 flex items-center justify-center rounded-full border border-[#007185]/30 bg-[#F2FAFA] text-[#007185] hover:bg-[#E3F2F2] hover:border-[#007185] transition-all shadow-sm cursor-pointer"
             title="Edit quantity"
           >
             <Edit2 className="w-3.5 h-3.5" strokeWidth={2} />

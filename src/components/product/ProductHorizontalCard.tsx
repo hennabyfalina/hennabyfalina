@@ -5,7 +5,8 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Share2, Heart } from 'lucide-react'
+import { Share2, Heart, Eye } from 'lucide-react'
+import { useQuickViewStore } from '@/store/quickview.store'
 import { getPublicUrl } from '@/lib/supabase/storage'
 import StarRating from '@/components/product/StarRating'
 import AddToCartButton from '@/components/product/AddToCartButton'
@@ -46,10 +47,12 @@ interface ProductHorizontalCardProps {
   }
   priority?: boolean
   searchQuery?: string
+  productList?: any[]
 }
 
-export default function ProductHorizontalCard({ product, priority = false, searchQuery = '' }: ProductHorizontalCardProps) {
+export default function ProductHorizontalCard({ product, priority = false, searchQuery = '', productList = [] }: ProductHorizontalCardProps) {
   const router = useRouter()
+  const { openQuickView } = useQuickViewStore()
   
   const rawImage = product.images?.[0]
   const imageUrl = !rawImage 
@@ -116,10 +119,10 @@ export default function ProductHorizontalCard({ product, priority = false, searc
       <div className="flex flex-col flex-1 justify-between min-w-0 pr-8">
         <button 
           onClick={handleWishlist}
-          className="absolute top-3 right-3 z-10 p-1"
+          className="absolute top-3 right-3 z-10 p-1.5 bg-white hover:bg-gray-50 border border-[#D5D9D9] rounded-full shadow-sm transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#007185]"
           title={isSaved ? "Remove from Wishlist" : "Add to Wishlist"}
         >
-          <Heart className={`w-6 h-6 transition-colors ${isSaved ? 'fill-red-500 text-red-500' : 'text-gray-400 hover:text-red-500'}`} />
+          <Heart className={`w-[18px] h-[18px] transition-colors ${isSaved ? 'fill-red-500 text-red-500' : 'text-gray-400 hover:text-red-500'}`} />
         </button>
 
         <div>
@@ -157,17 +160,30 @@ export default function ProductHorizontalCard({ product, priority = false, searc
             <span className="text-xs font-bold text-[#B12704]">Only {product.stock} left in stock - order soon.</span>
           ) : null}
           
-          <div className="w-full flex gap-2">
-            <AddToCartButton 
-              product={product as any} 
-              className="flex-1 h-8 text-sm bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 border border-[#FCD200] rounded-full shadow-sm"
-            />
+          <div className="w-full flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <AddToCartButton 
+                product={product as any} 
+                className="w-full h-9 text-sm font-medium bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-full shadow-sm"
+              />
+            </div>
+            <button
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                openQuickView(product as any, productList)
+              }}
+              className="w-9 h-9 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-full border border-[#D5D9D9] shadow-sm transition-colors shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#007185]"
+              title="Quick View"
+            >
+              <Eye className="w-[18px] h-[18px]" />
+            </button>
             <button 
               onClick={handleShare}
-              className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full border border-gray-300 transition-colors shrink-0"
+              className="w-9 h-9 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-full border border-[#D5D9D9] shadow-sm transition-colors shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#007185]"
               title="Share this product"
             >
-              <Share2 className="w-4 h-4" />
+              <Share2 className="w-[18px] h-[18px]" />
             </button>
           </div>
         </div>

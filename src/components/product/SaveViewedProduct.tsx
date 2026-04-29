@@ -10,6 +10,7 @@ interface Product {
   slug: string
   price: number
   image: string
+  images?: string[]
   original_price?: number
   selling_price?: number
   bulk_price?: number | null

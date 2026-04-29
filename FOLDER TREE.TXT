@@ -189,6 +189,7 @@ razack-packaging-centre/
 │   │   │   └── InvoiceDocument.tsx
 │   │   ├── product/
 │   │   │   ├── AddToCartButton.tsx
+│   │   │   ├── BuyNowButton.tsx
 │   │   │   ├── FilterDrawer.tsx
 │   │   │   ├── FilterSidebar.tsx
 │   │   │   ├── ProductCard.tsx
@@ -196,7 +197,9 @@ razack-packaging-centre/
 │   │   │   ├── ProductImage.tsx
 │   │   │   ├── ProductImageGallery.tsx
 │   │   │   ├── ProductsGrid.tsx
+│   │   │   ├── ProductWishlistButton.tsx
 │   │   │   ├── QuantitySelector.tsx
+│   │   │   ├── QuickViewModal.tsx
 │   │   │   ├── RecentlyViewed.tsx
 │   │   │   ├── RelatedProducts.tsx
 │   │   │   ├── SaveViewedProduct.tsx
@@ -247,6 +250,7 @@ razack-packaging-centre/
 │   │   └── wishlist.service.ts
 │   ├── store/
 │   │   ├── cart.store.ts
+│   │   ├── quickview.store.ts
 │   │   └── wishlist.store.ts
 │   ├── types/
 │   │   └── database.types.ts
@@ -260,7 +264,6 @@ razack-packaging-centre/
 ├── components.json
 ├── eslint.config.mjs
 ├── FOLDER TREE.TXT
-├── FOLDER_TREE_AUTO.TXT
 ├── next-env.d.ts
 ├── next.config.ts
 ├── package-lock.json

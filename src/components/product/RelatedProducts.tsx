@@ -33,7 +33,7 @@ export default function RelatedProducts({ currentProductId, categoryId }: Relate
   if (loading) {
     return (
       <div className="pb-8">
-        <h2 className="text-[15px] sm:text-lg md:text-xl font-bold text-gray-900 mb-4 md:mb-6 tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">Customers who viewed this item also viewed</h2>
+        <h2 className="text-base sm:text-xl md:text-2xl font-bold text-gray-900 mb-4 md:mb-6 tracking-tight leading-snug">Customers who viewed this item also viewed</h2>
         <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6">
           {[...Array(6)].map((_, i) => (
             <div key={i} className="animate-pulse w-[220px] flex-shrink-0">
@@ -51,13 +51,13 @@ export default function RelatedProducts({ currentProductId, categoryId }: Relate
 
   return (
     <div className="pb-8">
-      <h2 className="text-[15px] sm:text-lg md:text-xl font-bold text-gray-900 mb-4 md:mb-6 tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">Customers who viewed this item also viewed</h2>
+      <h2 className="text-base sm:text-xl md:text-2xl font-bold text-gray-900 mb-4 md:mb-6 tracking-tight leading-snug">Customers who viewed this item also viewed</h2>
       
       <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 snap-x">
         {products.map((product) => (
           <div key={product.id} className="w-[220px] flex-shrink-0 snap-start h-full">
              {/* Reusing the exact logic and design of your main ProductCard */}
-            <ProductCard product={product} priority={false} />
+            <ProductCard product={product} priority={false} productList={products} />
           </div>
         ))}
       </div>

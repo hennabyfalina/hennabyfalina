@@ -8,6 +8,7 @@ import AddToCartButton from '@/components/product/AddToCartButton'
 import ProductImageGallery from '@/components/product/ProductImageGallery'
 import SaveViewedProduct from '@/components/product/SaveViewedProduct'
 import ShareButton from '@/components/product/ShareButton'
+import ProductWishlistButton from '@/components/product/ProductWishlistButton'
 import StarRating from '@/components/product/StarRating'
 import { MapPin, Lock, Tag } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
@@ -88,6 +89,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           slug: product.slug,
           price: product.price,
           image: product.images?.[0] || '',
+          images: product.images || [],
           selling_price: product.selling_price || product.price,
           bulk_price: product.bulk_price,
           bulk_min_quantity: product.bulk_min_quantity,
@@ -131,7 +133,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 <Link href="/products" className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline transition-colors">
                   Visit the {siteConfig.shortName} Store
                 </Link>
-                <ShareButton productName={product.name} productSlug={product.slug} />
+                <div className="flex items-center gap-4">
+                  <ProductWishlistButton productId={product.id} />
+                  <ShareButton productName={product.name} productSlug={product.slug} />
+                </div>
               </div>
               
               <div className="flex items-center gap-2 mb-4 mt-2">
@@ -258,11 +263,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
               <div>
                 <p className="text-sm text-[#0F1111]">
-                  FREE delivery <span className="font-bold">Tomorrow</span>.
+                  FREE delivery <span className="font-bold">Today/Tomorrow</span>.
                 </p>
                 <div className="flex items-center gap-1 mt-2 text-sm text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer">
                   <MapPin className="w-4 h-4 text-gray-400" />
-                  <span>Deliver to Chennai 600001</span>
+                  <span>Deliver to all over India</span>
                 </div>
               </div>
 

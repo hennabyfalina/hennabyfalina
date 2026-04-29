@@ -20,10 +20,10 @@ export default function ProductsGrid({ products }: ProductsGridProps) {
       {products.map((product, index) => (
         <div key={product.id} className="h-full">
           <div className="hidden sm:block h-full">
-            <ProductCard product={product} priority={index < 4} searchQuery={searchQuery} />
+            <ProductCard product={product} priority={index < 4} searchQuery={searchQuery} productList={products} />
           </div>
           <div className="block sm:hidden">
-            <ProductHorizontalCard product={product} priority={index < 2} searchQuery={searchQuery} />
+            <ProductHorizontalCard product={product} priority={index < 2} searchQuery={searchQuery} productList={products} />
           </div>
         </div>
       ))}

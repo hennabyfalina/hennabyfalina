@@ -2,13 +2,15 @@
 
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import FilterSidebar from '@/components/product/FilterSidebar'
 import FilterDrawer from '@/components/product/FilterDrawer'
 import ProductsGrid from '@/components/product/ProductsGrid'
 
 export interface Product {
+  bulk_min_quantity: null
+  rating: number
   id: string
   name: string
   slug: string
@@ -38,6 +40,16 @@ export default function ProductsClientView({ initialProducts, categories }: Prod
   const minPrice = searchParams.get('min') || ''
   const maxPrice = searchParams.get('max') || ''
   const sort = searchParams.get('sort') || 'newest'
+  const rating = searchParams.get('rating') || ''
+  const discount = searchParams.get('discount') || ''
+  const bulk = searchParams.get('bulk') || ''
+  const inStock = searchParams.get('inStock') || ''
+
+  const [visibleCount, setVisibleCount] = useState(10)
+
+  useEffect(() => {
+    setVisibleCount(10)
+  }, [categoryId, search, minPrice, maxPrice, sort, rating, discount, bulk, inStock])
 
   const updateFilters = useCallback((updates: Record<string, string | null>) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -77,6 +89,28 @@ export default function ProductsClientView({ initialProducts, categories }: Prod
     if (minPrice) result = result.filter(p => (p.selling_price || p.price) >= parseFloat(minPrice))
     if (maxPrice) result = result.filter(p => (p.selling_price || p.price) <= parseFloat(maxPrice))
 
+    if (rating) {
+      result = result.filter(p => (p.rating ?? 4.5) >= parseFloat(rating))
+    }
+
+    if (discount) {
+      result = result.filter(p => {
+        const rp = p.price ?? 0
+        const sp = p.selling_price ?? rp
+        if (rp <= sp) return false
+        const pct = Math.round(((rp - sp) / rp) * 100)
+        return pct >= parseInt(discount, 10)
+      })
+    }
+
+    if (bulk === 'true') {
+      result = result.filter(p => p.bulk_price != null && p.bulk_min_quantity != null)
+    }
+
+    if (inStock === 'true') {
+      result = result.filter(p => p.stock > 0)
+    }
+
     switch (sort) {
       case 'price_asc': result.sort((a, b) => (a.selling_price || a.price) - (b.selling_price || b.price)); break;
       case 'price_desc': result.sort((a, b) => (b.selling_price || b.price) - (a.selling_price || a.price)); break;
@@ -85,7 +119,7 @@ export default function ProductsClientView({ initialProducts, categories }: Prod
     }
 
     return result
-  }, [initialProducts, categories, categoryId, search, minPrice, maxPrice, sort])
+  }, [initialProducts, categories, categoryId, search, minPrice, maxPrice, sort, rating, discount, bulk, inStock])
 
   const categoriesWithCounts = categories.map(cat => ({
     ...cat,
@@ -98,6 +132,10 @@ export default function ProductsClientView({ initialProducts, categories }: Prod
     currentSort: sort,
     minPrice,
     maxPrice,
+    rating,
+    discount,
+    bulk,
+    inStock,
     updateFilters,
     clearFilters
   }
@@ -141,7 +179,19 @@ export default function ProductsClientView({ initialProducts, categories }: Prod
             </button>
           </div>
         ) : (
-          <ProductsGrid products={filteredProducts} />
+              <>
+                <ProductsGrid products={filteredProducts.slice(0, visibleCount)} />
+                {visibleCount < filteredProducts.length && (
+                  <div className="mt-8 flex justify-center pb-8">
+                    <button
+                      onClick={() => setVisibleCount(prev => prev + 10)}
+                      className="px-8 py-2.5 bg-white hover:bg-gray-50 border border-[#D5D9D9] rounded-full text-sm font-bold text-[#0F1111] shadow-sm transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#007185]"
+                    >
+                      Load more products
+                    </button>
+                  </div>
+                )}
+              </>
         )}
       </div>
     </div>
