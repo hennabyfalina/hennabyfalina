@@ -2,7 +2,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCart } from '@/hooks/useCart'
@@ -24,6 +24,7 @@ export default function CheckoutPage() {
   const router = useRouter()
   const { items, totalItems, totalPrice, clearCart } = useCart()
   
+  const [mounted, setMounted] = useState(false)
   const [savedAddresses, setSavedAddresses] = useState<any[]>([])
   const [isAuthChecking, setIsAuthChecking] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -46,6 +47,42 @@ export default function CheckoutPage() {
   const hasBulkDiscount = items.some((item: any) => 
     item.bulk_price && item.bulk_min_quantity && item.quantity >= item.bulk_min_quantity
   )
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Keep a fresh reference to the modal state so the popstate listener sees the current value
+  const showConfirmModalRef = useRef(showConfirmModal)
+  useEffect(() => {
+    showConfirmModalRef.current = showConfirmModal
+  }, [showConfirmModal])
+
+  // 🚨 SMART INTERCEPT: Catch Browser Back Button & Swipe Gestures
+  useEffect(() => {
+    if (!mounted || isAuthChecking || isProcessing || isNavigatingToCart) return
+
+    // Push a trap state into the history stack if it isn't there already
+    if (!window.history.state?.checkoutTrap) {
+      window.history.pushState({ checkoutTrap: true }, '', window.location.href)
+    }
+
+    const handlePopState = () => {
+      // Instantly push the state back to trap the user on the page
+      window.history.pushState({ checkoutTrap: true }, '', window.location.href)
+      
+      if (showConfirmModalRef.current) {
+        // If the user is reviewing the order, swiping back just closes that modal
+        setShowConfirmModal(false)
+      } else {
+        // Otherwise, it pops up the "Return to Cart?" warning
+        setShowCartWarningModal(true)
+      }
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [mounted, isAuthChecking, isProcessing, isNavigatingToCart])
 
   const handleClearAddressForm = () => {
     setFormData({
@@ -468,8 +505,9 @@ export default function CheckoutPage() {
                         </div>
                         <div className="mt-3 pt-3 border-t border-[#D5D9D9]">
                           <p className="font-bold mb-1 text-[#007185]">{siteConfig.name}</p>
-                          <p>{siteConfig.address.line1}, {siteConfig.address.line2}</p>
-                          <p>{siteConfig.address.city} - {siteConfig.address.pincode}, {siteConfig.address.state}, {siteConfig.address.country}</p>
+                          <p>{siteConfig.address.line1}</p>
+                          <p>{siteConfig.address.line2}</p>
+                          <p>{siteConfig.address.city}, {siteConfig.address.state}, {siteConfig.address.country} – {siteConfig.address.pincode}</p>
                           <p className="mt-1"><span className="text-gray-500 font-medium">Phone: </span>{siteConfig.contact.phone.primary}, {siteConfig.contact.phone.secondary}</p>
                           <p className="mt-1"><span className="text-gray-500 font-medium">Hours: </span>{siteConfig.business.workingHours}</p>
                         </div>

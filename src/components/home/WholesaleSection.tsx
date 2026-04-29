@@ -10,12 +10,12 @@ export default function WholesaleSection() {
     <div className="bg-white p-5 sm:p-6 rounded-sm shadow-[0_1px_4px_rgba(0,0,0,0.1)] flex flex-col h-full">
       <div className="flex items-center gap-3 mb-3">
         <TrendingUp className="w-6 h-6 text-[#007185]" />
-        <h2 className="text-lg sm:text-xl font-bold text-gray-900">Wholesale Pricing</h2>
+        <h2 className="text-lg sm:text-2xl font-bold text-gray-900">Wholesale Pricing</h2>
       </div>
-      <p className="text-sm text-gray-600 mb-4 flex-1">
+      <p className="text-md text-gray-600 mb-4 flex-1">
         Get the best rates for bulk orders. We offer competitive wholesale pricing for businesses, retailers, and high-volume buyers.
       </p>
-      <ul className="text-sm text-gray-700 space-y-2 mb-6">
+      <ul className="text-md text-gray-700 space-y-2 mb-6">
         <li className="flex items-center gap-2"><span className="text-green-600 font-bold">✓</span> Free samples available</li>
         <li className="flex items-center gap-2"><span className="text-green-600 font-bold">✓</span> Custom branding options</li>
         <li className="flex items-center gap-2"><span className="text-green-600 font-bold">✓</span> Pan-India delivery</li>

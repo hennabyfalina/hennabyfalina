@@ -52,6 +52,54 @@ export const getProductsWithSignedUrls = cache(async (useCache: boolean = true):
   return productsWithPublicUrls
 })
 
+export async function getRecentlyBoughtProductsForUser(userId: string, limit: number = 8): Promise<Product[]> {
+  const supabase = await createServerClient()
+
+  // 1. Get order IDs for the given user
+  const { data: ordersData, error: ordersError } = await supabase
+    .from('orders')
+    .select('id')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false }) // Get most recent orders first
+    .limit(50); // Limit the number of orders to check to avoid fetching too much data
+
+  if (ordersError) {
+    console.error('Error fetching user orders:', ordersError);
+    return [];
+  }
+
+  const orderIds = ordersData.map(order => order.id);
+
+  if (orderIds.length === 0) {
+    return [];
+  }
+
+  // 2. Get unique product IDs from these orders
+  const { data: orderItemsData, error: orderItemsError } = await supabase
+    .from('order_items')
+    .select('product_id')
+    .in('order_id', orderIds)
+    .order('created_at', { ascending: false }); // Order by item creation to get more recent items first
+
+  if (orderItemsError) {
+    console.error('Error fetching order items for user orders:', orderItemsError);
+    return [];
+  }
+
+  if (!orderItemsData || orderItemsData.length === 0) {
+    return [];
+  }
+
+  // Extract unique product IDs, maintaining some recency if possible
+  const uniqueProductIds = Array.from(new Set(orderItemsData.map(item => item.product_id)));
+
+  // 3. Fetch full product details for these unique IDs
+  // Use getProductsByIdsWithSignedUrls which already handles public URLs
+  const products = await getProductsByIdsWithSignedUrls(uniqueProductIds.slice(0, limit));
+
+  return products;
+}
+
 export const getProductBySlug = cache(async (slug: string): Promise<Product | null> => {
   const supabase = await createServerClient()
   const { data, error } = await supabase.from('products').select('*').eq('slug', slug).single()
@@ -59,6 +107,23 @@ export const getProductBySlug = cache(async (slug: string): Promise<Product | nu
   return data
 })
 
+export async function getProductsByIdsWithSignedUrls(productIds: string[]): Promise<Product[]> {
+  if (!productIds || productIds.length === 0) return []
+
+  const supabase = await createServerClient()
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .in('id', productIds)
+
+  if (error) {
+    console.error('Error fetching bundle products:', error)
+    return []
+  }
+
+  // Assuming addPublicUrls handles the transformation for images
+  return addPublicUrls(data || [])
+}
 export const getProductById = cache(async (id: string): Promise<Product | null> => {
   const supabase = await createServerClient()
   const { data, error } = await supabase.from('products').select('*').eq('id', id).single()

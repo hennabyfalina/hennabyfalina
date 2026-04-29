@@ -133,7 +133,6 @@ export default function ContactPage() {
                     <div className="font-bold text-gray-900 text-sm mb-1">Call Us</div>
                     <div className="text-gray-600 text-sm">{siteConfig.contact.phone.primary}</div>
                     <div className="text-gray-600 text-sm mt-1">{siteConfig.contact.phone.secondary}</div>
-                    <div className="text-xs text-gray-500 mt-1">Available Mon-Sat, 9AM to 7PM</div>
                   </div>
                 </div>
                 <div className="flex gap-3">
@@ -142,8 +141,7 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <div className="font-bold text-gray-900 text-sm mb-1">Email Us</div>
-                    <div className="text-gray-600 text-sm">{siteConfig.contact.email.orders}</div>
-                    <div className="text-xs text-gray-500 mt-1">We reply within 24 hours</div>
+                    <div className="text-gray-600 text-sm">{siteConfig.contact.email.support}</div>
                   </div>
                 </div>
                 <div className="flex gap-3">
@@ -155,8 +153,7 @@ export default function ContactPage() {
                     <div className="text-gray-600 text-sm leading-relaxed">
                       {siteConfig.address.line1},<br />
                       {siteConfig.address.line2},<br />
-                      {siteConfig.address.city} - {siteConfig.address.pincode},<br />
-                      {siteConfig.address.state}, {siteConfig.address.country}
+                      {siteConfig.address.city}, {siteConfig.address.state}, {siteConfig.address.country} – {siteConfig.address.pincode}<br />
                     </div>
                   </div>
                 </div>

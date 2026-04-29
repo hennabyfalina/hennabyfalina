@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { History, Eye } from 'lucide-react'
+import { Eye } from 'lucide-react'
 import ProductCard from '@/components/product/ProductCard'
 
 interface ViewedProduct {
@@ -86,8 +86,7 @@ export default function RecentlyViewed() {
   return (
     <div className="w-full mt-4">
       <div className="flex items-center gap-2 mb-6">
-        <History className="w-6 h-6 text-[#C7511F]" />
-        <h3 className="font-bold text-gray-900 text-xl tracking-tight">Recently Viewed</h3>
+        <h3 className="font-bold text-gray-900 text-2xl tracking-tight">Recently Viewed</h3>
       </div>
       
       <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 snap-x">

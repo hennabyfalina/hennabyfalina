@@ -36,8 +36,7 @@ export default function StorePickupInfo() {
             <p className="text-sm text-[#0F1111] leading-relaxed whitespace-pre-line mt-1">
               {siteConfig.address.line1},<br />
               {siteConfig.address.line2},<br />
-              {siteConfig.address.city} - {siteConfig.address.pincode},<br />
-              {siteConfig.address.state}, {siteConfig.address.country}
+              {siteConfig.address.city}, {siteConfig.address.state}, {siteConfig.address.country} – {siteConfig.address.pincode}<br />
             </p>
           </div>
         </div>

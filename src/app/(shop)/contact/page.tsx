@@ -205,7 +205,7 @@ export default function ContactPage() {
                   <div>
                     <p className="font-bold text-gray-900 text-sm mb-1">Email Us</p>
                     <a href={`mailto:${siteConfig.contact.email.orders}`} className="text-gray-600 text-sm hover:text-[#C7511F] transition-colors block">
-                      {siteConfig.contact.email.orders}
+                      {siteConfig.contact.email.support}
                     </a>
                   </div>
                 </div>
@@ -219,8 +219,7 @@ export default function ContactPage() {
                     <p className="text-gray-600 text-sm leading-relaxed">
                       {siteConfig.address.line1},<br />
                       {siteConfig.address.line2},<br />
-                      {siteConfig.address.city} - {siteConfig.address.pincode},<br />
-                      {siteConfig.address.state}, {siteConfig.address.country}
+                      {siteConfig.address.city}, {siteConfig.address.state}, {siteConfig.address.country} – {siteConfig.address.pincode}<br />
                     </p>
                     <a 
                       href={`https://maps.google.com/?q=${encodeURIComponent(`${siteConfig.name} ${siteConfig.address.city}`)}`}
@@ -240,17 +239,9 @@ export default function ContactPage() {
                   <Clock className="w-4 h-4 text-[#e77600]" /> Business Hours
                 </h3>
                 <div className="space-y-3 text-sm text-gray-600">
-                  <div className="flex justify-between items-center">
-                    <span>Mon - Fri</span>
-                    <span className="font-medium text-gray-900">9 AM - 7 PM</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Saturday</span>
-                    <span className="font-medium text-gray-900">9 AM - 5 PM</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Sunday</span>
-                    <span className="font-medium text-gray-900">Closed</span>
+                  <div className="flex flex-col gap-1">
+                    <span className="font-medium text-gray-900">{siteConfig.business.workingHours}</span>
+                    <span className="text-xs text-gray-500">Standard business days</span>
                   </div>
                 </div>
               </div>

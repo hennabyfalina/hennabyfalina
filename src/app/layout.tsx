@@ -51,7 +51,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'default',
     title: siteConfig.shortName,
   },
   formatDetection: {
@@ -117,6 +117,16 @@ export default function RootLayout({
             -webkit-tap-highlight-color: transparent;
           }
           
+          /* Clean minimal text selection matching brand */
+          ::selection {
+            background-color: #004B91;
+            color: #FFFFFF;
+          }
+          ::-moz-selection {
+            background-color: #004B91;
+            color: #FFFFFF;
+          }
+
           /* Prevent text selection on interactive elements */
           a, button, [role="button"] {
             -webkit-user-select: none;

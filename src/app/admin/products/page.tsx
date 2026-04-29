@@ -183,6 +183,7 @@ export default function AdminProducts() {
         meta_description: payload.meta_description || null,
         rating: payload.rating ?? 4.5,
         review_count: payload.review_count ?? 128,
+        frequently_bought_together: payload.frequently_bought_together || [],
       }
 
       if (editingProduct) {
@@ -539,8 +540,9 @@ export default function AdminProducts() {
           title={editingProduct ? 'Edit Product' : 'Add New Product'}
         >
           <ProductForm
-            initialData={editingProduct || undefined}
+            initialData={editingProduct ? { ...editingProduct, frequently_bought_together: editingProduct.frequently_bought_together || [] } : undefined}
             categories={categories}
+            allProducts={products.map(p => ({ id: p.id, name: p.name }))}
             onSubmit={handleSubmit}
             isLoading={isSubmitting}
           />

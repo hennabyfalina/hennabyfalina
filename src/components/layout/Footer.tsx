@@ -2,7 +2,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ChevronDown } from 'lucide-react'
@@ -12,12 +12,21 @@ export default function Footer() {
   const pathname = usePathname()
   const [openSection, setOpenSection] = useState<string | null>(null)
 
-  // 🚨 SMART ROUTING: Add any URL paths here where you want the footer completely HIDDEN
-  const hiddenRoutes = ['/', '/checkout', '/products', '/categories', '/contact', '/terms', '/privacy', '/faq', '/returns-refunds', '/support', '/search', '/profile', '/admin-gate', '/login', '/cart', '/profile/orders', '/profile/settings', '/profile/addresses', '/profile/payments', '/profile/security']
+  const [isStandalone, setIsStandalone] = useState(false)
   
-  // If the current URL starts with any of the hidden routes, render nothing!
+  useEffect(() => {
+    // Detect if running as an installed App (PWA Standalone mode)
+    const isAppStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
+    setIsStandalone(isAppStandalone)
+  }, [])
+
+  // 🚨 SMART ROUTING: Only hide the footer unconditionally on these specific pages
+  const hiddenRoutes = ['/checkout', '/admin-gate']
+  
   const shouldHideFooter = hiddenRoutes.some(route => pathname.startsWith(route))
-  if (shouldHideFooter) {
+  
+  // Hide completely if on checkout/admin, OR if the user is using the installed App
+  if (shouldHideFooter || isStandalone) {
     return null
   }
 
@@ -103,16 +112,20 @@ export default function Footer() {
             <ul className={`space-y-3 text-sm text-gray-400 ${openSection === 'contact' ? 'block pb-2' : 'hidden md:block'}`}>
               <li className="flex flex-col gap-1">
                 <span className="text-white/60 text-xs uppercase tracking-wider">Email</span>
-                <a href={`mailto:${siteConfig.contact.email.orders}`} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
-                  {siteConfig.contact.email.orders}
+                <a href={`mailto:${siteConfig.contact.email.orders}`} className="text-sm font-medium text-[#007185] hover:text-[#C7511F] transition-colors break-all">
+                {siteConfig.contact.email.orders}
+                </a>
+                <div className="h-1" />
+                <a href={`mailto:${siteConfig.contact.email.support}`} className="text-sm font-medium text-[#007185] hover:text-[#C7511F] transition-colors break-all">
+                {siteConfig.contact.email.support}
                 </a>
               </li>
               <li className="flex flex-col gap-1">
                 <span className="text-white/60 text-xs uppercase tracking-wider">Phone</span>
-                <a href={`tel:${siteConfig.contact.phone.primary}`} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+                <a href={`tel:${siteConfig.contact.phone.primary}`} target="_blank" rel="noopener noreferrer" className="hover:text-orange-400 transition-colors">
                   {siteConfig.contact.phone.primary}
                 </a>
-                <a href={`tel:${siteConfig.contact.phone.secondary}`} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+                <a href={`tel:${siteConfig.contact.phone.secondary}`} target="_blank" rel="noopener noreferrer" className="hover:text-orange-400 transition-colors">
                   {siteConfig.contact.phone.secondary}
                 </a>
               </li>
@@ -121,13 +134,12 @@ export default function Footer() {
                 <span className="leading-relaxed">
                   {siteConfig.address.line1},<br />
                   {siteConfig.address.line2},<br />
-                  {siteConfig.address.city} - {siteConfig.address.pincode},<br />
-                  {siteConfig.address.state}, {siteConfig.address.country}
+                  {siteConfig.address.city}, {siteConfig.address.state}, {siteConfig.address.country} – {siteConfig.address.pincode}<br />
                 </span>
               </li>
               <li className="flex flex-col gap-1">
                 <span className="text-white/60 text-xs uppercase tracking-wider">GSTIN</span>
-                <span className="text-white/80">{siteConfig.business.gstin}</span>
+                <span className="leading-relaxed">{siteConfig.business.gstin}</span>
               </li>
             </ul>
           </div>

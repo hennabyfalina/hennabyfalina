@@ -31,8 +31,9 @@ export default function FeaturedProductsSection({ products, title }: FeaturedPro
   return (
     <div className="bg-white p-4 sm:p-5 rounded-sm shadow-[0_1px_4px_rgba(0,0,0,0.1)] overflow-hidden">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg sm:text-xl font-bold text-gray-900">{title}</h2>
-        <Link href="/products" target="_blank" rel="noopener noreferrer" className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline">
+        <h2 className="text-lg sm:text-2xl font-bold text-gray-900">{title}</h2>
+        <Link href="/products" target="_blank" rel="noopener noreferrer" 
+        className="text-sm font-semibold text-[#007185] hover:text-[#C7511F] hover:underline transition-colors">
           See all deals
         </Link>
       </div>

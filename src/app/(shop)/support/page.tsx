@@ -146,7 +146,6 @@ export default function SupportPage() {
                 <Phone className="w-6 h-6 text-[#e77600]" />
               </div>
               <h3 className="font-bold text-gray-900 mb-2">Call Us</h3>
-              <p className="text-sm text-gray-600 mb-2">Available Mon-Sat, 9AM - 7PM</p>
               <a href={`tel:${siteConfig.contact.phone.primary}`} className="text-lg font-bold text-[#007185] hover:text-[#C7511F] transition-colors block mb-1">
                 {siteConfig.contact.phone.primary}
               </a>
@@ -162,9 +161,12 @@ export default function SupportPage() {
                 <Mail className="w-6 h-6 text-[#e77600]" />
               </div>
               <h3 className="font-bold text-gray-900 mb-2">Email Us</h3>
-              <p className="text-sm text-gray-600 mb-2">We reply within 24 hours</p>
               <a href={`mailto:${siteConfig.contact.email.orders}`} className="text-sm font-medium text-[#007185] hover:text-[#C7511F] transition-colors break-all">
                 {siteConfig.contact.email.orders}
+              </a>
+              <div className="h-1" />
+              <a href={`mailto:${siteConfig.contact.email.support}`} className="text-sm font-medium text-[#007185] hover:text-[#C7511F] transition-colors break-all">
+                {siteConfig.contact.email.support}
               </a>
               <p className="text-xs text-gray-500 mt-2">Include your order number for faster service</p>
             </div>
@@ -237,8 +239,7 @@ export default function SupportPage() {
               <p className="text-sm text-gray-700 leading-relaxed">
                 {siteConfig.address.line1},<br />
                 {siteConfig.address.line2},<br />
-                {siteConfig.address.city} - {siteConfig.address.pincode},<br />
-                {siteConfig.address.state}, {siteConfig.address.country}
+                {siteConfig.address.city}, {siteConfig.address.state}, {siteConfig.address.country} – {siteConfig.address.pincode}<br />
               </p>
               <a 
                 href={`https://maps.google.com/?q=${encodeURIComponent(`${siteConfig.name} ${siteConfig.address.city}`)}`}
@@ -256,16 +257,8 @@ export default function SupportPage() {
               </div>
               <div className="space-y-2 text-sm text-gray-700">
                 <div className="flex justify-between">
-                  <span>Monday - Friday:</span>
-                  <span className="font-medium">9:00 AM - 7:00 PM</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Saturday:</span>
-                  <span className="font-medium">9:00 AM - 5:00 PM</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Sunday:</span>
-                  <span className="font-medium">Closed</span>
+                  <span>Business Hours:</span>
+                  <span className="font-medium">{siteConfig.business.workingHours}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Response Time:</span>

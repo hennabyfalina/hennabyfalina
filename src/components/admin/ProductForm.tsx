@@ -26,11 +26,13 @@ interface ProductFormData {
   meta_description?: string | null
   rating?: number | null
   review_count?: number | null
+  frequently_bought_together: string[]
 }
 
 interface ProductFormProps {
   initialData?: Partial<ProductFormData> & { id?: string }
   categories: Array<{ id: string; name: string }>
+  allProducts: Array<{ id: string; name: string }>
   onSubmit: (data: ProductFormData) => Promise<void>
   isLoading?: boolean
 }
@@ -93,6 +95,7 @@ const validateProduct = (data: ProductFormData): { isValid: boolean; errors: str
 export default function ProductForm({
   initialData = {},
   categories,
+  allProducts,
   onSubmit,
   isLoading = false,
 }: ProductFormProps) {
@@ -117,6 +120,7 @@ export default function ProductForm({
     meta_description: initialData.meta_description || null,
     rating: initialData.rating ?? 4.5,
     review_count: initialData.review_count ?? 128,
+    frequently_bought_together: initialData.frequently_bought_together || [],
   })
 
   const [formData, setFormData] = useState<ProductFormData>(initialFormData)
@@ -128,8 +132,9 @@ export default function ProductForm({
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
   const [deleteConfirmPath, setDeleteConfirmPath] = useState<string | null>(null)
   const [showSaveConfirm, setShowSaveConfirm] = useState(false)
-  const [activeTab, setActiveTab] = useState<'basic' | 'images' | 'inventory' | 'seo'>('basic')
+  const [activeTab, setActiveTab] = useState<'basic' | 'images' | 'inventory' | 'seo' | 'bundles'>('basic')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [bundleSearch, setBundleSearch] = useState('')
 
   // Check if user has made any modifications
   const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData) || newImageFiles.length > 0
@@ -355,7 +360,7 @@ export default function ProductForm({
         {/* Tab Navigation - Responsive */}
         <div className="border-b border-gray-200 overflow-x-auto">
           <nav className="flex gap-1 sm:gap-2 min-w-max">
-            {['basic', 'images', 'inventory', 'seo'].map((tab) => (
+            {['basic', 'images', 'inventory', 'seo', 'bundles'].map((tab) => (
               <button
                 key={tab}
                 type="button"
@@ -370,6 +375,7 @@ export default function ProductForm({
                 {tab === 'images' && 'Images'}
                 {tab === 'inventory' && 'Inventory'}
                 {tab === 'seo' && 'SEO'}
+                {tab === 'bundles' && 'Bundles'}
               </button>
             ))}
           </nav>
@@ -808,6 +814,57 @@ export default function ProductForm({
               <p className="text-xs text-gray-500 mt-1">
                 {formData.meta_description?.length || 0}/160 characters
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Bundles Tab - Responsive */}
+        {activeTab === 'bundles' && (
+          <div className="space-y-4 animate-in fade-in">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Frequently Bought Together
+              </label>
+              <p className="text-xs text-gray-500 mb-3">Select products to recommend as a bundle on this product's page.</p>
+              
+              <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col h-[300px]">
+                <div className="p-2 border-b border-gray-200 bg-gray-50">
+                  <input
+                    type="text"
+                    placeholder="Search products..."
+                    value={bundleSearch}
+                    onChange={(e) => setBundleSearch(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex-1 overflow-y-auto p-2 space-y-1 bg-white">
+                  {allProducts
+                    .filter(p => p.id !== initialData?.id) // Prevent self-bundling
+                    .filter(p => p.name.toLowerCase().includes(bundleSearch.toLowerCase()))
+                    .map(p => {
+                      const isSelected = formData.frequently_bought_together.includes(p.id)
+                      return (
+                        <label key={p.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer border border-transparent hover:border-gray-100 transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              const checked = e.target.checked
+                              setFormData(prev => ({
+                                ...prev,
+                                frequently_bought_together: checked 
+                                  ? [...prev.frequently_bought_together, p.id]
+                                  : prev.frequently_bought_together.filter(id => id !== p.id)
+                              }))
+                            }}
+                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+                          />
+                          <span className="text-sm text-gray-700 select-none flex-1">{p.name}</span>
+                        </label>
+                      )
+                    })}
+                </div>
+              </div>
             </div>
           </div>
         )}

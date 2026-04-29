@@ -2,7 +2,7 @@
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getProductWithSignedUrls } from '@/services/product.service'
+import { getProductWithSignedUrls, getProductsByIdsWithSignedUrls } from '@/services/product.service'
 import Container from '@/components/ui/Container'
 import AddToCartButton from '@/components/product/AddToCartButton'
 import ProductImageGallery from '@/components/product/ProductImageGallery'
@@ -14,6 +14,10 @@ import { MapPin, Lock, Tag } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { siteConfig } from '@/config/site'
 import dynamic from 'next/dynamic'
+
+const FrequentlyBoughtTogether = dynamic(() => import('@/components/product/FrequentlyBoughtTogether'), {
+  loading: () => <div className="w-full h-32 bg-gray-50 animate-pulse rounded-lg mt-8" />
+})
 
 const RelatedProducts = dynamic(() => import('@/components/product/RelatedProducts'), {
   loading: () => <div className="w-full h-64 bg-gray-50 animate-pulse rounded-lg mt-8" />
@@ -49,6 +53,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   if (!product) {
     notFound()
+  }
+
+  // Phase 1: Fetch the Frequently Bought Together bundle
+  let bundleProducts: any[] = []
+  if (product.frequently_bought_together && product.frequently_bought_together.length > 0) {
+    bundleProducts = await getProductsByIdsWithSignedUrls(product.frequently_bought_together)
   }
 
   const hasStock = product.stock > 0
@@ -306,6 +316,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </div>
           </div>
 
+        </div>
+
+        {/* Frequently Bought Together Bundle */}
+        <div className="mt-10 md:mt-12">
+          <FrequentlyBoughtTogether mainProduct={product as any} bundleProducts={bundleProducts} />
         </div>
 
         {/* Separator before Related */}

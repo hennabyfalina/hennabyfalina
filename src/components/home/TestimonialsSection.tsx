@@ -7,17 +7,17 @@ import { siteConfig } from '@/config/site'
 
 const testimonials = [
   {
-    name: 'Rajesh Mehta',
-    role: 'Mehta Enterprises',
+    name: 'Saran Kumar',
+    role: 'Leading Enterprises',
     content: `Excellent quality products and reliable delivery. ${siteConfig.shortName} has been our go-to supplier for years.`,
   },
   {
-    name: 'Priya Sharma',
+    name: 'Priya',
     role: 'E-commerce Seller',
     content: 'The attention to detail and professional service is outstanding. Their bulk rates are very competitive.',
   },
   {
-    name: 'Amit Kumar',
+    name: 'Amit Sharma',
     role: 'Retail Owner',
     content: 'Consistent quality. Their boxes are sturdy and perfectly suited for shipping fragile items.',
   }
@@ -26,7 +26,7 @@ const testimonials = [
 export default function TestimonialsSection() {
   return (
     <div className="bg-white p-5 sm:p-6 rounded-sm shadow-[0_1px_4px_rgba(0,0,0,0.1)]">
-      <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-6">What our business partners say</h2>
+      <h2 className="text-lg sm:text-2xl font-bold text-gray-900 mb-6">What our business partners say</h2>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {testimonials.map((test, idx) => (
           <div key={idx} className="bg-gray-50 p-4 border border-gray-100 rounded-sm">

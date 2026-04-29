@@ -20,6 +20,7 @@ export type Product = {
   created_at: string
   updated_at: string
   category_id: string | null
+  frequently_bought_together?: string[] | null;
 }
 
 export type Category = {

@@ -22,13 +22,12 @@ export default function CategorySection({ categories }: CategorySectionProps) {
   return (
     <section className="bg-white p-4 sm:p-6 rounded-sm shadow-[0_1px_4px_rgba(0,0,0,0.1)]">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight">
+        <h2 className="text-lg sm:text-2xl font-bold text-gray-900 tracking-tight">
           Shop by Category
         </h2>
         <Link 
           href="/products" 
-          className="text-sm font-semibold text-[#007185] hover:text-[#C7511F] hover:underline transition-colors"
-        >
+          className="text-sm font-semibold text-[#007185] hover:text-[#C7511F] hover:underline transition-colors">
           See all
         </Link>
       </div>

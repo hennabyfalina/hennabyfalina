@@ -10,9 +10,16 @@ import WhyChooseUsSection from '@/components/home/WhyChooseUsSection'
 import TestimonialsSection from '@/components/home/TestimonialsSection'
 import ContactSection from '@/components/home/ContactSection'
 import { createClient } from '@/lib/supabase/server'
+import dynamic from 'next/dynamic'
+
+const RecentlyBoughtCarousel = dynamic(() => import('@/components/product/RecentlyBoughtCarousel'), {
+  loading: () => <div className="w-full h-[340px] bg-white border border-gray-100 animate-pulse rounded-sm shadow-sm" />
+})
 
 export default async function HomePage() {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const userId = user?.id || null
 
   const { data: categories } = await supabase
     .from('categories')
@@ -42,6 +49,9 @@ export default async function HomePage() {
         {/* Main Content Container with negative margin to pull up over hero gradient */}
         <div className="px-2 sm:px-4 relative z-10 -mt-12 sm:-mt-32 space-y-4 sm:space-y-6">
           <CategorySection categories={categoriesWithCount} />
+          
+          {/* Recently Bought Carousel */}
+          {userId && <RecentlyBoughtCarousel userId={userId} />}
           
           <FeaturedProductsSection products={featuredProducts} title="Featured Products" />
           
