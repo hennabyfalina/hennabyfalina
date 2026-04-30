@@ -15,8 +15,8 @@ export const siteConfig = {
     whatsapp: "+91 63831 51922",
   },
   address: {
-    line1: "No. 195, Anderson Street, N.S.C. Bose Road",
-    line2: "Olympic Habib Complex, George Town",
+    line1: "No. 25, Anderson Street, N.S.C. Bose Road",
+    line2: "(Olympic Habib Complex), Flower Bazaar, George Town",
     city: "Chennai",
     state: "Tamil Nadu",
     pincode: "600001",

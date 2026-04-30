@@ -79,7 +79,7 @@ const globalJsonLd = {
     "@type": "OpeningHoursSpecification",
     "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
     "opens": "10:00",
-    "closes": "20:00"
+    "closes": "22:00"
   }
 }
 
