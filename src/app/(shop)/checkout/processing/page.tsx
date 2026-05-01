@@ -151,7 +151,7 @@ export default function ProcessingPage() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white p-4 animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white p-4 animate-in fade-in duration-300">
       <Script
         src="https://checkout.razorpay.com/v1/checkout.js"
         onReady={() => setIsScriptLoaded(true)}
@@ -160,18 +160,18 @@ export default function ProcessingPage() {
       
       {/* INITIALIZING / PROCESSING STATE */}
       {(paymentState === 'initializing' || paymentState === 'processing') && (
-        <div className="bg-white p-8 md:p-12 rounded-sm shadow-2xl max-w-md w-full text-center border border-gray-200 animate-in zoom-in-95 duration-300">
-          <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+        <div className="bg-white p-8 md:p-12 max-w-md w-full text-center flex flex-col items-center animate-in zoom-in-95 duration-300">
+          <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
             <Lock className="w-8 h-8 text-[#007185] animate-pulse" />
           </div>
-          <h1 className="text-2xl font-extrabold text-[#0F1111] mb-2">Processing Payment</h1>
-          <p className="text-gray-600 mb-8 font-medium">{statusMessage}</p>
+          <h2 className="text-2xl font-extrabold text-[#0F1111] mb-2 tracking-tight">Processing Secure Payment</h2>
+          <p className="text-gray-600 mb-8 font-medium text-sm">{statusMessage}</p>
           
           <div className="flex justify-center mb-8">
             <div className="w-10 h-10 border-4 border-[#007185]/30 border-t-[#007185] rounded-full animate-spin"></div>
           </div>
           
-          <div className="bg-gray-50 rounded-md p-4 flex items-center justify-center gap-2 text-sm text-gray-700 border border-gray-200">
+          <div className="bg-gray-50 rounded-md p-4 flex items-center justify-center gap-2 text-sm text-gray-700 border border-gray-200 w-full">
             <ShieldCheck className="w-5 h-5 text-green-600 shrink-0" />
             <span className="font-medium text-left leading-tight">Please do not refresh, go back, or close this window.</span>
           </div>
@@ -180,30 +180,30 @@ export default function ProcessingPage() {
 
       {/* SUCCESS STATE */}
       {paymentState === 'success' && (
-        <div className="flex flex-col items-center animate-in zoom-in-95 duration-500">
-          <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
-            <Check className="w-12 h-12 text-green-600" />
+        <div className="bg-white p-8 md:p-12 max-w-md w-full text-center flex flex-col items-center animate-in zoom-in-95 duration-500">
+          <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
+            <Check className="w-8 h-8 text-green-600" />
           </div>
-          <h2 className="text-3xl md:text-4xl font-extrabold text-[#0F1111] mb-3 tracking-tight">Order Placed!</h2>
-          <p className="text-lg text-gray-600 font-medium text-center max-w-md mb-8">{statusMessage}</p>
+          <h2 className="text-2xl font-extrabold text-[#0F1111] mb-2 tracking-tight">Payment Successful</h2>
+          <p className="text-gray-600 mb-8 font-medium text-sm">{statusMessage}</p>
           <div className="flex items-center gap-3 text-sm text-green-800 font-bold bg-green-50 px-5 py-3 rounded-full border border-green-200 shadow-sm">
             <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
-            Redirecting to your order...
+            Redirecting to receipt...
           </div>
         </div>
       )}
 
       {/* FAILED STATE */}
       {paymentState === 'failed' && (
-        <div className="flex flex-col items-center animate-in zoom-in-95 duration-500">
-          <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
-            <X className="w-12 h-12 text-red-600" />
+        <div className="bg-white p-8 md:p-12 max-w-md w-full text-center flex flex-col items-center animate-in zoom-in-95 duration-500">
+          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
+            <X className="w-8 h-8 text-red-600" />
           </div>
-          <h2 className="text-3xl md:text-4xl font-extrabold text-[#0F1111] mb-3 tracking-tight">Payment Failed</h2>
-          <p className="text-lg text-gray-600 font-medium text-center max-w-md mb-8">{statusMessage}</p>
+          <h2 className="text-2xl font-extrabold text-[#0F1111] mb-2 tracking-tight">Transaction Declined</h2>
+          <p className="text-gray-600 mb-8 font-medium text-sm">{statusMessage}</p>
           <div className="flex items-center gap-3 text-sm text-red-800 font-bold bg-red-50 px-5 py-3 rounded-full border border-red-200 shadow-sm">
             <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-            Redirecting to failed orders...
+            Returning to merchant...
           </div>
         </div>
       )}

@@ -14,6 +14,7 @@ import { formatCurrency } from '@/lib/utils'
 import { siteConfig } from '@/config/site'
 import { useWishlistStore } from '@/store/wishlist.store'
 import { showToast } from '@/components/ui/Toast'
+import { B2B_CONSTANTS } from '@/config/b2b-rules'
 
 function HighlightMatch({ text, query }: { text: string, query: string }) {
   if (!query) return <span>{text}</span>;
@@ -61,7 +62,10 @@ export default function ProductCard({ product, priority = false, searchQuery = '
     ? '/placeholder-product.svg' 
     : (rawImage.startsWith('http') || rawImage.startsWith('/') ? rawImage : getPublicUrl(rawImage))
 
-  const isOutOfStock = product.stock <= 0
+  // B2B Stock Validation: It is out of stock if we don't even have the minimum retail quantity!
+  const retailMin = B2B_CONSTANTS.RETAIL_MIN_QTY
+  const isOutOfStock = product.stock < retailMin
+
   const sellingPrice = product.selling_price ?? product.price ?? 0
   const regularPrice = product.price ?? 0
   const hasDiscount = regularPrice > sellingPrice
@@ -152,9 +156,10 @@ export default function ProductCard({ product, priority = false, searchQuery = '
               FREE Delivery by <span className="font-bold">{siteConfig.shortName}</span>
             </div>
 
+            {/* B2B Dynamic Stock Alerts */}
             {isOutOfStock ? (
               <span className="text-xs font-bold text-[#B12704] block mt-1">Currently unavailable.</span>
-            ) : product.stock <= 5 ? (
+            ) : product.stock < (retailMin + 150) ? (
               <span className="text-xs font-bold text-[#B12704] block mt-1">Only {product.stock} left in stock - order soon.</span>
             ) : null}
           </div>
@@ -163,8 +168,11 @@ export default function ProductCard({ product, priority = false, searchQuery = '
 
       <div className="mt-3 flex items-center gap-2">
         <div className="flex-1 min-w-0">
+          {/* B2B Quantity Forcing */}
           <AddToCartButton 
             product={product as any} 
+            quantity={retailMin}
+            minQuantity={retailMin}
             className="w-full h-9 text-sm font-medium bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-full shadow-sm"
           />
         </div>

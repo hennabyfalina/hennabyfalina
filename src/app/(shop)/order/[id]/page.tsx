@@ -7,11 +7,12 @@ import { createClient } from '@/lib/supabase/server'
 import Container from '@/components/ui/Container'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { getPublicUrl } from '@/lib/supabase/storage'
-import { ChevronLeft, X } from 'lucide-react'
+import { ChevronLeft, X, ExternalLink, Package } from 'lucide-react' 
 import PrintButton from '@/components/order/PrintButton'
 import TrackingTimeline from '@/components/order/TrackingTimeline'
 import OrderStatusBadge from '@/components/ui/OrderStatusBadge'
-import { revalidatePath } from 'next/cache'
+import StarRating from '@/components/product/StarRating'
+import ProductWishlistButton from '@/components/product/ProductWishlistButton'
 import { siteConfig } from '@/config/site'
 
 interface OrderPageProps {
@@ -28,15 +29,12 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
 
   const { data: { user }, error: userError } = await supabase.auth.getUser()
   
-  // SMART REDIRECT: If they open from WhatsApp without being logged in
   if (userError || !user) {
     redirect(`/login?next=/order/${id}`)
   }
 
-  // 1. Check if the URL parameter is a long UUID or the new short Order Number
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
 
-  // 2. Build the query dynamically based on the URL type
   let query = supabase
     .from('orders')
     .select(`
@@ -47,7 +45,7 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
         products (*)
       )
     `)
-    .eq('user_id', user.id) // Security check
+    .eq('user_id', user.id)
 
   if (isUUID) {
     query = query.eq('id', id)
@@ -55,17 +53,31 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
     query = query.eq('order_number', id)
   }
 
-  // 3. Execute the query
-  const { data: order, error: orderError } = await query.single()
+  const { data: rawOrder, error: orderError } = await query.single()
 
-  if (orderError || !order) {
+  if (orderError || !rawOrder) {
     notFound()
   }
 
-  if (order.payment_status !== 'paid') {
+  if (rawOrder.payment_status !== 'paid') {
     redirect('/profile/orders?filter=failed')
   }
 
+  // 🚨 THE ARRAY URL FIX: Pre-generate secure signed URLs for all artworks on the detail page
+  const orderItemsWithUrls = await Promise.all(rawOrder.order_items.map(async (item: any) => {
+    let signedUrls: string[] = []
+    if (item.artwork_urls && item.artwork_urls.length > 0) {
+      signedUrls = await Promise.all(item.artwork_urls.map(async (url: string) => {
+        const { data } = await supabase.storage
+          .from('artworks') // Match your bucket name
+          .createSignedUrl(url, 3600) // 1 Hour Secure Link
+        return data?.signedUrl
+      }))
+    }
+    return { ...item, signed_artwork_urls: signedUrls.filter(Boolean) }
+  }))
+
+  const order = { ...rawOrder, order_items: orderItemsWithUrls }
   const isPaymentPending = order.payment_status === 'pending'
   const isCancelled = order.status === 'cancelled'
 
@@ -174,42 +186,69 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
               )}
             </h2>
             <div className="mt-8">
-              <TrackingTimeline status={order.status} isPickup={isStorePickup} />
+              <TrackingTimeline 
+                status={order.status} 
+                isPickup={isStorePickup} 
+                // 🚨 Pass the new DB variables here 🚨
+                courierName={order.courier_name}
+                trackingNumber={order.tracking_number}
+                trackingUrl={order.tracking_url}
+                shippedAt={order.shipped_at}
+              />
             </div>
           </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* 🚨 RESTRUCTURED ADDRESS BLOCK 🚨 */}
           <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
             <h3 className="font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">Billing & Shipping Address</h3>
             <div className="grid gap-2 text-sm text-gray-800">
               <div className="flex gap-2">
-                <span className="font-semibold text-gray-500 w-32 shrink-0">Delivery method:</span> 
+                <span className="font-semibold text-gray-500 w-28 shrink-0">Delivery method:</span> 
                 <span className="font-medium text-gray-900">{deliveryMethodLabel}</span>
               </div>
               <div className="flex gap-2">
-                <span className="font-semibold text-gray-500 w-32 shrink-0">Name:</span> 
+                <span className="font-semibold text-gray-500 w-28 shrink-0">Name:</span> 
                 <span className="font-medium text-gray-900">{order.addresses.name}</span>
               </div>
+              
               {!isStorePickup ? (
                 <div className="flex gap-2">
-                  <span className="font-semibold text-gray-500 w-32 shrink-0">Address & Pincode:</span> 
-                  <span className="font-medium text-gray-900">{order.addresses.address || order.addresses.address_line1}, {order.addresses.city} {order.addresses.pincode}</span>
+                  <span className="font-semibold text-gray-500 w-28 shrink-0">Address:</span> 
+                  <span className="font-medium text-gray-900 leading-snug">
+                    {[order.addresses.address_line1 || order.addresses.address, order.addresses.address_line2].filter(Boolean).join(', ')}
+                    <br />
+                    {order.addresses.city} - {order.addresses.pincode}
+                    <br />
+                    {order.addresses.state}, {order.addresses.country || 'India'}
+                  </span>
                 </div>
               ) : (
                 <div className="flex gap-2">
-                  <span className="font-semibold text-gray-500 w-32 shrink-0">Pincode:</span> 
+                  <span className="font-semibold text-gray-500 w-28 shrink-0">Pincode:</span> 
                   <span className="font-medium text-gray-900">{order.addresses.pincode}</span>
                 </div>
               )}
-              <div className="flex gap-2">
-                <span className="font-semibold text-gray-500 w-32 shrink-0">Country:</span> 
-                <span className="font-medium text-gray-900">{order.addresses.country || 'India'}</span>
-              </div>
+
               <div className="flex gap-2 mt-1">
-                <span className="font-semibold text-gray-500 w-32 shrink-0">Mobile number:</span> 
+                <span className="font-semibold text-gray-500 w-28 shrink-0">Mobile number:</span> 
                 <span className="text-gray-900">{formatPhoneNumber(order.addresses?.phone)}</span>
               </div>
+
+              {order.addresses?.landmark && (
+                <div className="flex gap-2 mt-1">
+                  <span className="font-semibold text-gray-500 w-28 shrink-0">Landmark:</span> 
+                  <span className="text-gray-900">{order.addresses.landmark}</span>
+                </div>
+              )}
+
+              {order.addresses?.delivery_instructions && (
+                <div className="flex gap-2 mt-1">
+                  <span className="font-semibold text-gray-500 w-28 shrink-0">Instructions:</span> 
+                  <span className="text-gray-900">{order.addresses.delivery_instructions}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -262,24 +301,87 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
                   ? rawImage
                   : getPublicUrl(rawImage)
               }
+              
               return (
-                <div key={item.id} className="p-5 flex flex-col sm:flex-row gap-5 items-start sm:items-center">
-                  <div className="relative w-16 h-16 md:w-20 md:h-20 rounded-md bg-gray-50 border border-gray-200 overflow-hidden shrink-0">
-                    <Image src={imageUrl} fill sizes="80px" unoptimized={imageUrl.includes('token=') || imageUrl.includes('supabase')} className="object-contain p-1 mix-blend-multiply" alt={item.products?.name || 'Product'} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <Link href={`/product/${item.products?.slug}`} className="text-sm md:text-base font-medium text-[#007185] hover:text-[#C7511F] hover:underline">
-                      {item.products?.name}
-                    </Link>
-                    <div className="mt-1 flex items-center gap-2 flex-wrap">
-                      <span className="text-sm text-gray-600">Qty: <span className="font-medium text-gray-900">{item.quantity}</span></span>
+                <div key={item.id} className="p-5 flex flex-col md:flex-row gap-5 items-start">
+                  
+                  {/* Left Side: Product Details & Customizations */}
+                  <div className="flex gap-5 flex-1">
+                    <div className="relative w-20 h-20 md:w-24 md:h-24 rounded-md bg-gray-50 border border-gray-200 overflow-hidden shrink-0">
+                      <Image src={imageUrl} fill sizes="96px" unoptimized={imageUrl.includes('token=') || imageUrl.includes('supabase')} className="object-contain p-1 mix-blend-multiply" alt={item.products?.name || 'Product'} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <Link href={`/product/${item.products?.slug}`} className="text-base font-bold text-[#007185] hover:text-[#C7511F] hover:underline line-clamp-2">
+                        {item.products?.name}
+                      </Link>
+
+                      <div className="mt-1">
+                        <StarRating rating={item.products?.rating ?? 4.5} reviewCount={item.products?.review_count ?? 128} size="sm" />
+                      </div>
+                      
+                      <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-gray-900 whitespace-nowrap">{formatCurrency(item.price)}</span>
+                        {item.original_price && item.original_price > item.price && (
+                          <span className="text-xs text-gray-500 line-through whitespace-nowrap">{formatCurrency(item.original_price)}</span>
+                        )}
+                        {item.is_bulk_pricing && (
+                          <span className="text-[10px] font-bold bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded-sm">Bulk Price Applied</span>
+                        )}
+                        <span className="text-xs text-gray-600 ml-1">Qty: <span className="font-medium text-gray-900">{item.quantity}</span></span>
+                      </div>
+
+                      {/* 🚨 B2B ARTWORK MULTI-FILE RENDERER 🚨 */}
+                      {item.printing_type && item.printing_type !== 'None' && item.printing_type !== 'Retail (Readymade)' && (
+                        <div className="mt-2.5 pl-3 border-l-2 border-[#007185] text-xs">
+                          <p className="font-bold text-[#007185] flex items-center gap-1.5 uppercase tracking-wide">
+                            <Package className="w-3.5 h-3.5" /> {item.printing_type}
+                            {item.artwork_urls && item.artwork_urls.length > 0 && (
+                              <span className="ml-1 text-gray-600 normal-case tracking-normal font-medium">[{item.artwork_urls.length} File(s) Attached]</span>
+                            )}
+                          </p>
+                          {item.printing_instructions && (
+                            <p className="text-gray-600 italic mt-0.5">Note: "{item.printing_instructions}"</p>
+                          )}
+                          
+                          {/* 🚨 Maps the array of generated URLs */}
+                          {item.signed_artwork_urls && item.signed_artwork_urls.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {item.signed_artwork_urls.map((url: string, idx: number) => (
+                                <a 
+                                  key={idx}
+                                  href={url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className="inline-flex items-center gap-1.5 font-bold text-[#007185] hover:text-[#C7511F] hover:underline transition-colors"
+                                >
+                                  <ExternalLink className="w-3 h-3" /> Download File {idx + 1}
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {item.products?.description && (
+                        <p className="text-xs text-gray-600 mt-3 line-clamp-2">{item.products.description}</p>
+                      )}
                     </div>
                   </div>
-                  <div className="text-right shrink-0 ml-2">
-                    <div className="text-sm font-bold text-gray-900 whitespace-nowrap">
+
+                  {/* Right Side: Total & Actions */}
+                  <div className="flex flex-col items-center gap-3 shrink-0 md:ml-4 w-full md:w-48 mt-4 md:mt-0">
+                    <div className="text-sm font-bold text-gray-900 whitespace-nowrap text-center w-full">
                       {formatCurrency(item.price * item.quantity)}
                     </div>
+                    <Link href={`/product/${item.products?.slug}`} className="w-full py-2 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-full text-sm font-bold text-[#0F1111] transition-colors shadow-sm text-center">
+                      Buy it again
+                    </Link>
+                    
+                    <div className="flex justify-center w-full pt-1">
+                      <ProductWishlistButton productId={item.products?.id} />
+                    </div>
                   </div>
+
                 </div>
               )
             })}

@@ -99,7 +99,7 @@ export default function RootLayout({
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
   return (
-    <html lang="en" className={inter.variable} data-scroll-behavior="smooth" suppressHydrationWarning>
+    <html lang="en" className={`${inter.variable} overscroll-none`} data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         {supabaseUrl && (
           <>
@@ -155,7 +155,7 @@ export default function RootLayout({
         `}} />
       </head>
       <body 
-        className="bg-white text-gray-900 antialiased w-full min-h-screen flex flex-col overflow-x-hidden overscroll-y-none"
+        className="bg-[#eaeded] text-gray-900 antialiased w-full min-h-[100dvh] flex flex-col overflow-x-hidden overscroll-none"
         suppressHydrationWarning
       >
         <WishlistProvider>

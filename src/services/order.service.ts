@@ -5,6 +5,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { generateOrderNumber } from '@/lib/utils'
 import { SHIPPING_THRESHOLD, SHIPPING_COST } from '@/lib/constants'
+import { calculateTaxBreakdown } from '@/lib/tax'
 
 export interface CreateOrderInput {
   addressId: string
@@ -12,6 +13,10 @@ export interface CreateOrderInput {
     product_id: string
     quantity: number
     price: number
+    printing_type?: string
+    // 🚨 UPGRADED TO ARRAY 🚨
+    artwork_urls?: string[] | null
+    printing_instructions?: string | null
   }>
   totalAmount: number
   paymentMethod: string
@@ -29,7 +34,7 @@ export async function createOrder(orderData: CreateOrderInput) {
 
   const orderNumber = generateOrderNumber()
 
-  // 🔒 SECURITY: Verify prices and total against the database
+  // SECURITY: Verify prices and total against the database
   const productIds = orderData.items.map((item) => item.product_id)
   
   const { data: products, error: productsError } = await supabase
@@ -46,9 +51,11 @@ export async function createOrder(orderData: CreateOrderInput) {
   const validatedItems = orderData.items.map((item) => {
     const product = products.find((p) => p.id === item.product_id)
     if (!product) throw new Error(`Product not found: ${item.product_id}`)
-    if (product.stock < item.quantity) throw new Error(`Insufficient stock for product: ${product.id}`)
+    
+    if (product.stock < item.quantity) {
+       console.warn(`[INVENTORY ALERT] Order exceeds physical readymade stock for: ${product.id}. Triggering manufacturing pipeline.`)
+    }
 
-    // Securely calculate correct price based on bulk pricing or regular selling price
     const basePrice = product.selling_price ?? product.price
     let actualPrice = basePrice
     let isBulkPricing = false
@@ -66,6 +73,10 @@ export async function createOrder(orderData: CreateOrderInput) {
       price: actualPrice,
       original_price: basePrice,
       is_bulk_pricing: isBulkPricing,
+      printing_type: item.printing_type || 'None',
+      // 🚨 UPGRADED TO ARRAY 🚨
+      artwork_urls: item.artwork_urls || [],
+      printing_instructions: item.printing_instructions || null,
     }
   })
 
@@ -97,6 +108,7 @@ export async function createOrder(orderData: CreateOrderInput) {
     throw new Error(orderError.message || 'Failed to create order')
   }
 
+  // Inserting items WITH B2B Printing Details
   const orderItems = validatedItems.map((item) => ({
     order_id: order.id,
     product_id: item.product_id,
@@ -104,6 +116,10 @@ export async function createOrder(orderData: CreateOrderInput) {
     price: item.price,
     original_price: item.original_price,
     is_bulk_pricing: item.is_bulk_pricing,
+    printing_type: item.printing_type,
+    // 🚨 UPGRADED TO ARRAY 🚨
+    artwork_urls: item.artwork_urls,
+    printing_instructions: item.printing_instructions,
   }))
 
   const { error: itemsError } = await supabase
@@ -121,7 +137,7 @@ export async function createOrder(orderData: CreateOrderInput) {
     .eq('user_id', user.id)
 
   if (cartError) {
-    // Non-critical error, continue
+    console.warn('Could not clear cart after order creation', cartError)
   }
 
   return { order, orderNumber }
@@ -177,7 +193,7 @@ export async function getSavedAddresses() {
   return data || []
 }
 
-// 🚨 SMART UPSERT: Enforces max 2 addresses and prevents duplicates
+// SMART UPSERT: Enforces max 2 addresses and prevents duplicates
 export async function saveAddress(addressData: {
   name: string;
   phone: string;
@@ -201,10 +217,9 @@ export async function saveAddress(addressData: {
     .from('addresses')
     .select('*')
     .eq('user_id', user.id)
-    .order('created_at', { ascending: true }) // Oldest first
+    .order('created_at', { ascending: true }) 
 
   if (existingAddresses && existingAddresses.length > 0) {
-    // 1. DUPLICATE CHECK: Does an exact match already exist?
     const exactMatch = existingAddresses.find(addr => 
       addr.name === addressData.name &&
       addr.phone === addressData.phone &&
@@ -213,7 +228,6 @@ export async function saveAddress(addressData: {
     )
 
     if (exactMatch) {
-      // Just update any minor instruction changes, but reuse the same ID!
       const { data, error } = await supabase
         .from('addresses')
         .update({ ...addressData })
@@ -224,9 +238,7 @@ export async function saveAddress(addressData: {
       return data
     }
 
-    // 2. LIMIT CHECK: If no exact match but they already have 2 addresses
     if (existingAddresses.length >= 2) {
-      // Overwrite the oldest address (index 0) to stay within the limit
       const oldestId = existingAddresses[0].id
       const { data, error } = await supabase
         .from('addresses')
@@ -239,7 +251,6 @@ export async function saveAddress(addressData: {
     }
   }
 
-  // 3. INSERT NEW: If they have less than 2 addresses and no exact match
   const { data, error } = await supabase
     .from('addresses')
     .insert({

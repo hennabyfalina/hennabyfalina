@@ -49,11 +49,13 @@ export async function sendWhatsAppMessage(to: string, message: string) {
 // CLEAN CUSTOMER MESSAGE
 // ==========================================
 function formatCustomerOrderMessage(order: any): string {
-  // Support both new 'order_items' structure and old 'items' fallback
   const itemsArray = order.order_items || order.items || [];
   const itemsList = itemsArray.map((item: any) => {
     const productName = item.products?.name || item.name || 'Product';
-    return `- ${item.quantity}x ${productName}`;
+    // 🚨 UPGRADED: Add file count to WhatsApp receipt
+    const fileCount = item.artwork_urls?.length || 0;
+    const attachmentText = fileCount > 0 ? ` [${fileCount} File(s) Attached]` : '';
+    return `- ${item.quantity}x ${productName}${attachmentText}`;
   }).join('\n');
 
   const orderUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/order/${order.order_number}`;
@@ -81,7 +83,10 @@ function formatAdminOrderMessage(order: any): string {
   const itemsArray = order.order_items || order.items || [];
   const itemsList = itemsArray.map((item: any) => {
     const productName = item.products?.name || item.name || 'Product';
-    return `- ${item.quantity}x ${productName}`;
+    // 🚨 UPGRADED: Alert Uncle on WhatsApp if files need downloading
+    const fileCount = item.artwork_urls?.length || 0;
+    const attachmentText = fileCount > 0 ? ` [${fileCount} File(s) Attached]` : '';
+    return `- ${item.quantity}x ${productName}${attachmentText}`;
   }).join('\n');
   
   // Smart mapping for the addresses table
@@ -93,12 +98,10 @@ function formatAdminOrderMessage(order: any): string {
   if (line1) {
     addressDetails = `${line1}, ${addressObj.city || ''} - ${addressObj.pincode || ''}`;
     
-    // Add Landmark if it exists
     if (addressObj.landmark) {
       addressDetails += `\n*Landmark:* ${addressObj.landmark}`;
     }
     
-    // Add Delivery Instructions if they exist (Checking both order table and address table)
     const notes = order.delivery_instructions || order.notes || addressObj.delivery_instructions;
     if (notes) {
       addressDetails += `\n*Instructions:* ${notes}`;

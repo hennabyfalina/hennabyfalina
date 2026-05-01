@@ -43,30 +43,16 @@ export const removeToast = (id: string, immediate = false) => {
 }
 
 export const showToast = (message: string, productId?: string) => {
-  const existingIdx = toasts.findIndex(t => t.productId === productId && t.productId !== undefined && t.visible)
+  const id = Math.random().toString(36).substring(2, 9)
+  const newToast: ToastItem = { id, message, productId, visible: true }
+  newToast.timerId = setTimeout(() => removeToast(id), 4000)
+  toasts.push(newToast)
 
-  if (existingIdx !== -1) {
-    const existing = toasts[existingIdx]
-    if (existing.timerId) clearTimeout(existing.timerId)
-    toasts[existingIdx] = {
-      ...existing,
-      message,
-      timerId: setTimeout(() => removeToast(existing.id), 4000)
-    }
-    notify()
-  } else {
-    const id = Math.random().toString(36).substring(2, 9)
-    const newToast: ToastItem = { id, message, productId, visible: true }
-    newToast.timerId = setTimeout(() => removeToast(id), 4000)
-    toasts.push(newToast)
-
-    const visibleToasts = toasts.filter(t => t.visible)
-    if (visibleToasts.length > 3) {
-      const oldest = visibleToasts[0]
-      removeToast(oldest.id, true)
-    }
-    notify()
+  const visibleToasts = toasts.filter(t => t.visible)
+  if (visibleToasts.length > 3) {
+    removeToast(visibleToasts[0].id, true)
   }
+  notify()
 }
 
 export default function Toaster() {
@@ -82,70 +68,76 @@ export default function Toaster() {
 
   if (!mounted) return null
 
+  // 🚨 Environment Check: Determine if we are in the Admin Panel
+  const isAdmin = pathname.startsWith('/admin')
+
   return createPortal(
-    <div className="fixed z-[150] flex flex-col gap-3 bottom-[80px] left-4 right-4 md:bottom-6 md:left-auto md:right-6 md:w-[380px] pointer-events-none">
+    <div className={`fixed z-[9999] flex flex-col gap-3 transition-all duration-500
+      ${isAdmin 
+        ? 'bottom-8 left-1/2 -translate-x-1/2 w-full max-w-[420px] px-4' // Gemini Admin: Bottom Center
+        : 'bottom-[80px] left-4 right-4 md:bottom-6 md:left-auto md:right-6 md:w-[380px]' // Amazon Store: Bottom Right
+      } pointer-events-none`}
+    >
       {currentToasts.map(toast => {
         const msgLower = toast.message.toLowerCase()
         const isError = msgLower.includes('fail') || msgLower.includes('error') || msgLower.includes('out of stock')
+        
+        // 🚨 Logic for Amazon-style action links (Store only)
         const isCartPage = pathname === '/cart'
         const isWishlistPage = pathname === '/wishlist'
-        
-        // 🚨 Determine which button to show cleanly
-        const showGoToWishlist = !isWishlistPage && msgLower.includes('wishlist')
-        const showGoToCart = !isCartPage && !showGoToWishlist && (msgLower.includes('cart') || msgLower.includes('added'))
-        const showGoToShopping = isCartPage && (msgLower.includes('cart') || msgLower.includes('cleared'))
+        const showGoToWishlist = !isAdmin && !isWishlistPage && msgLower.includes('wishlist')
+        const showGoToCart = !isAdmin && !isCartPage && !showGoToWishlist && (msgLower.includes('cart') || msgLower.includes('added'))
+        const showGoToShopping = !isAdmin && isCartPage && (msgLower.includes('cart') || msgLower.includes('cleared'))
         
         return (
           <div
             key={toast.id}
-            className={`transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-auto transform origin-bottom w-full bg-white rounded-sm shadow-[0_4px_14px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden
+            className={`transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-auto transform origin-bottom w-full flex flex-col overflow-hidden
+              ${isAdmin 
+                ? 'bg-[#1E1F20] rounded-full border border-[#333538] shadow-2xl' // 🚨 GEMINI PILL
+                : 'bg-white rounded-sm border-l-[4px] shadow-[0_4px_14px_rgba(0,0,0,0.15)]' // 🚨 AMAZON BOX
+              }
+              ${!isAdmin && (isError ? 'border-l-red-600' : 'border-l-green-600')}
               ${toast.visible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'}
             `}
           >
-            <div className="flex items-center justify-between p-3.5 gap-3">
+            <div className={`flex items-center justify-between gap-3 ${isAdmin ? 'p-3 px-5' : 'p-3.5'}`}>
               <div className="flex items-center gap-3 min-w-0">
-                {isError ? (
-                  <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                {isAdmin ? (
+                   // 🚨 Gemini Admin Icons
+                  isError ? <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" /> : <CheckCircle className="w-5 h-5 text-[#A8C7FA] shrink-0" />
                 ) : (
-                  <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                  // 🚨 Amazon Store Icons
+                  isError ? <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" /> : <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
                 )}
-                <span className="text-sm font-medium text-[#0F1111] truncate">
+                
+                <span className={`text-sm font-medium truncate ${isAdmin ? 'text-[#E3E3E3]' : 'text-[#0F1111]'}`}>
                   {toast.message}
                 </span>
               </div>
               
               <div className="flex items-center gap-3 shrink-0">
+                {/* 🚨 Amazon Yellow Action Buttons (Only for Storefront) */}
                 {showGoToCart && !isError && (
-                  <Link 
-                    href="/cart" 
-                    onClick={() => removeToast(toast.id, true)}
-                    className="px-3 py-1.5 text-xs font-bold bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] text-[#0F1111] rounded-sm shadow-sm transition-colors whitespace-nowrap"
-                  >
+                  <Link href="/cart" onClick={() => removeToast(toast.id, true)} className="px-3 py-1.5 text-xs font-bold bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] text-[#0F1111] rounded-sm shadow-sm transition-colors whitespace-nowrap">
                     Go to Cart
                   </Link>
                 )}
                 {showGoToShopping && !isError && (
-                  <Link 
-                    href="/products" 
-                    onClick={() => removeToast(toast.id, true)}
-                    className="px-3 py-1.5 text-xs font-bold bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] text-[#0F1111] rounded-sm shadow-sm transition-colors whitespace-nowrap"
-                  >
+                  <Link href="/products" onClick={() => removeToast(toast.id, true)} className="px-3 py-1.5 text-xs font-bold bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] text-[#0F1111] rounded-sm shadow-sm transition-colors whitespace-nowrap">
                     Go to Shopping
                   </Link>
                 )}
-                {/* Wishlist Link Button */}
                 {showGoToWishlist && !isError && (
-                  <Link 
-                    href="/wishlist" 
-                    onClick={() => removeToast(toast.id, true)}
-                    className="px-3 py-1.5 text-xs font-bold bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] text-[#0F1111] rounded-sm shadow-sm transition-colors whitespace-nowrap"
-                  >
+                  <Link href="/wishlist" onClick={() => removeToast(toast.id, true)} className="px-3 py-1.5 text-xs font-bold bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] text-[#0F1111] rounded-sm shadow-sm transition-colors whitespace-nowrap">
                     View Wishlist
                   </Link>
                 )}
+
+                {/* Close Button */}
                 <button 
                   onClick={() => removeToast(toast.id)} 
-                  className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+                  className={`transition-colors p-1 rounded-full ${isAdmin ? 'text-[#8E9196] hover:bg-[#282A2C] hover:text-[#E3E3E3]' : 'text-gray-400 hover:text-gray-600'}`}
                   aria-label="Close"
                 >
                   <X className="w-4 h-4" />

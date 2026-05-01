@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
     
     if (!supabaseUrl || !supabaseServiceKey) return NextResponse.json({ error: 'Config error' }, { status: 500 })
     
+    // 🚨 Service Role Client: Bypasses RLS to forcefully update the database securely
     const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } })
 
     // ==========================================
@@ -51,6 +52,11 @@ export async function POST(request: NextRequest) {
       const internalOrderId = notes?.internal_order_id
 
       if (!internalOrderId) return NextResponse.json({ error: 'Missing order reference' }, { status: 400 })
+
+      // 🚨 ENTERPRISE LOGGING: Extract the GST Breakdown from Razorpay Notes for the CA
+      if (notes?.b2b_gst_compliant === 'true') {
+        console.log(`[B2B ACCOUNTING] Order ${internalOrderId} Paid. Base: ₹${notes.base_amount_inr} | GST: ₹${notes.total_gst_inr}`)
+      }
 
       // 1. Mark Order as Paid
       const { data: updatedOrder, error: updateError } = await supabase
@@ -68,13 +74,14 @@ export async function POST(request: NextRequest) {
         .select('*') 
         .single()
 
-      if (updateError || !updatedOrder) return NextResponse.json({ received: true, alreadyProcessed: true })
+      if (updateError || !updatedOrder) {
+        return NextResponse.json({ received: true, alreadyProcessed: true })
+      }
 
-      // 2. Reduce Stock
+      // 2. Reduce Stock securely
       await updateProductStock(internalOrderId, supabase)
 
       // 3. WHATSAPP DATA PREP (Smart Fetching)
-      // We fetch the FULL order including joined addresses & products so WhatsApp gets all details
       const { data: fullOrder } = await supabase
         .from('orders')
         .select(`
@@ -89,7 +96,6 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (fullOrder) {
-        // Fallback safety: If name isn't on the order directly, grab it from the address
         if (!fullOrder.customer_name && fullOrder.addresses?.name) {
           fullOrder.customer_name = fullOrder.addresses.name;
         }
@@ -109,7 +115,14 @@ export async function POST(request: NextRequest) {
     if (event.event === 'payment.failed') {
       const { notes, error_description, error_reason } = event.payload.payment.entity
       if (notes?.internal_order_id) {
-        await supabase.from('orders').update({ payment_status: 'failed', status: 'pending', payment_failed_reason: error_description || error_reason }).eq('id', notes.internal_order_id)
+        await supabase
+          .from('orders')
+          .update({ 
+            payment_status: 'failed', 
+            status: 'pending', 
+            payment_failed_reason: error_description || error_reason 
+          })
+          .eq('id', notes.internal_order_id)
       }
     }
 
@@ -123,12 +136,23 @@ async function updateProductStock(orderId: string, supabase: any) {
   try {
     const { data: orderItems } = await supabase.from('order_items').select('product_id, quantity').eq('order_id', orderId)
     if (!orderItems) return
+    
     for (const item of orderItems) {
-      const { error: rpcError } = await supabase.rpc('decrement_product_stock', { p_id: item.product_id, decrement_qty: item.quantity })
+      // 🚨 Unified RPC Signature
+      const { error: rpcError } = await supabase.rpc('decrement_product_stock', { 
+        p_id: item.product_id, 
+        decrement_qty: item.quantity 
+      })
+      
+      // Smart Fallback if RPC is missing/fails
       if (rpcError) {
         const { data: product } = await supabase.from('products').select('stock').eq('id', item.product_id).single()
-        if (product) await supabase.from('products').update({ stock: Math.max(0, product.stock - item.quantity) }).eq('id', item.product_id)
+        if (product) {
+          await supabase.from('products').update({ stock: Math.max(0, product.stock - item.quantity) }).eq('id', item.product_id)
+        }
       }
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('[Webhook] Stock Update Error:', e)
+  }
 }

@@ -5,6 +5,7 @@ import Razorpay from 'razorpay'
 import { createClient } from '@/lib/supabase/server'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
+import { calculateTaxBreakdown } from '@/lib/tax' // 🚨 Enterprise Tax Engine
 
 // Serverless Rate Limiter (Falls back to bypassed if Redis env vars are missing during local dev)
 const ratelimit = process.env.UPSTASH_REDIS_REST_URL
@@ -31,11 +32,10 @@ function getRazorpayInstance() {
 
 export async function POST(request: NextRequest) {
   try {
-    // SECURITY: We no longer extract 'amount' from the client. 
-    // We solely rely on the database to determine the price!
+    // 🔒 SECURITY: We do not extract 'amount' from the client payload. 
+    // We solely rely on the database to determine the exact price!
     const { orderId, orderNumber, userId } = await request.json()
 
-    // Validate required fields
     if (!orderId || !orderNumber || !userId) {
       return NextResponse.json(
         { error: 'Missing required fields' },
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Rate limiting by user ID
+    // Rate limiting by user ID to prevent spam attacks
     if (ratelimit) {
       const { success, reset } = await ratelimit.limit(`razorpay_init_${userId}`)
       if (!success) {
@@ -57,13 +57,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Verify user is authenticated (UPDATED TO SECURE getUser)
     const supabase = await createClient()
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     
     if (userError || !user || user.id !== userId) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized transaction attempt' },
         { status: 401 }
       )
     }
@@ -77,14 +76,13 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (orderError || !order) {
-      console.error('Order not found:', orderId)
+      console.error('Order not found or access denied:', orderId)
       return NextResponse.json(
         { error: 'Order not found' },
         { status: 404 }
       )
     }
 
-    // Verify order hasn't been paid already
     if (order.payment_status === 'paid') {
       return NextResponse.json(
         { error: 'Order already paid' },
@@ -92,42 +90,51 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Initialize Razorpay here (lazy)
     let razorpay
     try {
       razorpay = getRazorpayInstance()
     } catch (configError: any) {
       console.error('Razorpay configuration error:', configError.message)
       return NextResponse.json(
-        { error: 'Payment service not configured. Please contact support.' },
+        { error: 'Payment service temporarily unavailable. Please contact support.' },
         { status: 500 }
       )
     }
 
-    // Create Razorpay order
+    // 🚨 Calculate the exact B2B Tax split for the Razorpay Dashboard
+    const taxBreakdown = calculateTaxBreakdown(order.total_amount)
+
+    // Create the secure Razorpay order
     const options = {
-      amount: Math.round(order.total_amount * 100), // Securely use DB amount only!
+      amount: Math.round(order.total_amount * 100), // Razorpay accepts paise
       currency: 'INR',
-      receipt: orderNumber.substring(0, 40), // Prevent Razorpay 40-char limit crash
+      receipt: orderNumber.substring(0, 40), 
       notes: {
-        internal_order_id: orderId, // ← Important for webhook
+        internal_order_id: orderId, // Crucial for Webhook mapping
         user_id: userId,
+        // 🚨 The Accountant's Dream Metadata
+        b2b_gst_compliant: 'true',
+        base_amount_inr: taxBreakdown.basePrice.toString(),
+        total_gst_inr: taxBreakdown.totalGST.toString(),
+        cgst_9_percent: taxBreakdown.cgst.toString(),
+        sgst_9_percent: taxBreakdown.sgst.toString()
       },
     }
 
     const razorpayOrder = await razorpay.orders.create(options)
 
-    console.log(`Razorpay order created: ${razorpayOrder.id} for order ${orderId}`)
+    console.log(`[SECURE CHECKOUT] Razorpay Order ${razorpayOrder.id} generated for DB Order ${orderId}`)
 
     return NextResponse.json({
       orderId: razorpayOrder.id,
       amount: razorpayOrder.amount,
       currency: razorpayOrder.currency,
     })
+    
   } catch (error: any) {
-    console.error('Razorpay order creation error:', error)
+    console.error('Razorpay generation failure:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to create payment order' },
+      { error: error.message || 'Failed to securely initialize payment' },
       { status: 500 }
     )
   }

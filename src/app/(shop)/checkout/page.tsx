@@ -13,12 +13,20 @@ import AddressForm from '@/components/checkout/AddressForm'
 import DeliveryMethod from '@/components/checkout/DeliveryMethod'
 import StorePickupInfo from '@/components/checkout/StorePickupInfo'
 import OrderSummary from '@/components/checkout/OrderSummary'
+import ReviewOrderModal from '@/components/checkout/ReviewOrderModal'
+import SecureLoadingOverlay from '@/components/checkout/SecureLoadingOverlay'
 import Loader from '@/components/ui/Loader'
 import { SHIPPING_THRESHOLD, SHIPPING_COST } from '@/lib/constants'
 import { formatCurrency, numberToIndianWords } from '@/lib/utils'
 import { AddressFormData } from '@/components/checkout/AddressForm'
-import { Lock, ChevronLeft, X, AlertTriangle, Package, MapPin, Store, ShieldCheck } from 'lucide-react'
+import { Lock, ChevronLeft, X, AlertTriangle, Package, MapPin, Store, ShieldCheck, ExternalLink } from 'lucide-react'
 import { siteConfig } from '@/config/site'
+import Image from 'next/image'
+import { getPublicUrl } from '@/lib/supabase/storage'
+
+// 🚨 B2B & Tax Imports
+import { B2B_CONSTANTS, PRINTING_TIERS } from '@/config/b2b-rules'
+import { calculateTaxBreakdown } from '@/lib/tax'
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -62,20 +70,16 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (!mounted || isAuthChecking || isProcessing || isNavigatingToCart) return
 
-    // Push a trap state into the history stack if it isn't there already
     if (!window.history.state?.checkoutTrap) {
       window.history.pushState({ checkoutTrap: true }, '', window.location.href)
     }
 
     const handlePopState = () => {
-      // Instantly push the state back to trap the user on the page
       window.history.pushState({ checkoutTrap: true }, '', window.location.href)
       
       if (showConfirmModalRef.current) {
-        // If the user is reviewing the order, swiping back just closes that modal
         setShowConfirmModal(false)
       } else {
-        // Otherwise, it pops up the "Return to Cart?" warning
         setShowCartWarningModal(true)
       }
     }
@@ -125,6 +129,9 @@ export default function CheckoutPage() {
 
   const shippingCost = shippingMethod === 'pickup' ? 0 : (totalPrice >= SHIPPING_THRESHOLD ? 0 : SHIPPING_COST)
   const finalTotal = totalPrice + shippingCost
+  
+  // 🚨 Calculate Enterprise Tax Breakdown for the Order Summary
+  const taxBreakdown = calculateTaxBreakdown(totalPrice)
 
   useEffect(() => {
     const verifyAuth = async () => {
@@ -239,10 +246,15 @@ export default function CheckoutPage() {
 
       const savedAddress = await saveAddress(addressToSave)
 
-      const orderItems = items.map((item) => ({
+      // 🚨 ENTERPRISE UPGRADE: Pass B2B Metadata to Backend!
+      const orderItems = items.map((item: any) => ({
         product_id: item.product_id,
         quantity: item.quantity,
         price: item.price,
+        printing_type: item.printing_type || 'None', 
+        // 🚨 UPGRADED TO ARRAY 🚨
+        artwork_urls: item.artwork_urls || [],       
+        printing_instructions: item.printing_instructions || null 
       }))
 
       const { order, orderNumber } = await createOrder({
@@ -274,12 +286,12 @@ export default function CheckoutPage() {
         localStorage.removeItem(`checkout_shipping_method_${userId}`)
       }
 
-      // 🚨 Programmatic Navigation happens here!
+      // 🚨 Transition to Secure Payment Processing Page
       router.push(`/checkout/processing?order_id=${order.id}&amount=${razorpayData.amount}&rzp_order=${razorpayData.orderId}`)
     } catch (err: any) {
       console.error(err)
       alert(err.message || 'Failed to initialize payment')
-      setIsProcessing(false) // Removes the blur if it fails
+      setIsProcessing(false)
       setShowConfirmModal(false)
     }
   }
@@ -313,7 +325,16 @@ export default function CheckoutPage() {
 
       <Container className="py-6 md:py-10 pb-12 flex-1">
         <div className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900">Checkout</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900 mb-4">Checkout</h1>
+          <div className="bg-white p-4 rounded-sm border border-[#D5D9D9] shadow-sm flex items-start gap-3">
+            <ShieldCheck className="w-6 h-6 text-green-600 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-bold text-[#0F1111] mb-1">Your transaction is secure</h3>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                Your security is our priority. We use Razorpay to encrypt your payment information and never share your details with third parties. <Link href="/privacy" target="_blank" className="text-[#007185] hover:text-[#C7511F] hover:underline">Learn more</Link>
+              </p>
+            </div>
+          </div>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 relative items-start">
@@ -350,7 +371,7 @@ export default function CheckoutPage() {
                       })
                     }
                   }}
-                  className="w-full px-3 py-2 bg-white border border-[#D5D9D9] rounded-sm text-sm text-[#0F1111] focus:outline-none focus:border-[#FF9900]"
+                  className="w-full px-3 py-2.5 sm:py-3 bg-white border border-[#D5D9D9] rounded-sm text-[15px] text-[#0F1111] focus:outline-none focus:border-[#FF9900] cursor-pointer disabled:cursor-not-allowed"
                 >
                   <option value="">Select a saved address...</option>
                   {savedAddresses.map((addr) => (
@@ -387,7 +408,7 @@ export default function CheckoutPage() {
             <button
               onClick={handleReturnToCartClick}
               disabled={isNavigatingToCart || isProcessing}
-              className="inline-flex items-center gap-1 text-sm text-[#007185] hover:text-[#C7511F] hover:underline transition-colors duration-200 disabled:opacity-50"
+              className="inline-flex items-center gap-1 text-sm text-[#007185] hover:text-[#C7511F] hover:underline transition-colors duration-200 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
             >
               {isNavigatingToCart ? (
                 <>
@@ -405,7 +426,7 @@ export default function CheckoutPage() {
             <button
               onClick={handleOpenConfirmModal}
               disabled={!isFormValid || items.length === 0 || isProcessing}
-              className="w-full py-3 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm text-sm font-bold text-[#0F1111] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm focus:ring-2 focus:ring-[#007185] focus:outline-none"
+              className="w-full py-3 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm text-sm font-bold text-[#0F1111] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm focus:ring-2 focus:ring-[#007185] focus:outline-none cursor-pointer"
             >
               Review Order and Pay
             </button>
@@ -450,13 +471,13 @@ export default function CheckoutPage() {
                 <div className="flex flex-col gap-2">
                   <button
                     onClick={confirmReturnToCart}
-                    className="w-full px-4 py-2 text-sm font-medium text-[#0F1111] bg-white border border-[#D5D9D9] hover:bg-gray-50 rounded-sm shadow-sm transition-colors"
+                    className="w-full px-4 py-2 text-sm font-medium text-[#0F1111] bg-white border border-[#D5D9D9] hover:bg-gray-50 rounded-sm shadow-sm transition-colors cursor-pointer"
                   >
                     Yes, Return to Cart
                   </button>
                   <button
                     onClick={() => setShowCartWarningModal(false)}
-                    className="w-full px-4 py-2 text-sm font-bold text-[#0F1111] bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm shadow-sm transition-colors"
+                    className="w-full px-4 py-2 text-sm font-bold text-[#0F1111] bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm shadow-sm transition-colors cursor-pointer"
                   >
                     Stay in Checkout
                   </button>
@@ -467,180 +488,24 @@ export default function CheckoutPage() {
         )}
 
         {/* 🚨 DETAILED REVIEW ORDER MODAL */}
-        {showConfirmModal && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="relative w-full max-w-2xl bg-[#F0F2F2] rounded-sm shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-              
-              <div className="flex items-center justify-between p-4 bg-white border-b border-[#D5D9D9] shrink-0">
-                <h3 className="text-xl font-bold text-[#0F1111]">Review Your Order</h3>
-                <button onClick={handleCloseModal} disabled={isProcessing} className="p-1 hover:bg-gray-100 rounded-sm transition-colors disabled:opacity-50">
-                  <X className="w-6 h-6 text-gray-500" />
-                </button>
-              </div>
-              
-              <div className="p-4 space-y-4 overflow-y-auto flex-1">
-                
-                <div className="bg-white border border-[#D5D9D9] p-3 rounded-sm flex items-center justify-between">
-                  <span className="font-bold text-[#0F1111]">Delivery Method</span>
-                  <span className="text-[#007185] font-bold flex items-center gap-1.5">
-                    {shippingMethod === 'pickup' ? <Store className="w-4 h-4" /> : <MapPin className="w-4 h-4" />}
-                    {shippingMethod === 'pickup' ? 'Store Pickup' : 'Home Delivery'}
-                  </span>
-                </div>
+        <ReviewOrderModal
+          isOpen={showConfirmModal}
+          onClose={handleCloseModal}
+          onConfirm={handleProceedToPaymentGateway}
+          isProcessing={isProcessing}
+          shippingMethod={shippingMethod}
+          formData={formData}
+          items={items}
+          totalItems={totalItems}
+          totalPrice={totalPrice}
+          shippingCost={shippingCost}
+          taxBreakdown={taxBreakdown}
+          finalTotal={finalTotal}
+          hasBulkDiscount={hasBulkDiscount}
+        />
 
-                <div className="bg-white border border-[#D5D9D9] rounded-sm overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-2 border-b border-[#D5D9D9] font-bold text-[#0F1111]">
-                    {shippingMethod === 'pickup' ? 'Pickup Details' : 'Shipping Address'}
-                  </div>
-                  <div className="p-4 text-sm text-[#0F1111] space-y-3">
-                    {shippingMethod === 'pickup' ? (
-                      <>
-                        <div className="grid grid-cols-[100px_1fr] gap-2">
-                          <span className="text-gray-500 font-medium">Name:</span>
-                          <span>{formData.name}</span>
-                          <span className="text-gray-500 font-medium">Phone:</span>
-                          <span>{formData.phone}</span>
-                          <span className="text-gray-500 font-medium">Pincode:</span>
-                          <span>{formData.pincode}</span>
-                        </div>
-                        <div className="mt-3 pt-3 border-t border-[#D5D9D9]">
-                          <p className="font-bold mb-1 text-[#007185]">{siteConfig.name}</p>
-                          <p>{siteConfig.address.line1}</p>
-                          <p>{siteConfig.address.line2}</p>
-                          <p>{siteConfig.address.city}, {siteConfig.address.state}, {siteConfig.address.country} – {siteConfig.address.pincode}</p>
-                          <p className="mt-1"><span className="text-gray-500 font-medium">Phone: </span>{siteConfig.contact.phone.primary}, {siteConfig.contact.phone.secondary}</p>
-                          <p className="mt-1"><span className="text-gray-500 font-medium">Hours: </span>{siteConfig.business.workingHours}</p>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="grid grid-cols-[100px_1fr] gap-2">
-                          <span className="text-gray-500 font-medium">Name:</span>
-                          <span>{formData.name}</span>
-                          <span className="text-gray-500 font-medium">Phone:</span>
-                          <span>{formData.phone}</span>
-                          <span className="text-gray-500 font-medium">Address:</span>
-                          <span>
-                            {formData.addressLine1}
-                            {formData.addressLine2 && <>, {formData.addressLine2}</>}
-                            <br/>{formData.city}, {formData.state} - {formData.pincode}
-                          </span>
-                        </div>
-                        {(formData.landmark || formData.delivery_instructions) && (
-                          <div className="mt-3 pt-3 border-t border-[#D5D9D9] grid grid-cols-[100px_1fr] gap-2">
-                            {formData.landmark && (
-                              <>
-                                <span className="text-gray-500 font-medium">Landmark:</span>
-                                <span>{formData.landmark}</span>
-                              </>
-                            )}
-                            {formData.delivery_instructions && (
-                              <>
-                                <span className="text-gray-500 font-medium">Instructions:</span>
-                                <span>{formData.delivery_instructions}</span>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <div className="bg-white border border-[#D5D9D9] rounded-sm overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-2 border-b border-[#D5D9D9] font-bold text-[#0F1111] flex justify-between">
-                    <span>Order Items</span>
-                    <span className="font-normal text-sm">{totalItems} items</span>
-                  </div>
-                  <div className="p-0 divide-y divide-[#D5D9D9] max-h-48 overflow-y-auto">
-                    {items.map((item: any, idx) => {
-                      const isBulkApplied = item.bulk_price && item.bulk_min_quantity && item.quantity >= item.bulk_min_quantity;
-                      return (
-                        <div key={idx} className="p-3 flex justify-between items-start gap-4 text-sm">
-                          <div className="flex items-start gap-3">
-                            <Package className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
-                            <div className="flex flex-col">
-                              <span className="font-medium text-[#0F1111] line-clamp-2">{item.name || 'Product'}</span>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-gray-500">Qty: {item.quantity}</span>
-                                {isBulkApplied && (
-                                  <span className="text-[10px] font-bold bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded-sm">
-                                    Bulk Price
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <span className="font-bold text-[#0F1111] whitespace-nowrap">
-                            {formatCurrency(item.price * item.quantity)}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  
-                  {hasBulkDiscount && (
-                    <div className="bg-green-50 px-4 py-2 border-t border-[#D5D9D9] text-xs text-green-800 font-medium flex items-center justify-center">
-                      Wholesale discounts applied
-                    </div>
-                  )}
-                </div>
-
-                <div className="bg-white border border-[#D5D9D9] rounded-sm overflow-hidden">
-                  <div className="p-4 space-y-1.5 text-sm text-[#0F1111]">
-                    <div className="flex justify-between">
-                      <span>Items Subtotal:</span>
-                      <span>{formatCurrency(totalPrice)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Shipping:</span>
-                      <span>{shippingCost === 0 ? 'Free' : formatCurrency(shippingCost)}</span>
-                    </div>
-                    <div className="flex justify-between font-bold text-lg pt-3 mt-2 border-t border-[#D5D9D9] text-[#B12704]">
-                      <span>Order Total:</span>
-                      <span>{formatCurrency(finalTotal)}</span>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-              
-              <div className="p-4 bg-white border-t border-[#D5D9D9] shrink-0 flex flex-col sm:flex-row justify-end gap-3 rounded-b-sm relative">
-                <button
-                  onClick={handleCloseModal}
-                  disabled={isProcessing}
-                  className="px-6 py-2.5 text-sm font-bold text-[#0F1111] bg-gray-100 border border-[#D5D9D9] rounded-sm hover:bg-gray-200 transition-colors disabled:opacity-50 sm:w-auto w-full"
-                >
-                  Edit Details
-                </button>
-                <button
-                  onClick={handleProceedToPaymentGateway}
-                  disabled={isProcessing}
-                  className="px-8 py-2.5 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm text-sm font-bold text-[#0F1111] transition-colors disabled:opacity-50 shadow-sm focus:ring-2 focus:ring-[#007185] focus:outline-none flex items-center justify-center gap-2 sm:w-auto w-full relative overflow-hidden"
-                >
-                  {isProcessing ? 'Securing Order...' : 'Confirm & Pay'}
-                </button>
-              </div>
-
-            </div>
-          </div>
-        )}
-
-        {/* 🚨 FULL-SCREEN BLUR SECURE LOADING OVERLAY 🚨 */}
-        {isProcessing && showConfirmModal && (
-          <div className="fixed inset-0 z-[300] flex flex-col items-center justify-center bg-white/70 backdrop-blur-md animate-in fade-in duration-200">
-            <div className="bg-white p-8 rounded-sm shadow-2xl flex flex-col items-center border border-[#D5D9D9] max-w-sm w-full text-center">
-              <div className="w-14 h-14 border-4 border-[#007185]/20 border-t-[#007185] rounded-full animate-spin mb-5"></div>
-              <h3 className="text-xl font-bold text-[#0F1111] mb-2 flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-green-600" />
-                Securing Your Order
-              </h3>
-              <p className="text-sm text-[#565959] leading-relaxed">
-                Please wait while we transfer you to our secure payment gateway. Do not close this window.
-              </p>
-            </div>
-          </div>
-        )}
+        {/* 🚨 BANK-GRADE INSTANT TRANSITION OVERLAY 🚨 */}
+        <SecureLoadingOverlay isProcessing={isProcessing} />
 
       </Container>
     </div>

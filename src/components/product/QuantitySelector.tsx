@@ -1,9 +1,7 @@
-// src/components/product/QuantitySelector.tsx
-
 'use client'
 
-import { Minus, Plus, Edit2 } from 'lucide-react'
-import { useState, useRef } from 'react'
+import { Minus, Plus, Edit2, AlertCircle } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
 
 interface QuantitySelectorProps {
   quantity: number
@@ -24,12 +22,26 @@ export default function QuantitySelector({
   const [inputValue, setInputValue] = useState<string>(quantity.toString())
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Enterprise Scroll Lock
+  // This completely stops the background page from scrolling while the modal is open
+  useEffect(() => {
+    if (showModal) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    
+    // Cleanup function to ensure it always unlocks if the component unmounts
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [showModal])
+
   const increment = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     if (quantity < max && !disabled) {
-      const newQty = quantity + 1
-      onQuantityChange(newQty)
+      onQuantityChange(quantity + 1)
     }
   }
 
@@ -37,8 +49,7 @@ export default function QuantitySelector({
     e.preventDefault()
     e.stopPropagation()
     if (quantity > min && !disabled) {
-      const newQty = quantity - 1
-      onQuantityChange(newQty)
+      onQuantityChange(quantity - 1)
     }
   }
 
@@ -52,19 +63,26 @@ export default function QuantitySelector({
     }, 100)
   }
 
+  const handleModalClose = () => {
+    setShowModal(false)
+    setInputValue(quantity.toString()) // Reset to current valid quantity if they cancel
+  }
+
+  // Real-time Validation Engine
+  const parsedValue = parseInt(inputValue, 10)
+  const isBelowMin = !isNaN(parsedValue) && parsedValue < min
+  const isAboveMax = !isNaN(parsedValue) && parsedValue > max
+  const isEmpty = inputValue.trim() === ''
+  const isInvalid = isBelowMin || isAboveMax || isEmpty
+
   const handleModalSubmit = () => {
-    let num = parseInt(inputValue, 10)
-    if (isNaN(num)) num = min
-    if (num < min) num = min
-    if (num > max) num = max
+    if (isInvalid) return // Block submission if invalid
     
-    if (num !== quantity) {
-      onQuantityChange(num)
+    if (parsedValue !== quantity) {
+      onQuantityChange(parsedValue)
     }
     setShowModal(false)
   }
-
-  const handleModalClose = () => setShowModal(false)
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -84,12 +102,11 @@ export default function QuantitySelector({
   return (
     <>
       <div className="flex items-center gap-1.5 sm:gap-2">
-        {/* 🚨 THE FIX: Clean, isolated circular buttons with plain number */}
         <button
           type="button"
           onClick={decrement}
           disabled={disabled || quantity <= min}
-        className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 disabled:opacity-40 shadow-sm transition-colors cursor-pointer disabled:cursor-not-allowed"
+          className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 disabled:opacity-40 shadow-sm transition-colors cursor-pointer disabled:cursor-not-allowed"
           aria-label="Decrease quantity"
         >
           <Minus className="w-3.5 h-3.5" strokeWidth={2.5} />
@@ -103,18 +120,17 @@ export default function QuantitySelector({
           type="button"
           onClick={increment}
           disabled={disabled || quantity >= max}
-        className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 disabled:opacity-40 shadow-sm transition-colors cursor-pointer disabled:cursor-not-allowed"
+          className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 disabled:opacity-40 shadow-sm transition-colors cursor-pointer disabled:cursor-not-allowed"
           aria-label="Increase quantity"
         >
           <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
         </button>
 
-        {/* 🚨 HIGHLIGHTED PENCIL: Tinted blue to stand out */}
         {!disabled && (
           <button
             type="button"
             onClick={openModal}
-          className="w-8 h-8 ml-1 flex items-center justify-center rounded-full border border-[#007185]/30 bg-[#F2FAFA] text-[#007185] hover:bg-[#E3F2F2] hover:border-[#007185] transition-all shadow-sm cursor-pointer"
+            className="w-8 h-8 ml-1 flex items-center justify-center rounded-full border border-[#ffffff]/30 bg-[#ffffff] text-[#000000] hover:bg-[#E3F2F2] hover:border-[#ffffff] transition-all shadow-sm cursor-pointer"
             title="Edit quantity"
           >
             <Edit2 className="w-3.5 h-3.5" strokeWidth={2} />
@@ -124,26 +140,58 @@ export default function QuantitySelector({
 
       {/* Manual Input Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={handleModalClose}>
+        <div 
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200" 
+          onClick={handleModalClose}
+        >
           <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-5 animate-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Enter Quantity</h3>
             <p className="text-sm text-gray-600 mb-4">Available: {max} items</p>
-            <input
-              ref={inputRef}
-              type="number"
-              title="Quantity"
-              placeholder="Enter quantity"
-              value={inputValue}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              min={min}
-              max={max}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-center text-lg font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#007185] focus:border-transparent"
-              autoFocus
-            />
-            <div className="flex gap-3 mt-5">
-              <button type="button" onClick={handleModalClose} className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">Cancel</button>
-              <button type="button" onClick={handleModalSubmit} className="flex-1 px-4 py-2 text-sm font-medium text-gray-900 bg-[#FFD814] hover:bg-[#F7CA00] rounded-full transition-colors border border-[#FCD200]">Apply</button>
+            
+            <div className="relative">
+              <input
+                ref={inputRef}
+                type="text"
+                inputMode="numeric"
+                title="Quantity"
+                placeholder={`Min ${min}`}
+                value={inputValue}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+                className={`w-full px-3 py-2 border rounded-md text-center text-lg font-medium text-gray-900 focus:outline-none focus:ring-2 transition-colors ${
+                  isInvalid && !isEmpty 
+                    ? 'border-red-500 focus:ring-red-500 focus:border-red-500 bg-red-50' 
+                    : 'border-gray-300 focus:ring-[#007185] focus:border-transparent'
+                }`}
+              />
+              
+              {/* Error Message */}
+              {isInvalid && !isEmpty && (
+                <div className="flex items-center justify-center gap-1 mt-2 text-red-600 animate-in fade-in slide-in-from-top-1">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-xs font-medium">
+                    {isBelowMin ? `Minimum quantity is ${min}` : `Maximum is ${max}`}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button 
+                type="button" 
+                onClick={handleModalClose} 
+                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                onClick={handleModalSubmit} 
+                disabled={isInvalid}
+                className="flex-1 px-4 py-2 text-sm font-medium text-gray-900 bg-[#FFD814] hover:bg-[#F7CA00] rounded-full transition-colors border border-[#FCD200] cursor-pointer disabled:opacity-50 disabled:bg-gray-200 disabled:border-gray-300 disabled:text-gray-400 disabled:cursor-not-allowed"
+              >
+                Apply
+              </button>
             </div>
           </div>
         </div>

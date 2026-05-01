@@ -3,15 +3,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { ShoppingCart } from 'lucide-react'
 import ProductCard from '@/components/product/ProductCard'
 import { Product } from '@/types/database.types'
 import { useCartStore } from '@/store/cart.store'
 import { showToast } from '@/components/ui/Toast'
+import { B2B_CONSTANTS } from '@/config/b2b-rules'
 
 interface RecentlyBoughtCarouselProps {
-  userId: string | null; // Pass userId from server component
+  userId: string | null;
 }
 
 export default function RecentlyBoughtCarousel({ userId }: RecentlyBoughtCarouselProps) {
@@ -46,7 +46,6 @@ export default function RecentlyBoughtCarousel({ userId }: RecentlyBoughtCarouse
     return (
       <div className="bg-white p-4 sm:p-5 rounded-sm shadow-[0_1px_4px_rgba(0,0,0,0.1)] overflow-hidden w-full">
         <div className="flex items-center gap-2 mb-4">
-          
           <div className="h-6 bg-gray-200 rounded w-48 animate-pulse" />
         </div>
         <div className="flex gap-4 pb-6 overflow-hidden">
@@ -63,24 +62,30 @@ export default function RecentlyBoughtCarousel({ userId }: RecentlyBoughtCarouse
   }
 
   if (!userId || recentlyBought.length === 0) {
-    return null // Don't render if no user or no recently bought items
+    return null
   }
 
   const handleAddAllToCart = async () => {
     if (recentlyBought.length === 0) return
     setIsAdding(true)
     try {
-      const availableProducts = recentlyBought.filter(p => p.stock > 0)
+      const retailMin = B2B_CONSTANTS.RETAIL_MIN_QTY
+      // B2B Validation: Only add products that have at least the minimum retail stock
+      const availableProducts = recentlyBought.filter(p => p.stock >= retailMin)
+      
       await Promise.all(availableProducts.map(async (product) => {
         const sellingPrice = product.selling_price ?? product.price ?? 0
-        const finalPrice = product.bulk_price && product.bulk_price < sellingPrice ? product.bulk_price : sellingPrice
+        // Dynamic bulk pricing check based on the new B2B minimums
+        const finalPrice = product.bulk_price && retailMin >= (product.bulk_min_quantity || B2B_CONSTANTS.WHOLESALE_MIN_QTY) 
+          ? product.bulk_price 
+          : sellingPrice
 
         await addItem({
           product_id: product.id,
           name: product.name,
           slug: product.slug,
           price: finalPrice,
-          quantity: 1,
+          quantity: retailMin,
           image: product.images?.[0] || '',
           stock: product.stock,
           category_id: product.category_id || null,
@@ -109,7 +114,8 @@ export default function RecentlyBoughtCarousel({ userId }: RecentlyBoughtCarouse
         </div>
         <button
           onClick={handleAddAllToCart}
-          disabled={isAdding || recentlyBought.filter(p => p.stock > 0).length === 0}
+          // B2B Validation: Disable button if NO products have enough stock for the minimum
+          disabled={isAdding || recentlyBought.filter(p => p.stock >= B2B_CONSTANTS.RETAIL_MIN_QTY).length === 0}
           className="px-4 py-1.5 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] text-sm font-medium rounded-full shadow-sm border border-[#FCD200] transition-colors disabled:opacity-60 flex items-center gap-2 cursor-pointer focus:outline-none"
         >
           {isAdding ? (

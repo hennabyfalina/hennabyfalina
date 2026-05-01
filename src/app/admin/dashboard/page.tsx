@@ -1,269 +1,182 @@
 // src/app/admin/dashboard/page.tsx
+
 import { createClient } from '@/lib/supabase/server'
-import StatsCard from '@/components/admin/StatsCard'
-import { formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
-import { ShoppingBag, Package, CheckCircle, Users, AlertTriangle, XCircle, IndianRupee } from 'lucide-react'
-import { Metadata } from 'next'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import { siteConfig } from '@/config/site'
 
-export const metadata: Metadata = {
-  title: `Dashboard | ${siteConfig.shortName} Admin`,
-  robots: { index: false, follow: false },
-}
+// 🚨 Components
+import StatsCard from '@/components/admin/StatsCard'
+import DashboardCharts from '@/components/admin/DashboardCharts'
+import DashboardSearchBar from '@/components/admin/DashboardSearchBar'
+import { 
+  ShoppingBag, Package, Sparkles, Box, Users, 
+  History, IndianRupee, Bell, AlertTriangle, 
+  ChevronRight, ArrowUpRight, Zap
+} from 'lucide-react'
 
 export default async function AdminDashboard() {
   const supabase = await createClient()
 
-  // Get current date ranges
-  const today = new Date().toISOString().split('T')[0]
-  const startOfWeek = new Date()
-  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
-  startOfWeek.setHours(0, 0, 0, 0)
-  const startOfMonth = new Date()
-  startOfMonth.setDate(1)
-  startOfMonth.setHours(0, 0, 0, 0)
-  const startOfYear = new Date()
-  startOfYear.setMonth(0, 1)
-  startOfYear.setHours(0, 0, 0, 0)
+  // 1. Fetch Aggregated Totals
+  const { count: totalOrders } = await supabase.from('orders').select('*', { count: 'exact', head: true })
+  const { count: totalProducts } = await supabase.from('products').select('*', { count: 'exact', head: true })
+  const { count: totalCustomers } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'customer')
 
-  // Get total orders
-  const { count: totalOrders } = await supabase
-    .from('orders')
-    .select('*', { count: 'exact', head: true })
+  // 2. 🚨 REAL-TIME ALERTS ENGINE 🚨
+  const { data: lowStockItems } = await supabase.from('products').select('name, stock').lte('stock', 10).limit(3)
+  const { data: pendingOrders } = await supabase.from('orders').select('order_number').eq('status', 'pending').limit(3)
+  const { data: latestOrders } = await supabase.from('orders').select('order_number, total_amount, status, created_at').order('created_at', { ascending: false }).limit(5)
 
-  // Get total products
-  const { count: totalProducts } = await supabase
-    .from('products')
-    .select('*', { count: 'exact', head: true })
-
-  // Get active products
-  const { count: activeProducts } = await supabase
-    .from('products')
-    .select('*', { count: 'exact', head: true })
-    .eq('is_active', true)
-
-  // Get total customers
-  const { count: totalCustomers } = await supabase
-    .from('users')
-    .select('*', { count: 'exact', head: true })
-    .eq('role', 'customer')
-
-  // Get new customers this month
-  const { count: newCustomers } = await supabase
-    .from('users')
-    .select('*', { count: 'exact', head: true })
-    .eq('role', 'customer')
-    .gte('created_at', startOfMonth.toISOString())
-
-  // Get top products (most sold)
+  // 3. Fetch Top Selling Products
   const { data: topProducts } = await supabase
     .from('order_items')
-    .select(`
-      quantity,
-      products (
-        id,
-        name,
-        price,
-        images
-      )
-    `)
+    .select(`quantity, products (id, name, price, images)`)
     .order('quantity', { ascending: false })
-    .limit(5)
+    .limit(4)
 
-  // Get inventory data explicitly for dashboard stats & alerts
-  const { data: inventoryData } = await supabase
-    .from('products')
-    .select('id, name, stock, price')
-    .eq('is_active', true)
+  // 4. CHART DATA LOGIC (Aggregation)
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29)
+  const { data: recentOrders } = await supabase.from('orders').select('created_at, total_amount').gte('created_at', thirtyDaysAgo.toISOString()).eq('payment_status', 'paid')
 
-  const activeInventory = inventoryData || []
-  const lowStockProducts = activeInventory.filter(p => p.stock > 0 && p.stock <= 10).sort((a, b) => a.stock - b.stock)
-  const outOfStockProducts = activeInventory.filter(p => p.stock === 0)
-  const totalInventoryValue = activeInventory.reduce((sum, p) => sum + (p.stock * p.price), 0)
+  const chartDataMap = new Map()
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i)
+    const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    chartDataMap.set(dateStr, { date: dateStr, revenue: 0, orders: 0 })
+  }
+  recentOrders?.forEach(o => {
+    const dStr = new Date(o.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    if (chartDataMap.has(dStr)) { const e = chartDataMap.get(dStr); e.revenue += o.total_amount; e.orders += 1; }
+  })
+  const chartData = Array.from(chartDataMap.values())
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">Overview of your store's performance</p>
-        </div>
-        <div className="flex gap-2">
-          <Link 
-            href="/admin/orders"
-            className="px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
-          >
-            View Orders
-          </Link>
-        </div>
+    <div className="space-y-8 pt-4 md:pt-6 pb-12">
+      
+      {/* 🚨 GEMINI GREETING 🚨 */}
+      <div className="w-full">
+        <h1 className="text-[28px] md:text-3xl font-normal text-[#E3E3E3] tracking-tight leading-tight mb-2">
+          Hi {siteConfig.name}
+        </h1>
+        <h2 className="text-xl md:text-[28px] text-[#A8C7FA] font-medium tracking-tight">
+          System Overview & Performance
+        </h2>
+
+        {/* Global Search Bar (Trigger) */}
+        <DashboardSearchBar />
       </div>
 
-      {/* Stats Grid - Main KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatsCard
-          title="Total Orders"
-          value={totalOrders || 0}
-          icon={<ShoppingBag className="w-5 h-5" />}
-          href="/admin/orders"
-          color="blue"
-        />
-        <StatsCard
-          title="Total Products"
-          value={totalProducts || 0}
-          icon={<Package className="w-5 h-5" />}
-          href="/admin/products"
-          color="purple"
-        />
-        <StatsCard
-          title="Active Products"
-          value={activeProducts || 0}
-          icon={<CheckCircle className="w-5 h-5" />}
-          href="/admin/products"
-          color="green"
-        />
-        <StatsCard
-          title="Customers"
-          value={totalCustomers || 0}
-          icon={<Users className="w-5 h-5" />}
-          href="/admin/customers"
-          color="blue"
-        />
-      </div>
-
-      {/* Stats Grid - Inventory KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <StatsCard
-          title="Low Stock (≤10)"
-          value={lowStockProducts.length}
-          icon={<AlertTriangle className="w-5 h-5" />}
-          href="/admin/inventory"
-          color="orange"
-        />
-        <StatsCard
-          title="Out of Stock"
-          value={outOfStockProducts.length}
-          icon={<XCircle className="w-5 h-5" />}
-          href="/admin/inventory"
-          color="red"
-        />
-        <StatsCard
-          title="Est. Inventory Value"
-          value={formatCurrency(totalInventoryValue)}
-          icon={<IndianRupee className="w-5 h-5" />}
-          href="/admin/inventory"
-          color="green"
-        />
-      </div>
-
-      {/* Inventory Alerts Row */}
-      {(lowStockProducts.length > 0 || outOfStockProducts.length > 0) && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-orange-50/50">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-orange-600" />
-              <h2 className="text-sm font-semibold text-gray-900">Inventory Alerts</h2>
-            </div>
-            <Link href="/admin/inventory" className="text-sm font-medium text-blue-600 hover:text-blue-700">
-              View all inventory →
-            </Link>
+      {/* 🚨 NOTIFICATIONS & ALERTS SECTION 🚨 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-[#1E1F20] border border-[#333538] rounded-[32px] p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <Bell className="w-4 h-4 text-[#A8C7FA]" />
+            <h3 className="text-sm font-bold text-[#E3E3E3] uppercase tracking-widest">Real-time Activity</h3>
           </div>
-          <div className="divide-y divide-gray-50 max-h-[300px] overflow-y-auto">
-            {[...outOfStockProducts, ...lowStockProducts].slice(0, 10).map((product) => (
-              <div key={product.id} className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
-                <Link href={`/admin/products/${product.id}`} className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors">
-                  {product.name}
-                </Link>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  product.stock === 0 ? 'bg-red-100 text-red-800' : 'bg-orange-100 text-orange-800'
-                }`}>
-                  {product.stock === 0 ? 'Out of Stock' : `Low Stock: ${product.stock} left`}
-                </span>
+          <div className="space-y-3">
+            {pendingOrders?.map(o => (
+              <div key={o.order_number} className="flex items-center justify-between p-4 bg-[#131314] rounded-2xl border border-[#333538]/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-[#F9AB00] animate-pulse" />
+                  <span className="text-sm text-[#E3E3E3]">Order <span className="font-mono text-[#A8C7FA]">{o.order_number}</span> is pending fulfillment</span>
+                </div>
+                <Link href="/admin/orders" className="text-[#8E9196] hover:text-white transition-colors"><ArrowUpRight className="w-4 h-4" /></Link>
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* Two Column Layout for Top Products and Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Products */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="text-sm font-semibold text-gray-900">Top Selling Products</h2>
-          </div>
-          
-          <div className="divide-y divide-gray-50">
-            {topProducts && topProducts.length > 0 ? (
-              topProducts.map((item: any, index: number) => (
-                <div key={index} className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded flex items-center justify-center text-xs font-medium text-gray-500 bg-gray-100">
-                      #{index + 1}
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-900">{item.products?.name || 'Unknown'}</p>
-                      <p className="text-xs text-gray-500">{item.quantity} units sold</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">
-                      {formatCurrency((item.products?.price || 0) * item.quantity)}
-                    </p>
-                  </div>
+            {lowStockItems?.map(i => (
+              <div key={i.name} className="flex items-center justify-between p-4 bg-[#3C1E0A]/20 rounded-2xl border border-[#4E270D]/40">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="w-4 h-4 text-[#F9AB00]" />
+                  <span className="text-sm text-[#F9AB00] font-medium">Critical Stock: {i.name} ({i.stock} left)</span>
                 </div>
-              ))
-            ) : (
-              <div className="p-8 text-center">
-                <p className="text-sm text-gray-500">No sales data yet</p>
+                <Link href="/admin/inventory" className="text-[#F9AB00] hover:scale-110 transition-transform"><Zap className="w-4 h-4" /></Link>
               </div>
+            ))}
+            {pendingOrders?.length === 0 && lowStockItems?.length === 0 && (
+              <p className="text-sm text-[#565959] text-center py-4 italic">No critical alerts detected.</p>
             )}
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="text-sm font-semibold text-gray-900">Quick Actions</h2>
+        {/* 🚨 QUICK TOOLS 🚨 */}
+        <div className="bg-[#1E1F20] border border-[#333538] rounded-[32px] p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <Zap className="w-4 h-4 text-[#A8C7FA]" />
+            <h3 className="text-sm font-bold text-[#E3E3E3] uppercase tracking-widest">Utility Tools</h3>
           </div>
-          <div className="p-4 grid grid-cols-2 gap-3">
-            <Link 
-              href="/admin/products/new"
-              className="flex flex-col items-center p-4 border border-gray-100 rounded-lg hover:bg-gray-50 hover:border-gray-200 transition-colors group"
-            >
-              <svg className="w-5 h-5 text-gray-400 mb-2 group-hover:text-gray-900 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
-              </svg>
-              <span className="text-xs font-medium text-gray-600 group-hover:text-gray-900">Add Product</span>
-            </Link>
-            <Link 
-              href="/admin/orders"
-              className="flex flex-col items-center p-4 border border-gray-100 rounded-lg hover:bg-gray-50 hover:border-gray-200 transition-colors group"
-            >
-              <svg className="w-5 h-5 text-gray-400 mb-2 group-hover:text-gray-900 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-              </svg>
-              <span className="text-xs font-medium text-gray-600 group-hover:text-gray-900">Manage Orders</span>
-            </Link>
-            <Link 
-              href="/admin/categories"
-              className="flex flex-col items-center p-4 border border-gray-100 rounded-lg hover:bg-gray-50 hover:border-gray-200 transition-colors group"
-            >
-              <svg className="w-5 h-5 text-gray-400 mb-2 group-hover:text-gray-900 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l5 5a2 2 0 01.586 1.414V19a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z" />
-              </svg>
-              <span className="text-xs font-medium text-gray-600 group-hover:text-gray-900">Categories</span>
-            </Link>
-            <Link 
-              href="/admin/inventory"
-              className="flex flex-col items-center p-4 border border-gray-100 rounded-lg hover:bg-gray-50 hover:border-gray-200 transition-colors group"
-            >
-              <svg className="w-5 h-5 text-gray-400 mb-2 group-hover:text-gray-900 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
-              <span className="text-xs font-medium text-gray-600 group-hover:text-gray-900">Inventory</span>
-            </Link>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'Audit Logs', icon: History, href: '/admin/inventory/logs' },
+              { label: 'Finance Ledger', icon: IndianRupee, href: '/admin/finance' },
+              { label: 'Catalog Sync', icon: Package, href: '/admin/products' },
+              { label: 'User Directory', icon: Users, href: '/admin/customers' },
+            ].map((tool) => (
+              <Link key={tool.label} href={tool.href} className="flex items-center gap-3 p-4 bg-[#131314] hover:bg-[#282A2C] border border-[#333538] rounded-2xl transition-all group">
+                <tool.icon className="w-4 h-4 text-[#8E9196] group-hover:text-[#A8C7FA]" />
+                <span className="text-sm text-[#C4C7C5] group-hover:text-[#E3E3E3]">{tool.label}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 🚨 CORE STATS GRID 🚨 */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatsCard title="Total Orders" value={totalOrders || 0} icon={<ShoppingBag className="w-5 h-5" />} />
+        <StatsCard title="Active Products" value={totalProducts || 0} icon={<Box className="w-5 h-5" />} />
+        <StatsCard title="Verified Customers" value={totalCustomers || 0} icon={<Users className="w-5 h-5" />} />
+      </div>
+
+      {/* 🚨 ANALYTICS VISUALIZATION 🚨 */}
+      <DashboardCharts data={chartData} />
+
+      {/* 🚨 RECENT ORDERS & TOP PRODUCTS 🚨 */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        
+        {/* Latest Activity Feed */}
+        <div className="bg-[#1E1F20] rounded-[32px] border border-[#333538] overflow-hidden p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-base font-medium text-[#E3E3E3]">Recent Activity</h2>
+            <Link href="/admin/orders" className="text-xs font-bold text-[#A8C7FA] hover:underline uppercase">All Orders</Link>
+          </div>
+          <div className="space-y-4">
+            {latestOrders?.map(order => (
+              <div key={order.order_number} className="flex items-center justify-between py-3 border-b border-[#333538] last:border-0">
+                <div>
+                  <p className="text-sm font-mono text-[#E3E3E3]">{order.order_number}</p>
+                  <p className="text-[11px] text-[#8E9196] mt-0.5">{formatDate(order.created_at)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-[#E3E3E3]">{formatCurrency(order.total_amount)}</p>
+                  <p className="text-[10px] uppercase font-bold text-[#93D7A4] tracking-tighter">{order.status}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Top Products Table */}
+        <div className="bg-[#1E1F20] rounded-[32px] border border-[#333538] overflow-hidden p-2">
+          <div className="px-6 py-4 flex items-center justify-between">
+            <h2 className="text-base font-medium text-[#E3E3E3]">Top Selling Products</h2>
+          </div>
+          <div className="space-y-1">
+            {topProducts?.map((item: any, index: number) => (
+              <div key={index} className="flex items-center justify-between p-4 rounded-[24px] hover:bg-[#282A2C] transition-colors cursor-pointer group">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium text-[#A8C7FA] bg-[#131314] border border-[#333538]">{index + 1}</div>
+                  <div>
+                    <p className="text-[15px] font-medium text-[#E3E3E3] line-clamp-1">{item.products?.name || 'Unknown'}</p>
+                    <p className="text-sm text-[#8E9196] mt-0.5">{item.quantity} units sold</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-[15px] font-medium text-[#93D7A4]">{formatCurrency((item.products?.price || 0) * item.quantity)}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

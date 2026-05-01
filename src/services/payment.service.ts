@@ -1,3 +1,5 @@
+// src/services/payment.service.ts
+
 import { createClient } from '@/lib/supabase/server'
 
 export async function updatePaymentStatus(
@@ -36,20 +38,29 @@ async function updateProductStock(orderId: string) {
     .select('product_id, quantity')
     .eq('order_id', orderId)
 
-  if (itemsError) {
+  if (itemsError || !orderItems) {
     console.error('Error fetching order items:', itemsError)
     return
   }
 
-  // Update stock for each product
+  // 🚨 Unified and Hardened Stock Update Logic
   for (const item of orderItems) {
-    const { error: stockError } = await supabase.rpc('decrement_product_stock', {
-      product_id: item.product_id,
-      quantity: item.quantity,
+    const { error: rpcError } = await supabase.rpc('decrement_product_stock', {
+      p_id: item.product_id,
+      decrement_qty: item.quantity,
     })
 
-    if (stockError) {
-      console.error('Error updating stock:', stockError)
+    // Smart Fallback just like the Webhook
+    if (rpcError) {
+      console.warn(`[Payment Service] RPC failed for ${item.product_id}. Using fallback query.`)
+      const { data: product } = await supabase.from('products').select('stock').eq('id', item.product_id).single()
+      
+      if (product) {
+        await supabase
+          .from('products')
+          .update({ stock: Math.max(0, product.stock - item.quantity) })
+          .eq('id', item.product_id)
+      }
     }
   }
 }

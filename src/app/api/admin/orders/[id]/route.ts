@@ -13,14 +13,12 @@ export async function GET(
 
     const supabase = await createClient()
     
-    // Use getUser() for security
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify admin
     const { data: userData } = await supabase
       .from('users')
       .select('role')
@@ -31,7 +29,6 @@ export async function GET(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Fetch order with correct relationships
     const { data: order, error } = await supabase
       .from('orders')
       .select(`
@@ -49,7 +46,6 @@ export async function GET(
     if (error) {
       console.error('Error fetching order:', error)
       
-      // If the relationship syntax fails, try without the table alias
       if (error.message.includes('relationship')) {
         const { data: orderSimple, error: simpleError } = await supabase
           .from('orders')
@@ -91,7 +87,8 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params
-    const { status, reason } = await request.json()
+    // 🚨 Extracting Tracking Data from Request 🚨
+    const { status, reason, courier_name, tracking_number, tracking_url } = await request.json()
 
     if (!status) {
       return NextResponse.json(
@@ -102,14 +99,12 @@ export async function PATCH(
 
     const supabase = await createClient()
     
-    // Use getUser() for security
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify admin
     const { data: userData } = await supabase
       .from('users')
       .select('role')
@@ -120,16 +115,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // ─── REFUND PROCESSING LOGIC (Cancellations & Returns) ──────────────
+    // ─── REFUND PROCESSING LOGIC ──────────────
     if (status === 'cancelled' || status === 'returned') {
-      // Fetch current order to check payment status
       const { data: currentOrder } = await supabase
         .from('orders')
         .select('payment_status, payment_method_detail, total_amount, razorpay_payment_id')
         .eq('id', id)
         .single()
 
-      // If the order was prepaid online, issue a refund
       if (currentOrder?.payment_status === 'paid' && currentOrder?.payment_method_detail !== 'cod') {
         if (currentOrder.razorpay_payment_id) {
           try {
@@ -138,7 +131,7 @@ export async function PATCH(
               key_secret: process.env.RAZORPAY_KEY_SECRET!,
             })
             await razorpay.payments.refund(currentOrder.razorpay_payment_id, {
-              amount: Math.round(currentOrder.total_amount * 100) // amount in paise
+              amount: Math.round(currentOrder.total_amount * 100)
             })
             await supabase.from('orders').update({ payment_status: 'refunded' }).eq('id', id)
           } catch (refundError) {
@@ -150,14 +143,24 @@ export async function PATCH(
     }
     // ────────────────────────────────────────────────────────────────────
 
-    // Update order status
+    // 🚨 Build dynamic update payload 🚨
+    const updateData: any = {
+      status,
+      ...(status === 'cancelled' && reason ? { payment_failed_reason: reason } : {}),
+      updated_at: new Date().toISOString(),
+    }
+
+    // 🚨 Add Dispatch details if status is Shipped
+    if (status === 'shipped') {
+      updateData.courier_name = courier_name;
+      updateData.tracking_number = tracking_number;
+      updateData.tracking_url = tracking_url;
+      updateData.shipped_at = new Date().toISOString();
+    }
+
     const { error } = await supabase
       .from('orders')
-      .update({
-        status,
-        ...(status === 'cancelled' && reason ? { payment_failed_reason: reason } : {}),
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', id)
 
     if (error) {

@@ -41,9 +41,9 @@ export default function AddressForm({
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const inputClass = "w-full px-3 py-2 bg-white border border-[#D5D9D9] rounded-sm focus:outline-none focus:border-[#FF9900] focus:ring-1 focus:ring-[#FF9900] transition-shadow text-sm placeholder:text-[#565959] disabled:bg-gray-50 disabled:cursor-not-allowed shadow-sm"
-  const errorInputClass = "w-full px-3 py-2 bg-white border border-red-500 rounded-sm focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-shadow text-sm placeholder:text-[#565959] disabled:bg-gray-50 disabled:cursor-not-allowed shadow-sm"
-  const labelClass = "block text-sm font-bold text-[#0F1111] mb-1"
+  const inputClass = "w-full px-3 py-2.5 sm:py-3 bg-white border border-[#D5D9D9] rounded-sm focus:outline-none focus:border-[#FF9900] focus:ring-1 focus:ring-[#FF9900] transition-shadow text-[15px] placeholder:text-[#565959] disabled:bg-gray-50 disabled:cursor-not-allowed shadow-sm"
+  const errorInputClass = "w-full px-3 py-2.5 sm:py-3 bg-white border border-red-500 rounded-sm focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-shadow text-[15px] placeholder:text-[#565959] disabled:bg-gray-50 disabled:cursor-not-allowed shadow-sm"
+  const labelClass = "block text-[15px] font-bold text-[#0F1111] mb-1.5"
   const errorClass = "text-xs text-red-600 mt-1 font-medium"
 
   // Validation functions
@@ -152,7 +152,7 @@ export default function AddressForm({
               type="button"
               onClick={() => setShowClearConfirm(true)}
               disabled={disabled}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-sm transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-sm transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
             >
               <Trash2 className="w-3.5 h-3.5" />
               Clear All
@@ -297,7 +297,7 @@ export default function AddressForm({
             <h3 className="text-lg font-bold text-[#0F1111] mb-4">Delivery Instructions  <span className="text-gray-500 font-normal">(Optional)</span> </h3>
             <div className="space-y-4">
               <div>
-                <label htmlFor="landmark" className="block text-sm font-bold text-[#0F1111] mb-1">Landmark</label>
+                <label htmlFor="landmark" className="block text-[15px] font-bold text-[#0F1111] mb-1.5">Landmark</label>
                 <input 
                   id="landmark" 
                   type="text" 
@@ -309,7 +309,7 @@ export default function AddressForm({
                 />
               </div>
               <div>
-                <label htmlFor="delivery-instructions" className="block text-sm font-bold text-[#0F1111] mb-1">Preferences</label>
+                <label htmlFor="delivery-instructions" className="block text-[15px] font-bold text-[#0F1111] mb-1.5">Preferences</label>
                 <textarea 
                   id="delivery-instructions"
                   value={formData.delivery_instructions} 

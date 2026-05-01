@@ -30,10 +30,10 @@ export default function StorePickupInfo() {
       
       <div className="bg-[#F0F2F2] rounded-sm p-4 space-y-3 border border-[#D5D9D9]">
         <div className="flex items-start gap-3">
-          <MapPin className="w-5 h-5 text-[#565959] flex-shrink-0 mt-0.5" />
+          <MapPin className="w-5 h-5 text-[#565959] flex-shrink-0 mt-1" />
           <div>
-            <p className="font-bold text-sm text-[#0F1111]">{siteConfig.name}</p>
-            <p className="text-sm text-[#0F1111] leading-relaxed whitespace-pre-line mt-1">
+            <p className="font-bold text-[15px] text-[#0F1111]">{siteConfig.name}</p>
+            <p className="text-[15px] text-[#0F1111] leading-relaxed whitespace-pre-line mt-1">
               {siteConfig.address.line1},<br />
               {siteConfig.address.line2},<br />
               {siteConfig.address.city}, {siteConfig.address.state}, {siteConfig.address.country} – {siteConfig.address.pincode}<br />
@@ -43,25 +43,25 @@ export default function StorePickupInfo() {
         
         <div className="flex items-center gap-3">
           <Clock className="w-5 h-5 text-[#565959] flex-shrink-0" />
-          <p className="text-sm text-[#0F1111]">{siteConfig.business.workingHours}</p>
+          <p className="text-[15px] text-[#0F1111]">{siteConfig.business.workingHours}</p>
         </div>
         
         <div className="flex items-center gap-3">
           <Phone className="w-5 h-5 text-[#565959] flex-shrink-0" />
-          <p className="text-sm text-[#0F1111]">{siteConfig.contact.phone.primary}</p>
-          <p className="text-sm text-[#0F1111]">{siteConfig.contact.phone.secondary}</p>
+          <p className="text-[15px] text-[#0F1111]">{siteConfig.contact.phone.primary}</p>
+          <p className="text-[15px] text-[#0F1111]">{siteConfig.contact.phone.secondary}</p>
         </div>
 
         <div className="flex items-center gap-3">
           <Mail className="w-5 h-5 text-[#565959] flex-shrink-0" />
-          <p className="text-sm text-[#0F1111]">{siteConfig.contact.email.orders}</p>
+          <p className="text-[15px] text-[#0F1111]">{siteConfig.contact.email.orders}</p>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 pt-2">
         <button
           onClick={handleCopy}
-          className="flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-[#0F1111] bg-white border border-[#D5D9D9] rounded-sm hover:bg-gray-50 transition-colors shadow-sm focus:ring-2 focus:ring-[#007185] focus:outline-none"
+          className="flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-[#0F1111] bg-white border border-[#D5D9D9] rounded-sm hover:bg-gray-50 transition-colors shadow-sm focus:ring-2 focus:ring-[#007185] focus:outline-none cursor-pointer"
         >
           {copied ? (
             <Check className="w-4 h-4 text-[#007600]" />

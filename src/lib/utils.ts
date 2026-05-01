@@ -1,18 +1,10 @@
 // src/lib/utils.ts
 
-export function generateOrderNumber(): string {
-  // Get current date in YYMMDD format
-  const now = new Date()
-  const year = now.getFullYear().toString().slice(-2)
-  const month = (now.getMonth() + 1).toString().padStart(2, '0')
-  const day = now.getDate().toString().padStart(2, '0')
-  const dateStr = `${year}${month}${day}`
-  
-  // Generate random 6-character alphanumeric suffix
-  const random = Math.random().toString(36).substring(2, 8).toUpperCase()
-  
-  // Return formatted order number
-  return `RPC-${dateStr}-${random}`
+export function generateOrderNumber() {
+  // Generates format: RPC-XXXXXXX-XXXXXXX (Amazon Style)
+  const part1 = Math.floor(1000000 + Math.random() * 9000000); // 7 digits
+  const part2 = Math.floor(1000000 + Math.random() * 9000000); // 7 digits
+  return `RPC-${part1}-${part2}`;
 }
 
 export function formatCurrency(amount: number): string {
@@ -67,4 +59,27 @@ export function numberToIndianWords(num: number): string {
   }
 
   return word.trim() + ' Rupees Only'
+}
+
+// Admin Dashboard Constants
+
+export function getStartOfWeek(): string {
+  const date = new Date()
+  date.setDate(date.getDate() - date.getDay())
+  date.setHours(0, 0, 0, 0)
+  return date.toISOString()
+}
+
+export function getStartOfMonth(): string {
+  const date = new Date()
+  date.setDate(1)
+  date.setHours(0, 0, 0, 0)
+  return date.toISOString()
+}
+
+export function getStartOfYear(): string {
+  const date = new Date()
+  date.setMonth(0, 1)
+  date.setHours(0, 0, 0, 0)
+  return date.toISOString()
 }

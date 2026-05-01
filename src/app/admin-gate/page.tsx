@@ -8,18 +8,26 @@ import { useAuth } from '@/hooks/useAuth'
 import { verifyAdminGate } from '@/app/actions/verify-admin-gate'
 import Link from 'next/link'
 import { signOut } from '@/services/auth.service'
-import { ShieldCheck, AlertTriangle, Lock, LogOut, CheckCircle } from 'lucide-react'
+import { ShieldCheck, Lock, LogOut } from 'lucide-react'
 import { siteConfig } from '@/config/site'
+
+// 🚨 Reusing our Elite UI Components
+import AdminConfirmModal from '@/components/admin/layout/AdminConfirmModal'
+import AdminLoader from '@/components/admin/AdminLoader'
+import { showToast } from '@/components/ui/Toast'
 
 export default function AdminGatePage() {
   const router = useRouter()
   const { user, isAdmin, isLoading } = useAuth()
   const [code, setCode] = useState('')
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+
+  // Force dark mode for the gate
+  useEffect(() => {
+    document.documentElement.classList.add('dark')
+  }, [])
 
   useEffect(() => {
     if (!isLoading && !isAdmin) {
@@ -28,11 +36,7 @@ export default function AdminGatePage() {
   }, [isAdmin, isLoading, router])
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="w-8 h-8 border-4 border-[#D5D9D9] border-t-[#E77600] rounded-full animate-spin" />
-      </div>
-    )
+    return <AdminLoader fullScreen={true} message="Verifying session..." />
   }
 
   if (!isAdmin || !user) {
@@ -55,14 +59,13 @@ export default function AdminGatePage() {
   }
 
   const maskedEmail = getMaskedEmail(user.email || '')
+  const initial = user.email ? user.email.charAt(0).toUpperCase() : 'A'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
-    setSuccess('')
     
     if (!code.trim()) {
-      setError('Please enter the administrative access code.')
+      showToast('Please enter the administrative access code.', 'warning')
       return
     }
 
@@ -72,19 +75,17 @@ export default function AdminGatePage() {
       const response = await verifyAdminGate(code)
       
       if (response.success) {
-        setSuccess('Access granted. Redirecting to dashboard...')
-        // Small delay to show the success message before redirecting
+        showToast('Access granted. Initializing workspace...', 'success')
         setTimeout(() => {
           router.push('/admin/dashboard')
         }, 1000)
       } else {
-        // Display the specific error message returned from the server action
-        setError(response.error || 'Invalid access code. Please try again.')
+        showToast(response.error || 'Invalid access code. Please try again.', 'error')
         setSubmitting(false)
-        setCode('') // Clear the input field on error
+        setCode('') // Clear the input field on error for quick retry
       }
     } catch (err) {
-      setError('An error occurred while verifying the code.')
+      showToast('An error occurred while verifying the code.', 'error')
       setSubmitting(false)
     }
   }
@@ -96,160 +97,117 @@ export default function AdminGatePage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
-      {/* Amazon Style Header */}
-      <header className="w-full py-4 flex items-center justify-center border-b border-[#D5D9D9]">
-        <div className="flex flex-col items-center">
-          <Link href="/" className="text-2xl font-extrabold tracking-tight text-[#0F1111] hover:opacity-90 transition-opacity">
-            {siteConfig.name}
-          </Link>
-          <span className="text-sm font-medium text-[#565959] mt-0.5 tracking-wide uppercase">Seller Central</span>
-        </div>
-      </header>
-
-      <div className="flex-1 flex flex-col pt-8 pb-12 px-4 w-full max-w-[400px] mx-auto">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#131314] text-[#E3E3E3] selection:bg-[#A8C7FA]/30 selection:text-white p-4">
+      
+      {/* 🚨 GEMINI LOGIN CARD 🚨 */}
+      <div className="w-full max-w-[440px] animate-in fade-in slide-in-from-bottom-8 duration-500">
         
-        {/* Error Alert Box */}
-        {error && (
-          <div className="mb-4 p-4 border-l-4 border-[#B12704] border border-[#D5D9D9] rounded-sm bg-white shadow-sm animate-in fade-in slide-in-from-top-2">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-6 h-6 text-[#B12704] flex-shrink-0" />
-              <div>
-                <h3 className="text-[#B12704] font-bold text-sm mb-1">There was a problem</h3>
-                <p className="text-sm text-[#0F1111]">{error}</p>
-              </div>
-            </div>
+        {/* Header / Logo Area */}
+        <div className="flex flex-col items-center mb-8">
+          <Link href="/" className="text-2xl font-medium tracking-tight text-[#E3E3E3] hover:text-[#A8C7FA] transition-colors mb-1">
+            {siteConfig.shortName || siteConfig.name}
+          </Link>
+          <div className="flex items-center gap-1.5 px-3 py-1 bg-[#1E1F20] border border-[#333538] rounded-full">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#A8C7FA]" />
+            <span className="text-[10px] font-bold text-[#A8C7FA] tracking-widest uppercase">Secure Gateway</span>
           </div>
-        )}
-
-        {/* Success Alert Box */}
-        {success && (
-          <div className="mb-4 p-4 border-l-4 border-[#007600] border border-[#D5D9D9] rounded-sm bg-white shadow-sm animate-in fade-in slide-in-from-top-2">
-            <div className="flex items-start gap-3">
-              <CheckCircle className="w-6 h-6 text-[#007600] flex-shrink-0" />
-              <div>
-                <h3 className="text-[#007600] font-bold text-sm mb-1">Authentication Successful</h3>
-                <p className="text-sm text-[#0F1111]">{success}</p>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
 
         {/* Main Verification Card */}
-        <div className="border border-[#D5D9D9] rounded-sm p-6 bg-white shadow-sm">
-          <div className="flex items-center gap-3 mb-4">
-            <ShieldCheck className="w-8 h-8 text-[#007185]" strokeWidth={1.5} />
-            <h1 className="text-2xl font-normal text-[#0F1111] tracking-tight">Two-Step Verification</h1>
-          </div>
+        <div className="bg-[#1E1F20] border border-[#333538] rounded-[32px] p-8 sm:p-10 shadow-2xl relative overflow-hidden">
+          
+          {/* Subtle Background Glow */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-32 bg-[#A8C7FA]/5 blur-3xl rounded-full pointer-events-none" />
 
-          <p className="text-sm text-[#0F1111] mb-4">
-            For added security, please enter the administrative access code to enter Seller Central.
-          </p>
-
-          <div className="bg-[#F0F2F2] border border-[#D5D9D9] rounded-sm p-3 mb-5 flex items-center gap-3">
-            <Lock className="w-5 h-5 text-[#565959]" />
-            <div className="flex flex-col">
-              <span className="text-xs text-[#565959] font-bold uppercase tracking-wide">Authenticating as</span>
-              <span className="text-sm font-medium text-[#0F1111]">{maskedEmail}</span>
+          {/* Profile Section */}
+          <div className="flex flex-col items-center text-center mb-8 relative z-10">
+            {/* Google 4-Color Avatar Ring */}
+            <div 
+              className="relative p-[3px] rounded-full mb-4 shadow-lg shadow-black/50"
+              style={{ background: 'conic-gradient(from 90deg, #EA4335 0deg 90deg, #4285F4 90deg 180deg, #34A853 180deg 270deg, #FBBC05 270deg 360deg)' }}
+            >
+              <div className="w-16 h-16 rounded-full bg-[#131314] flex items-center justify-center text-[#E3E3E3] font-medium text-2xl border-4 border-[#1E1F20]">
+                {initial}
+              </div>
+            </div>
+            
+            <h1 className="text-2xl font-normal text-[#E3E3E3] tracking-tight mb-1">Verify it's you</h1>
+            <div className="flex items-center justify-center gap-2 text-[#C4C7C5] bg-[#131314] px-4 py-1.5 rounded-full border border-[#333538] mt-2">
+              <Lock className="w-3.5 h-3.5" />
+              <span className="text-sm font-mono tracking-tight">{maskedEmail}</span>
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
             <div>
-              <label className="block text-sm font-bold text-[#0F1111] mb-1">Enter access code</label>
-              <input
-                type="password"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                required
-                disabled={submitting || !!success}
-                autoComplete="off"
-                autoFocus
-                placeholder="••••••••"
-                title="Administrative access code"
-                className="w-full px-3 py-2 bg-white border border-[#D5D9D9] rounded-sm focus:outline-none focus:border-[#E77600] focus:ring-1 focus:ring-[#E77600] transition-shadow text-sm tracking-widest font-mono disabled:opacity-50 disabled:bg-gray-50"
-              />
+              <div className="relative group">
+                <input
+                  type="password"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  disabled={submitting}
+                  autoComplete="off"
+                  autoFocus
+                  placeholder="Enter administrative code"
+                  className="w-full px-5 py-4 bg-[#131314] border border-[#333538] text-[#E3E3E3] placeholder:text-[#8E9196] rounded-[24px] focus:outline-none focus:border-[#A8C7FA] focus:ring-1 focus:ring-[#A8C7FA] transition-all text-center tracking-widest font-mono text-lg disabled:opacity-50"
+                />
+              </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={submitting || code.length === 0 || !!success}
-              className="w-full py-2.5 mt-2 text-sm font-normal text-[#0F1111] bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-[#007185] focus:outline-none"
-            >
-              {submitting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <div className="w-4 h-4 border-2 border-[#0F1111]/30 border-t-[#0F1111] rounded-full animate-spin" />
-                  Verifying...
-                </span>
-              ) : (
-                'Sign-In to Dashboard'
-              )}
-            </button>
-          </form>
+            <div className="flex flex-col gap-3 pt-2">
+              <button
+                type="submit"
+                disabled={submitting || code.length === 0}
+                className="w-full py-4 text-sm font-bold text-white bg-[#0B57D0] rounded-full hover:bg-[#0842A0] transition-all cursor-pointer shadow-lg shadow-blue-900/20 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+              >
+                {submitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Authenticating...
+                  </span>
+                ) : (
+                  'Access Workspace'
+                )}
+              </button>
 
-          <div className="mt-6 pt-6 border-t border-[#D5D9D9]">
-            <button
-              type="button"
-              onClick={() => setShowLogoutConfirm(true)}
-              disabled={submitting || !!success}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-white border border-[#D5D9D9] hover:bg-gray-50 rounded-sm text-sm font-medium text-[#0F1111] shadow-sm transition-colors focus:ring-2 focus:ring-[#007185] focus:outline-none disabled:opacity-50"
-            >
-              Not your account? Sign out
-            </button>
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(true)}
+                disabled={submitting}
+                className="w-full py-4 bg-transparent border border-[#333538] hover:bg-[#282A2C] text-[#C4C7C5] rounded-full text-sm font-medium transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Not your account? Sign out
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-8 text-center flex flex-col items-center gap-4">
+          <div className="flex items-center gap-6">
+            <Link href="/terms" className="text-xs text-[#8E9196] hover:text-[#E3E3E3] transition-colors">Conditions</Link>
+            <Link href="/privacy" className="text-xs text-[#8E9196] hover:text-[#E3E3E3] transition-colors">Privacy</Link>
+            <Link href="/help" className="text-xs text-[#8E9196] hover:text-[#E3E3E3] transition-colors">Help</Link>
           </div>
+          <p className="text-[11px] text-[#565959] font-mono">
+            &copy; {new Date().getFullYear()} {siteConfig.name} Workspace
+          </p>
         </div>
       </div>
 
-      <footer className="w-full bg-[#F0F2F2] py-8 border-t border-[#D5D9D9] mt-auto">
-        <div className="flex justify-center items-center gap-6 mb-4 flex-wrap px-4">
-          <Link href="/terms" className="text-xs text-[#007185] hover:text-[#C7511F] hover:underline">Conditions of Use</Link>
-          <Link href="/privacy" className="text-xs text-[#007185] hover:text-[#C7511F] hover:underline">Privacy Notice</Link>
-          <Link href="/help" className="text-xs text-[#007185] hover:text-[#C7511F] hover:underline">Help</Link>
-        </div>
-        <p className="text-xs text-[#565959] text-center">
-          &copy; {new Date().getFullYear()} {siteConfig.name}. All rights reserved.
-        </p>
-      </footer>
-
-      {/* Logout Confirmation Modal */}
-      {showLogoutConfirm && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-sm shadow-[0_4px_14px_rgba(0,0,0,0.15)] max-w-sm w-full p-6 border border-[#D5D9D9] animate-in zoom-in-95 duration-200">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0 border border-red-100">
-                <LogOut className="w-5 h-5 text-[#B12704]" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-[#0F1111] mb-2">Sign out</h3>
-                <p className="text-sm text-[#565959] leading-relaxed mb-6">
-                  Are you sure you want to cancel authentication and sign out of your account?
-                </p>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 pt-4 border-t border-[#D5D9D9]">
-              <button
-                onClick={() => setShowLogoutConfirm(false)}
-                disabled={loggingOut}
-                className="px-5 py-2 text-sm font-medium text-[#0F1111] bg-white border border-[#D5D9D9] rounded-sm hover:bg-gray-50 shadow-sm transition-colors focus:ring-2 focus:ring-[#007185] focus:outline-none"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmLogout}
-                disabled={loggingOut}
-                className="px-5 py-2 text-sm font-medium text-[#0F1111] bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm shadow-sm transition-colors disabled:opacity-50 focus:ring-2 focus:ring-[#007185] focus:outline-none flex items-center gap-2"
-              >
-                {loggingOut ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-[#0F1111]/30 border-t-[#0F1111] rounded-full animate-spin"></div>
-                    Signing out...
-                  </>
-                ) : 'Sign Out'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 🚨 REUSABLE ELITE LOGOUT MODAL 🚨 */}
+      <AdminConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={confirmLogout}
+        title="Sign Out of Gateway?"
+        description="Are you sure you want to cancel authentication and sign out of this account?"
+        confirmText="Sign Out"
+        icon={<LogOut className="w-6 h-6" />}
+        isDestructive={true}
+        isLoading={loggingOut}
+      />
+      
     </div>
   )
 }

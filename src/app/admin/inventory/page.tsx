@@ -1,374 +1,269 @@
+// src/app/admin/inventory/page.tsx
+
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
+import StatsCard from '@/components/admin/StatsCard'
+import AdminLoader from '@/components/admin/AdminLoader'
+import StockUpdateModal from '@/components/admin/StockUpdateModal' // 🚨 PROPER MODAL IMPORT
+import { showToast } from '@/components/ui/Toast'
 import { getPublicUrl } from '@/lib/supabase/storage'
 import { formatCurrency } from '@/lib/utils'
-import StockUpdateModal from '@/components/admin/StockUpdateModal'
-import StatsCard from '@/components/admin/StatsCard'
-import { Package, AlertTriangle, XCircle, IndianRupee } from 'lucide-react'
+import { Boxes, AlertTriangle, XCircle, TrendingUp, Search, Filter, Edit, Image as ImageIcon, History } from 'lucide-react'
 
-interface Product {
+// 🚨 IMPORTED DRY CONSTANTS 🚨
+import { INVENTORY_STATUS_FILTERS, INVENTORY_SORT_OPTIONS } from '@/lib/constants'
+
+interface InventoryItem {
   id: string
   name: string
-  slug: string
-  price: number
-  stock: number
-  images: string[]
-  status: 'draft' | 'published' | 'archived'
-  is_active?: boolean
   sku: string | null
-  updated_at?: string
-  selling_price?: number
+  stock: number
+  price: number
+  selling_price?: number // Needed for the modal
+  bulk_price?: number | null // Needed for the modal
+  images: string[]
+  updated_at: string
+  category?: { name: string } | null
 }
 
-// Toast component
-const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 3000)
-    return () => clearTimeout(timer)
-  }, [onClose])
-
-  const isError = type === 'error'
-
-  return (
-    <div className="fixed bottom-4 right-4 z-50 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg animate-slide-up flex items-center gap-3 text-sm font-medium">
-      {isError ? <span className="text-red-400">⚠️</span> : <span className="text-green-400">✓</span>}
-      {message}
-    </div>
-  )
-}
-
-const formatIST = (dateString?: string) => {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  if (isNaN(date.getTime())) return '-'
-  return new Intl.DateTimeFormat('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  }).format(date).toUpperCase()
-}
+const LOW_STOCK_THRESHOLD = 10
 
 export default function AdminInventory() {
-  const [products, setProducts] = useState<Product[]>([])
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'out' | 'in'>('all')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'draft' | 'archived'>('all')
-  const [sortBy, setSortBy] = useState('updated_desc')
+  const [inventory, setInventory] = useState<InventoryItem[]>([])
   const [imageUrls, setImageUrls] = useState<Map<string, string>>(new Map())
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  
+  // Filters
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [sortBy, setSortBy] = useState('stock_asc')
+
+  // Stock Adjustment State
+  const [adjustingItem, setAdjustingItem] = useState<InventoryItem | null>(null)
 
   const supabase = createClient()
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info') => {
-    setToast({ message, type })
-    setTimeout(() => setToast(null), 3000)
-  }
-
   useEffect(() => {
-    loadProducts()
+    loadInventory()
   }, [])
 
-  // Load public URLs for product images
   useEffect(() => {
-    const loadImageUrls = () => {
-      const urls = new Map<string, string>()
-      for (const product of products) {
-        if (product.images && product.images.length > 0) {
-          const publicUrl = getPublicUrl(product.images[0])
-          urls.set(product.id, publicUrl)
-        }
+    const urls = new Map<string, string>()
+    for (const item of inventory) {
+      if (item.images && item.images.length > 0) {
+        urls.set(item.id, getPublicUrl(item.images[0]))
       }
-      setImageUrls(urls)
     }
-    
-    if (products.length > 0) {
-      loadImageUrls()
-    }
-  }, [products])
+    setImageUrls(urls)
+  }, [inventory])
 
-  const loadProducts = async () => {
+  const loadInventory = async () => {
     setIsLoading(true)
     try {
+      // 🚨 Added selling_price and bulk_price for the StockUpdateModal context
       const { data, error } = await supabase
         .from('products')
-        .select('*')
-        .order('name', { ascending: true })
-      
-      if (error) throw error
-      
-      // Map database 'is_active' to UI 'status'
-      const mappedData = (data || []).map((p: any) => ({
-        ...p,
-        status: p.is_active ? 'published' : 'draft'
-      }))
+        .select(`
+          id, name, sku, stock, price, selling_price, bulk_price, images, updated_at,
+          category:categories(name)
+        `)
+        .order('stock', { ascending: true })
 
-      setProducts(mappedData)
-      setFilteredProducts(mappedData)
+      if (error) throw error
+      setInventory(data as any || [])
     } catch (error) {
-      console.error('Failed to load products:', error)
-      showToast('Failed to load products', 'error')
+      showToast('Failed to load inventory data', 'error')
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Apply filters
-  useEffect(() => {
-    let filtered = [...products]
+  // Filter & Sort Logic
+  const filteredInventory = inventory.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || (item.sku || '').toLowerCase().includes(searchQuery.toLowerCase())
+    
+    let matchesStatus = true
+    if (statusFilter === 'in_stock') matchesStatus = item.stock > LOW_STOCK_THRESHOLD
+    if (statusFilter === 'low_stock') matchesStatus = item.stock > 0 && item.stock <= LOW_STOCK_THRESHOLD
+    if (statusFilter === 'out_of_stock') matchesStatus = item.stock === 0
 
-    // Search filter
-    if (searchQuery) {
-      filtered = filtered.filter(p => 
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.sku?.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-    }
+    return matchesSearch && matchesStatus
+  })
 
-    // Stock filter
-    if (stockFilter === 'low') {
-      filtered = filtered.filter(p => p.stock > 0 && p.stock <= 10)
-    } else if (stockFilter === 'out') {
-      filtered = filtered.filter(p => p.stock === 0)
-    } else if (stockFilter === 'in') {
-      filtered = filtered.filter(p => p.stock > 0)
-    }
+  const sortedInventory = [...filteredInventory].sort((a, b) => {
+    if (sortBy === 'stock_asc') return a.stock - b.stock
+    if (sortBy === 'stock_desc') return b.stock - a.stock
+    if (sortBy === 'name_asc') return a.name.localeCompare(b.name)
+    if (sortBy === 'name_desc') return b.name.localeCompare(a.name)
+    if (sortBy === 'updated_desc') return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    return 0
+  })
 
-    // Status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(p => p.status === statusFilter)
-    }
+  // Metrics
+  const totalValue = inventory.reduce((sum, item) => sum + (item.price * item.stock), 0)
+  const lowStockCount = inventory.filter(i => i.stock > 0 && i.stock <= LOW_STOCK_THRESHOLD).length
+  const outOfStockCount = inventory.filter(i => i.stock === 0).length
 
-    // Sorting
-    filtered.sort((a, b) => {
-      if (sortBy === 'updated_desc') return new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime()
-      if (sortBy === 'stock_asc') return a.stock - b.stock
-      if (sortBy === 'stock_desc') return b.stock - a.stock
-      if (sortBy === 'name_asc') return a.name.localeCompare(b.name)
-      return 0
-    })
-
-    setFilteredProducts(filtered)
-  }, [searchQuery, stockFilter, statusFilter, sortBy, products])
-
-  const handleUpdateSuccess = () => {
-    setSelectedProduct(null)
-    showToast('Stock updated successfully', 'success')
-    loadProducts() // Refresh to get correct DB log records & state
-  }
-
-  const getStockBadge = (stock: number) => {
-    if (stock === 0) {
-      return <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">Out of Stock</span>
-    }
-    if (stock <= 5) {
-      return <span className="px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-700">Critical ({stock})</span>
-    }
-    if (stock <= 10) {
-      return <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">Low ({stock})</span>
-    }
-    return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">In Stock ({stock})</span>
-  }
-
-  // Calculate stats
-  const totalProducts = products.length
-  const lowStockCount = products.filter(p => p.stock > 0 && p.stock <= 10).length
-  const outOfStockCount = products.filter(p => p.stock === 0).length
-  const totalValue = products.reduce((sum, p) => sum + (p.price * p.stock), 0)
-
-  if (isLoading) {
+  if (isLoading && inventory.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="flex items-center gap-3 text-gray-500">
-          <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
-          <span className="text-sm font-medium">Loading inventory...</span>
-        </div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <AdminLoader message="Auditing inventory records..." />
       </div>
     )
   }
 
   return (
     <>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <div className="flex flex-col gap-6">
+        
+        {/* 🚨 HEADER WITH LOGS BUTTON 🚨 */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Inventory</h1>
-            <p className="text-sm text-gray-500 mt-1">Track and manage product stock levels</p>
+            <h1 className="text-[28px] font-medium text-[#E3E3E3] tracking-tight leading-tight">Inventory</h1>
+            <p className="text-sm text-[#C4C7C5] mt-1">Audit stock levels, update quantities, and track assets.</p>
           </div>
-          <div className="flex gap-3">
-            <Link
-              href="/admin/inventory/logs"
-              className="px-4 py-2 text-sm font-medium border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              View Logs
-            </Link>
-          </div>
+          
+          <Link 
+            href="/admin/inventory/logs"
+            className="w-full sm:w-auto px-6 py-3 text-sm font-bold bg-[#1E1F20] text-[#A8C7FA] border border-[#333538] hover:border-[#A8C7FA] rounded-full hover:bg-[#282A2C] transition-colors shadow-lg active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2"
+          >
+            <History className="w-4 h-4" /> View Audit Logs
+          </Link>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-          <StatsCard
-            title="Total Products"
-            value={totalProducts}
-            icon={<Package className="w-5 h-5" />}
-          />
-          <StatsCard
-            title="Low Stock"
-            value={lowStockCount}
-            icon={<AlertTriangle className="w-5 h-5" />}
-            color="orange"
-          />
-          <StatsCard
-            title="Out of Stock"
-            value={outOfStockCount}
-            icon={<XCircle className="w-5 h-5" />}
-            color="red"
-          />
-          <StatsCard
-            title="Total Value"
-            value={formatCurrency(totalValue)}
-            icon={<IndianRupee className="w-5 h-5" />}
-            color="green"
-          />
+        {/* 🚨 STATS GRID 🚨 */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatsCard title="Total SKUs" value={inventory.length} icon={<Boxes className="w-5 h-5 text-[#A8C7FA]" />} />
+          <StatsCard title="Low Stock Alert" value={lowStockCount} icon={<AlertTriangle className="w-5 h-5 text-[#A8C7FA]" />} />
+          <StatsCard title="Out of Stock" value={outOfStockCount} icon={<XCircle className="w-5 h-5 text-red-400" />} />
+          <StatsCard title="Est. Asset Value" value={formatCurrency(totalValue).replace(/\.00$/, '')} icon={<TrendingUp className="w-5 h-5 text-[#A8C7FA]" />} />
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 relative">
+        {/* 🚨 FLOATING SEARCH & FILTERS 🚨 */}
+        <div className="flex flex-col md:flex-row gap-3 bg-[#1E1F20] p-3 rounded-[24px] border border-[#333538]">
+          <div className="relative flex-1 group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8E9196] group-focus-within:text-[#A8C7FA] transition-colors" />
             <input
               type="text"
-              placeholder="Search by name or SKU..."
+              placeholder="Search product name or SKU..."
+              title="Search product name or SKU"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 pl-10 bg-[#131314] border border-transparent text-[#E3E3E3] placeholder:text-[#8E9196] rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow"
             />
-            <svg className="absolute left-3 top-2.5 w-5 h-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8E9196] hover:text-[#E3E3E3]">✕</button>}
           </div>
-          <select
-            value={sortBy}
-            title="Sort inventory"
-            onChange={(e) => setSortBy(e.target.value)}
-            className="px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200 text-sm font-medium text-gray-700 cursor-pointer"
-          >
-            <option value="updated_desc">Recently Updated</option>
-            <option value="name_asc">Name (A-Z)</option>
-            <option value="stock_asc">Stock (Low - High)</option>
-            <option value="stock_desc">Stock (High - Low)</option>
-          </select>
-          <select
-            value={stockFilter}
-            title="Filter by stock level"
-            onChange={(e) => setStockFilter(e.target.value as any)}
-            className="px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200 text-sm font-medium text-gray-700 cursor-pointer"
-          >
-            <option value="all">All Stock</option>
-            <option value="in">In Stock</option>
-            <option value="low">Low Stock (≤10)</option>
-            <option value="out">Out of Stock</option>
-          </select>
-          <select
-            value={statusFilter}
-            title="Filter by product status"
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200 text-sm font-medium text-gray-700 cursor-pointer"
-          >
-            <option value="all">All Status</option>
-            <option value="published">Published</option>
-            <option value="draft">Draft</option>
-            <option value="archived">Archived</option>
-          </select>
+          
+          <div className="flex gap-3 overflow-x-auto no-scrollbar">
+            <div className="relative shrink-0 min-w-[180px]">
+              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8E9196]" />
+              <select
+                title="Sort inventory"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="w-full px-4 py-3 pl-10 pr-8 appearance-none bg-[#131314] border border-transparent text-[#E3E3E3] rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
+              >
+                {INVENTORY_SORT_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value} className="bg-[#1E1F20]">{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="relative shrink-0 min-w-[150px]">
+              <select
+                title="Filter by stock status"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-5 py-3 pr-8 appearance-none bg-[#131314] border border-transparent text-[#E3E3E3] rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
+              >
+                {INVENTORY_STATUS_FILTERS.map(opt => (
+                  <option key={opt.value} value={opt.value} className="bg-[#1E1F20]">{opt.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
 
-        {/* Products Table */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {/* 🚨 ELITE DATA TABLE 🚨 */}
+        <div className="bg-[#1E1F20] rounded-[32px] border border-[#333538] overflow-hidden">
           <div className="overflow-x-auto no-scrollbar">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="w-full min-w-[900px] text-left">
+              <thead className="bg-[#131314]">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Image</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Product</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">SKU</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Price</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Stock</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Status</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Last Updated</th>
-                  <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Actions</th>
+                  <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest w-16">Item</th>
+                  <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest">Product Details</th>
+                  <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest">Category</th>
+                  <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest">Current Stock</th>
+                  <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
-                {filteredProducts.map((product) => {
-                  const imageUrl = product.images?.[0] ? imageUrls.get(product.id) : null
-                  
-                  return (
-                    <tr key={product.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {imageUrl ? (
-                          <div className="w-10 h-10 bg-gray-100 rounded-lg overflow-hidden">
-                            <img src={imageUrl} alt={product.name} className="w-full h-full object-cover" />
-                          </div>
-                        ) : (
-                          <div className="w-8 h-8 bg-gray-50 border border-gray-100 rounded-lg flex items-center justify-center text-xs text-gray-400">
-                            -
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <Link href={`/admin/products/${product.id}`} className="text-sm font-medium text-gray-900 hover:text-blue-600">
-                          {product.name}
-                        </Link>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
-                        {product.sku || '-'}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">
-                        {formatCurrency(product.price)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          {getStockBadge(product.stock)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          product.status === 'published' ? 'bg-green-100 text-green-700' :
-                          product.status === 'draft' ? 'bg-gray-100 text-gray-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>
-                          {product.status === 'published' ? 'Published' : product.status === 'draft' ? 'Draft' : 'Archived'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatIST(product.updated_at)}
-                      </td>
-                      <td className="px-6 py-4 text-right whitespace-nowrap">
-                        <button
-                          onClick={() => setSelectedProduct(product)}
-                          className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
-                        >
-                          Edit
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-                {filteredProducts.length === 0 && (
+              <tbody className="divide-y divide-[#333538]">
+                {sortedInventory.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                      No products found
+                    <td colSpan={6} className="px-6 py-16 text-center">
+                      <Boxes className="w-12 h-12 text-[#333538] mx-auto mb-4" />
+                      <p className="text-[#8E9196] font-medium">No inventory records match your criteria.</p>
                     </td>
                   </tr>
+                ) : (
+                  sortedInventory.map((item) => {
+                    const imageUrl = imageUrls.get(item.id)
+                    const isOut = item.stock === 0
+                    const isLow = item.stock > 0 && item.stock <= LOW_STOCK_THRESHOLD
+
+                    return (
+                      <tr key={item.id} className="hover:bg-[#282A2C] transition-colors group">
+                        <td className="px-6 py-5">
+                          {imageUrl ? (
+                            <div className="w-12 h-12 bg-[#131314] border border-[#333538] rounded-xl overflow-hidden shadow-sm">
+                              <img src={imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                            </div>
+                          ) : (
+                            <div className="w-12 h-12 bg-[#131314] border border-[#333538] rounded-xl flex items-center justify-center">
+                              <ImageIcon className="w-4 h-4 text-[#565959]" />
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-5">
+                          <p className="text-sm font-medium text-[#E3E3E3] group-hover:text-[#A8C7FA] transition-colors line-clamp-1">{item.name}</p>
+                          <p className="text-xs text-[#8E9196] font-mono mt-1 tracking-wide">{item.sku || 'NO-SKU'}</p>
+                        </td>
+                        <td className="px-6 py-5">
+                          <span className="text-sm text-[#C4C7C5] bg-[#131314] px-3 py-1 rounded-md border border-[#333538]">
+                            {item.category?.name || 'Uncategorized'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-lg font-medium ${isLow ? 'text-[#F9AB00]' : isOut ? 'text-red-400' : 'text-[#E3E3E3]'}`}>
+                              {item.stock}
+                            </span>
+                            <span className="text-[10px] text-[#8E9196] uppercase tracking-widest mt-1">Units</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5">
+                          {isOut ? (
+                            <span className="inline-flex px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase bg-[#4D2628] text-[#F2B8B5] border border-[#8C1D18]">Out of Stock</span>
+                          ) : isLow ? (
+                            <span className="inline-flex px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase bg-[#3C1E0A] text-[#F9AB00] border border-[#4E270D]">Low Stock</span>
+                          ) : (
+                            <span className="inline-flex px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase bg-[#214332]/30 text-[#93D7A4] border border-[#214332]">In Stock</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-5 text-right">
+                          <button
+                            onClick={() => setAdjustingItem(item)}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#0B57D0]/10 hover:bg-[#0B57D0]/20 text-[#A8C7FA] text-xs font-bold uppercase tracking-wider rounded-full transition-colors cursor-pointer border border-[#0B57D0]/30"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>
@@ -376,38 +271,16 @@ export default function AdminInventory() {
         </div>
       </div>
 
-      {/* Stock Update Modal */}
+      {/* 🚨 PROPER SECURE MODAL INTEGRATION 🚨 */}
       <StockUpdateModal
-        isOpen={!!selectedProduct}
-        onClose={() => setSelectedProduct(null)}
-        product={selectedProduct}
-        onSuccess={handleUpdateSuccess}
+        isOpen={!!adjustingItem}
+        onClose={() => setAdjustingItem(null)}
+        product={adjustingItem}
+        onSuccess={() => {
+          loadInventory()
+          setAdjustingItem(null)
+        }}
       />
-
-      {/* Toast Notifications */}
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
-
-      <style jsx>{`
-        @keyframes slide-up {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-slide-up {
-          animation: slide-up 0.3s ease-out;
-        }
-      `}</style>
     </>
   )
 }

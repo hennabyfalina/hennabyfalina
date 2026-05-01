@@ -25,7 +25,7 @@ export default function DeliveryMethod({ shippingMethod, onChange, disabled = fa
             backgroundColor: shippingMethod === 'delivery' ? '#FFF5E6' : 'white',
             transition: 'all 0.15s ease'
           }}
-          className="w-full text-left flex items-center p-4 rounded-sm hover:border-[#FF9900] focus:outline-none"
+        className="w-full text-left flex items-center p-4 rounded-sm hover:border-[#FF9900] focus:outline-none cursor-pointer disabled:cursor-not-allowed"
         >
           <div className="flex items-center gap-3 w-full">
             <div
@@ -38,8 +38,8 @@ export default function DeliveryMethod({ shippingMethod, onChange, disabled = fa
               <Package className="w-5 h-5" />
             </div>
             <div className="flex-1">
-              <span className="font-bold text-gray-900">Home Delivery</span>
-              <p className="text-xs text-gray-600 mt-0.5">Fast delivery to your location</p>
+              <span className="font-bold text-[#0F1111] text-[15px]">Home Delivery</span>
+              <p className="text-sm text-gray-600 mt-0.5">Fast delivery to your location</p>
             </div>
             {shippingMethod === 'delivery' && (
               <div className="w-5 h-5 rounded-full bg-[#FF9900] flex items-center justify-center shadow-sm">
@@ -59,7 +59,7 @@ export default function DeliveryMethod({ shippingMethod, onChange, disabled = fa
             backgroundColor: shippingMethod === 'pickup' ? '#FFF5E6' : 'white',
             transition: 'all 0.15s ease'
           }}
-          className="w-full text-left flex items-center p-4 rounded-sm hover:border-[#FF9900] focus:outline-none"
+        className="w-full text-left flex items-center p-4 rounded-sm hover:border-[#FF9900] focus:outline-none cursor-pointer disabled:cursor-not-allowed"
         >
           <div className="flex items-center gap-3 w-full">
             <div
@@ -72,8 +72,8 @@ export default function DeliveryMethod({ shippingMethod, onChange, disabled = fa
               <Store className="w-5 h-5" />
             </div>
             <div className="flex-1">
-              <span className="font-bold text-gray-900">Store Pickup</span>
-              <p className="text-xs text-green-700 font-bold mt-0.5">Free</p>
+              <span className="font-bold text-[#0F1111] text-[15px]">Store Pickup</span>
+              <p className="text-sm text-green-700 font-bold mt-0.5">Free</p>
             </div>
             {shippingMethod === 'pickup' && (
               <div className="w-5 h-5 rounded-full bg-[#FF9900] flex items-center justify-center shadow-sm">

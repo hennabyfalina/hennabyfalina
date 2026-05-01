@@ -119,7 +119,7 @@ export default function LoginPage() {
     }
   }, [])
 
-  // ─── Google Login ───────────────────────────────────────────────────────────
+// ─── Google Login ───────────────────────────────────────────────────────────
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true)
     
@@ -133,6 +133,9 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
+        // 🚨 CRITICAL ROUTING FIX 🚨
+        // This forces Google to send EVERYONE to the callback file first.
+        // The callback file then sorts Admins to /admin-gate and Customers to the redirectPath.
         redirectTo: `${window.location.origin}/auth/callback?next=${redirectPath}`,
         queryParams: {
           access_type: 'offline',
@@ -406,7 +409,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowWhatsappSoon(true)}
                   disabled={isActionLocked}
-                  className="w-full flex justify-center py-2.5 bg-white border border-gray-300 hover:bg-gray-50 rounded-sm font-medium text-gray-700 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-50"
+                  className="w-full flex justify-center py-2.5 bg-white border border-gray-300 hover:bg-gray-50 rounded-sm font-medium text-gray-700 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-50 cursor-pointer"
                 >
                   <div className="flex items-center justify-start w-52 gap-3">
                     <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0 text-[#25D366]" fill="currentColor">
@@ -420,7 +423,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={handleGoogleLogin}
                   disabled={isActionLocked}
-                  className="w-full flex justify-center py-2.5 bg-white border border-gray-300 hover:bg-gray-50 rounded-sm font-medium text-gray-700 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-50"
+                  className="w-full flex justify-center py-2.5 bg-white border border-gray-300 hover:bg-gray-50 rounded-sm font-medium text-gray-700 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-50 cursor-pointer"
                 >
                   {isGoogleLoading ? (
                     <div className="flex items-center justify-center gap-2">
@@ -465,8 +468,8 @@ export default function LoginPage() {
                   <button 
                     type="button" 
                     disabled={isActionLocked}
-                    onClick={() => { setAuthMode('otp_verify'); setError(''); setSuccessMessage(''); }} 
-                    className="text-xs font-medium text-[#007185] hover:text-[#C7511F] hover:underline disabled:opacity-50 disabled:no-underline"
+                    onClick={() => { setAuthMode('otp_verify'); setError(''); setSuccessMessage(''); }}
+                    className="text-xs font-medium text-[#007185] hover:text-[#C7511F] hover:underline disabled:opacity-50 disabled:no-underline cursor-pointer"
                   >
                     Return to OTP
                   </button>
@@ -503,7 +506,7 @@ export default function LoginPage() {
                     setSuccessMessage('');
                     setTurnstileKey(Date.now()); // Force fresh Turnstile
                   }} 
-                  className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline disabled:opacity-50 disabled:no-underline flex items-center gap-1"
+                  className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline disabled:opacity-50 disabled:no-underline flex items-center gap-1 cursor-pointer"
                 >
                   <span aria-hidden="true">&larr;</span> All sign-in options
                 </button>
@@ -567,7 +570,7 @@ export default function LoginPage() {
                       type="button" 
                       onClick={handleResendOtp}
                       disabled={!captchaToken || isActionLocked}
-                      className="text-[#007185] hover:text-[#C7511F] hover:underline font-medium disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
+                      className="text-[#007185] hover:text-[#C7511F] hover:underline font-medium disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed cursor-pointer"
                     >
                       {loading ? 'Sending...' : 'Resend code'}
                     </button>
@@ -606,7 +609,7 @@ export default function LoginPage() {
                 (authMode === 'otp_send' && (resendTimer > 0 || !email.trim() || !captchaToken)) ||
                 (authMode === 'otp_verify' && otpCode.length !== 6)
               }
-              className="w-full py-2.5 mt-2 text-sm font-normal text-gray-900 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-2.5 mt-2 text-sm font-normal text-gray-900 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
             {loading
               ? (authMode === 'otp_send' ? 'Sending code...' : 'Verifying...')

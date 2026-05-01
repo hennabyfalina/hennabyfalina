@@ -5,10 +5,7 @@ import type { NextRequest } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 
 const AUTH_ROUTES = ['/login', '/signup', '/forgot-password']
-
-// Strictly protect it at the edge level
 const PROTECTED_ROUTES = ['/profile', '/checkout', '/wishlist']
-
 const ADMIN_ROUTES = ['/admin']
 const GATE_PAGE = '/admin-gate'
 
@@ -17,26 +14,17 @@ export async function proxy(request: NextRequest) {
     request: { headers: request.headers },
   })
 
+  // Standard Security Headers
   response.headers.set('X-Frame-Options', 'DENY')
   response.headers.set('X-Content-Type-Options', 'nosniff')
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()')
   
-  if (process.env.NODE_ENV === 'production') {
-    response.headers.set(
-      'Strict-Transport-Security',
-      'max-age=31536000; includeSubDomains; preload'
-    )
-  }
-
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
-        },
+        get(name: string) { return request.cookies.get(name)?.value },
         set(name: string, value: string, options: CookieOptions) {
           request.cookies.set({ name, value, ...options })
           response.cookies.set({ name, value, ...options })
@@ -57,10 +45,10 @@ export async function proxy(request: NextRequest) {
   const isAdminRoute = ADMIN_ROUTES.some((r) => path.startsWith(r))
   const isGatePage = path === GATE_PAGE
 
+  // 1. If no user is logged in, restrict protected and admin areas
   if (!user) {
     if (isProtectedRoute || isAdminRoute || isGatePage) {
       const redirectUrl = new URL('/login', request.url)
-      // SMART REDIRECT: Captures full path AND query parameters seamlessly
       redirectUrl.searchParams.set('redirect', path + request.nextUrl.search)
       return NextResponse.redirect(redirectUrl)
     }
@@ -75,43 +63,34 @@ export async function proxy(request: NextRequest) {
 
   const isAdmin = !error && profile?.role === 'admin'
 
+  // 2. Auth Route Logic: Admins go to Gate, Customers go to Products
   if (isAuthRoute) {
     if (isAdmin) {
       return NextResponse.redirect(new URL('/admin-gate', request.url))
     }
-
-    const redirectUrl = request.nextUrl.searchParams.get('redirect')
-    if (redirectUrl) {
-      return NextResponse.redirect(new URL(redirectUrl, request.url))
-    }
-
     return NextResponse.redirect(new URL('/products', request.url))
   }
 
-  if (path.startsWith('/profile') || isAdminRoute || isGatePage) {
-    if (isAdmin && path.startsWith('/profile')) {
-      return NextResponse.redirect(new URL('/admin/dashboard', request.url))
-    }
+  // 3. 🚨 GOD MODE LOGIC 🚨
+  // We removed the redirect that sent Admins from /profile to /admin/dashboard.
+  // Now, the logic only blocks NON-ADMINS from entering Admin territory.
 
-    if (isGatePage) {
-      if (!isAdmin) {
-        return NextResponse.redirect(new URL('/', request.url))
-      }
-      return response
-    }
+  if (isGatePage) {
+    if (!isAdmin) return NextResponse.redirect(new URL('/', request.url))
+    return response
+  }
 
-    if (isAdminRoute) {
-      if (!isAdmin) {
-        return NextResponse.redirect(new URL('/', request.url))
-      }
+  if (isAdminRoute) {
+    if (!isAdmin) return NextResponse.redirect(new URL('/', request.url))
 
-      const gateCookie = request.cookies.get('admin_gate_passed')
-      if (!gateCookie || gateCookie.value !== 'true') {
-        return NextResponse.redirect(new URL('/admin-gate', request.url))
-      }
+    // Require the Gate Code session cookie for /admin access
+    const gateCookie = request.cookies.get('admin_gate_passed')
+    if (!gateCookie || gateCookie.value !== 'true') {
+      return NextResponse.redirect(new URL('/admin-gate', request.url))
     }
   }
 
+  // 4. Default fallthrough: Allows Admins to access /profile and Storefront freely
   return response
 }
 

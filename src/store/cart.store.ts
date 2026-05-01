@@ -21,14 +21,18 @@ export interface CartItem {
   rating?: number | null
   review_count?: number | null
   selling_price?: number
+  printing_type?: string
+  // 🚨 UPGRADED TO ARRAY
+  artwork_urls?: string[]
+  printing_instructions?: string | null
 }
 
 interface CartState {
   items: CartItem[]
   isLoading: boolean
   addItem: (item: Omit<CartItem, 'id'>) => Promise<void>
-  removeItem: (productId: string) => Promise<void>
-  updateQuantity: (productId: string, quantity: number) => Promise<void>
+  removeItem: (productId: string, printingType?: string) => Promise<void>
+  updateQuantity: (productId: string, quantity: number, printingType?: string) => Promise<void>
   clearCart: () => Promise<void>
   syncWithDatabase: (userId: string) => Promise<void>
   _syncAfterUpdate: () => Promise<void>
@@ -40,7 +44,6 @@ interface CartState {
 
 const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
-// Helper to calculate correct price based on quantity and bulk rules
 const calculateItemPrice = (
   basePrice: number,
   bulkPrice?: number | null,
@@ -69,10 +72,10 @@ export const useCartStore = create<CartState>()(
 
       addItem: async (newItem) => {
         set({ isLoading: true })
-        
         const currentItems = get().items
+        
         const existingItem = currentItems.find(
-          (item) => item.product_id === newItem.product_id
+          (item) => item.product_id === newItem.product_id && (item.printing_type || 'None') === (newItem.printing_type || 'None')
         )
 
         let updatedItems: CartItem[]
@@ -83,16 +86,10 @@ export const useCartStore = create<CartState>()(
             set({ isLoading: false })
             throw new Error(`Only ${newItem.stock} items available`)
           }
-
           const basePrice = existingItem.selling_price ?? existingItem.original_price ?? existingItem.price
-          
           updatedItems = currentItems.map((item) =>
-            item.product_id === newItem.product_id
-              ? { 
-                  ...item, 
-                  quantity: newQuantity,
-                  price: calculateItemPrice(basePrice, item.bulk_price, item.bulk_min_quantity, newQuantity)
-                }
+            item.product_id === newItem.product_id && (item.printing_type || 'None') === (newItem.printing_type || 'None')
+              ? { ...item, quantity: newQuantity, price: calculateItemPrice(basePrice, item.bulk_price, item.bulk_min_quantity, newQuantity) }
               : item
           )
         } else {
@@ -109,6 +106,10 @@ export const useCartStore = create<CartState>()(
             rating: newItem.rating || null,
             review_count: newItem.review_count || null,
             selling_price: newItem.selling_price,
+            printing_type: newItem.printing_type || 'None',
+            // 🚨 UPGRADED TO ARRAY
+            artwork_urls: newItem.artwork_urls || [],
+            printing_instructions: newItem.printing_instructions || null,
           }
           updatedItems = [...currentItems, cartItem]
         }
@@ -117,31 +118,30 @@ export const useCartStore = create<CartState>()(
         await get()._syncAfterUpdate()
       },
 
-      removeItem: async (productId: string) => {
+      removeItem: async (productId: string, printingType: string = 'None') => {
         set({ isLoading: true })
         const updatedItems = get().items.filter(
-          (item) => item.product_id !== productId
+          (item) => !(item.product_id === productId && (item.printing_type || 'None') === printingType)
         )
         set({ items: updatedItems, isLoading: false })
         await get()._syncAfterUpdate()
       },
 
-      updateQuantity: async (productId: string, quantity: number) => {
+      updateQuantity: async (productId: string, quantity: number, printingType: string = 'None') => {
         set({ isLoading: true })
-        
         if (quantity <= 0) {
-          await get().removeItem(productId)
+          await get().removeItem(productId, printingType)
           return
         }
 
-        const item = get().items.find((i) => i.product_id === productId)
+        const item = get().items.find((i) => i.product_id === productId && (i.printing_type || 'None') === printingType)
         if (item && quantity > item.stock) {
           set({ isLoading: false })
           throw new Error(`Only ${item.stock} items available`)
         }
 
         const updatedItems = get().items.map((item) => {
-          if (item.product_id === productId) {
+          if (item.product_id === productId && (item.printing_type || 'None') === printingType) {
             const basePrice = item.selling_price ?? item.original_price ?? item.price
             return {
               ...item,
@@ -158,34 +158,28 @@ export const useCartStore = create<CartState>()(
 
       clearCart: async () => {
         set({ isLoading: true, items: [] })
-        
         const supabase = createClient()
         const { data: { session } } = await supabase.auth.getSession()
         if (session?.user) {
-          await supabase
-            .from('cart_items')
-            .delete()
-            .eq('user_id', session.user.id)
+          await supabase.from('cart_items').delete().eq('user_id', session.user.id)
         }
-        
         set({ isLoading: false })
       },
 
       syncWithDatabase: async (userId: string) => {
         const supabase = createClient()
         const localItems = get().items
-
-        // Always overwrite database with the optimistic local state
-        await supabase
-          .from('cart_items')
-          .delete()
-          .eq('user_id', userId)
+        await supabase.from('cart_items').delete().eq('user_id', userId)
 
         if (localItems.length > 0) {
           const cartItemsToInsert = localItems.map((item) => ({
             user_id: userId,
             product_id: item.product_id,
             quantity: item.quantity,
+            printing_type: item.printing_type || 'None',
+            // 🚨 UPGRADED TO ARRAY
+            artwork_urls: item.artwork_urls || [],
+            printing_instructions: item.printing_instructions || null,
           }))
           await supabase.from('cart_items').insert(cartItemsToInsert)
         }
@@ -193,20 +187,13 @@ export const useCartStore = create<CartState>()(
 
       loadCart: async () => {
         set({ isLoading: true })
-        
         const supabase = createClient()
         const { data: { session } } = await supabase.auth.getSession()
         
         if (session?.user) {
-          const { data: dbItems, error } = await supabase
-            .from('cart_items')
-            .select('*, products(*)')
-            .eq('user_id', session.user.id)
-
+          const { data: dbItems, error } = await supabase.from('cart_items').select('*, products(*)').eq('user_id', session.user.id)
           if (!error && dbItems && dbItems.length > 0) {
-            const loadedItems: CartItem[] = dbItems
-              .filter((item) => item.products !== null)
-              .map((item) => {
+            const loadedItems: CartItem[] = dbItems.filter((item) => item.products !== null).map((item) => {
                 const basePrice = item.products.selling_price ?? item.products.price
                 return {
                   id: item.id,
@@ -225,65 +212,45 @@ export const useCartStore = create<CartState>()(
                   rating: item.products.rating,
                   review_count: item.products.review_count,
                   selling_price: item.products.selling_price,
+                  printing_type: item.printing_type || 'None',
+                  // 🚨 UPGRADED TO ARRAY
+                  artwork_urls: item.artwork_urls || [],
+                  printing_instructions: item.printing_instructions || null,
                 }
               })
             set({ items: loadedItems })
           }
         }
-        
         set({ isLoading: false })
       },
 
       refreshCartPrices: async () => {
         const currentItems = get().items
         if (currentItems.length === 0) return
-
         const supabase = createClient()
         const productIds = currentItems.map((item) => item.product_id)
-
-        const { data: products, error } = await supabase
-          .from('products')
-          .select('id, name, slug, price, selling_price, bulk_price, bulk_min_quantity, stock, images, category_id, description, rating, review_count')
-          .in('id', productIds)
+        const { data: products, error } = await supabase.from('products').select('id, name, slug, price, selling_price, bulk_price, bulk_min_quantity, stock, images, category_id, description, rating, review_count').in('id', productIds)
 
         if (!error && products) {
           const updatedItems = currentItems.map((item) => {
             const product = products.find((p) => p.id === item.product_id)
             if (!product) return item
-
             const basePrice = product.selling_price ?? product.price
             return {
               ...item,
-              name: product.name,
-              slug: product.slug,
               price: calculateItemPrice(basePrice, product.bulk_price, product.bulk_min_quantity, item.quantity),
-              image: product.images?.[0] || item.image,
               stock: product.stock,
-              category_id: product.category_id,
-              description: product.description,
-              original_price: product.price,
               bulk_price: product.bulk_price,
               bulk_min_quantity: product.bulk_min_quantity,
-              rating: product.rating,
-              review_count: product.review_count,
               selling_price: product.selling_price,
             }
           })
-          
           set({ items: updatedItems })
         }
       },
 
-      getTotalItems: () => {
-        return get().items.reduce((total, item) => total + item.quantity, 0)
-      },
-
-      getTotalPrice: () => {
-        return get().items.reduce(
-          (total, item) => total + item.price * item.quantity,
-          0
-        )
-      },
+      getTotalItems: () => get().items.reduce((total, item) => total + item.quantity, 0),
+      getTotalPrice: () => get().items.reduce((total, item) => total + item.price * item.quantity, 0),
     }),
     {
       name: 'razack-cart-storage',

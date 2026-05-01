@@ -36,7 +36,7 @@ export default function OrderStatusBadge({ status, type = 'order', className = '
 
   const colors = type === 'order' ? statusColors : paymentStatusColors
   const colorClass = colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-700'
-  const formattedStatus = status.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+  const formattedStatus = status.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
   
   return (
     <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium border border-black/5 ${colorClass} ${className}`}>

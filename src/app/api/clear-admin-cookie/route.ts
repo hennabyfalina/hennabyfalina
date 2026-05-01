@@ -1,3 +1,5 @@
+// app/api/clear-admin-cookie/route.ts
+
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 

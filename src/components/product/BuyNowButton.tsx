@@ -1,17 +1,32 @@
+// src/components/product/BuyNowButton.tsx
+
 'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCartStore } from '@/store/cart.store'
 import { showToast } from '@/components/ui/Toast'
+import { B2B_CONSTANTS } from '@/config/b2b-rules' 
 
 interface BuyNowButtonProps {
   product: any
   quantity?: number
+  printingType?: string 
+  // 🚨 UPGRADED TO ARRAY 🚨
+  artworkUrls?: string[] 
+  printingInstructions?: string | null 
   className?: string
 }
 
-export default function BuyNowButton({ product, quantity = 1, className = '' }: BuyNowButtonProps) {
+export default function BuyNowButton({ 
+  product, 
+  quantity = 1, 
+  printingType = 'None',
+  // 🚨 UPGRADED TO ARRAY DEFAULT 🚨
+  artworkUrls = [],
+  printingInstructions = null,
+  className = '' 
+}: BuyNowButtonProps) {
   const [isBuying, setIsBuying] = useState(false)
   const addItem = useCartStore((state) => state.addItem)
   const router = useRouter()
@@ -27,7 +42,10 @@ export default function BuyNowButton({ product, quantity = 1, className = '' }: 
 
     setIsBuying(true)
     const sellingPrice = product.selling_price ?? product.price ?? 0;
-    const finalPrice = product.bulk_price && product.bulk_price < sellingPrice ? product.bulk_price : sellingPrice;
+    
+    const finalPrice = product.bulk_price && (quantity >= (product.bulk_min_quantity || B2B_CONSTANTS.WHOLESALE_MIN_QTY)) 
+      ? product.bulk_price 
+      : sellingPrice;
 
     try {
       await addItem({
@@ -46,6 +64,10 @@ export default function BuyNowButton({ product, quantity = 1, className = '' }: 
         rating: product.rating || null,
         review_count: product.review_count || null,
         selling_price: sellingPrice,
+        printing_type: printingType,
+        // 🚨 UPGRADED TO ARRAY 🚨
+        artwork_urls: artworkUrls,
+        printing_instructions: printingInstructions,
       })
       
       router.push('/checkout')

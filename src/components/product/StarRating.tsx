@@ -7,9 +7,10 @@ interface StarRatingProps {
   reviewCount: number
   className?: string
   size?: 'sm' | 'md'
+  hideReviewCount?: boolean
 }
 
-export default function StarRating({ rating, reviewCount, className = '', size = 'sm' }: StarRatingProps) {
+export default function StarRating({ rating, reviewCount, className = '', size = 'sm', hideReviewCount = false }: StarRatingProps) {
   const fullStars = Math.floor(rating)
   const hasHalfStar = rating - fullStars >= 0.5
   const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0)
@@ -23,9 +24,11 @@ export default function StarRating({ rating, reviewCount, className = '', size =
         {hasHalfStar && <StarHalf className={`${starSize} fill-current`} />}
         {[...Array(emptyStars)].map((_, i) => <Star key={`empty-${i}`} className={`${starSize} text-gray-300`} />)}
       </div>
-      <span className="text-xs text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer font-medium">
-        {reviewCount.toLocaleString()} ratings
-      </span>
+      {!hideReviewCount && (
+        <span className="text-xs text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer font-medium">
+          {reviewCount.toLocaleString()} ratings
+        </span>
+      )}
     </div>
   )
 }

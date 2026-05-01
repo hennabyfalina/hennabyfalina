@@ -16,6 +16,7 @@ import BuyNowButton from '@/components/product/BuyNowButton'
 import ProductImageGallery from '@/components/product/ProductImageGallery'
 import { formatCurrency } from '@/lib/utils'
 import { siteConfig } from '@/config/site'
+import { B2B_CONSTANTS } from '@/config/b2b-rules'
 
 export default function QuickViewModal() {
   const { isOpen, product, productList, closeQuickView, nextProduct, prevProduct } = useQuickViewStore()
@@ -88,10 +89,12 @@ export default function QuickViewModal() {
     }
   }
 
+  // B2B Configuration Setup
+  const retailMin = B2B_CONSTANTS.RETAIL_MIN_QTY
   const sellingPrice = product.selling_price ?? product.price ?? 0
   const regularPrice = product.price ?? 0
   const hasDiscount = regularPrice > sellingPrice
-  const isOutOfStock = product.stock <= 0
+  const isOutOfStock = product.stock < retailMin
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={closeQuickView}>
@@ -102,7 +105,7 @@ export default function QuickViewModal() {
         {/* Close Button */}
         <button 
           onClick={closeQuickView}
-          className="absolute top-3 right-3 z-50 p-2 bg-white/80 hover:bg-gray-100 rounded-full text-gray-500 hover:text-gray-900 transition-colors"
+          className="absolute top-3 right-3 z-50 p-2 bg-white/80 hover:bg-gray-100 rounded-full text-gray-500 hover:text-gray-900 transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
@@ -174,21 +177,31 @@ export default function QuickViewModal() {
 
           <div className="border-t border-gray-200 pt-6 mb-6 flex-1">
             <p className="text-sm text-gray-700 line-clamp-4 leading-relaxed">
-              {product.description || 'Premium quality packaging material designed for durability and professional presentation.'}
+              {product.description || 'Premium B2B quality packaging material designed for durability and professional presentation.'}
             </p>
           </div>
 
           <div className="mt-auto space-y-4">
+            {/* B2B Dynamic Stock Alerts */}
             {isOutOfStock ? (
               <p className="text-red-600 font-bold text-sm">Currently unavailable.</p>
+            ) : product.stock < (retailMin + 150) ? (
+              <p className="text-[#B12704] font-bold text-sm">Only {product.stock} left in stock - order soon.</p>
             ) : (
               <p className="text-green-700 font-bold text-sm">In Stock.</p>
             )}
 
             <div className="w-full flex flex-col gap-2.5">
-              <AddToCartButton product={product as any} className="w-full h-11 text-base font-medium bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-full shadow-sm cursor-pointer" />
+              {/* B2B Quantity Forcing */}
+              <AddToCartButton 
+                product={product as any} 
+                quantity={retailMin}
+                minQuantity={retailMin}
+                className="w-full h-11 text-base font-medium bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-full shadow-sm cursor-pointer" 
+              />
               <BuyNowButton 
                 product={product as any} 
+                quantity={retailMin}
                 className="w-full h-11 flex items-center justify-center gap-2 text-base font-bold bg-[#FFA41C] hover:bg-[#FA8900] text-[#0F1111] border border-[#FF8F00] rounded-full shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed transition-all" 
               />
             </div>

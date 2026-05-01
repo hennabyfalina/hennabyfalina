@@ -1,3 +1,5 @@
+// src/types/database.types.ts
+
 export type Product = {
   review_count: number
   rating: number
@@ -30,4 +32,37 @@ export type Category = {
   image: string | null
   display_order: number
   created_at: string
+}
+
+// Order and Order Item Types for B2B
+export type OrderItem = {
+  id: string
+  order_id: string
+  product_id: string
+  quantity: number
+  price: number
+  original_price: number | null
+  is_bulk_pricing: boolean
+  printing_type: string
+  // 🚨 UPGRADED TO ARRAY 🚨
+  artwork_urls: string[] | null
+  printing_instructions: string | null
+  created_at: string
+}
+
+export type Order = {
+  id: string
+  order_number: string
+  user_id: string
+  address_id: string
+  total_amount: number
+  shipping_cost: number
+  payment_method: string
+  payment_status: 'pending' | 'paid' | 'failed'
+  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled'
+  razorpay_order_id: string | null
+  razorpay_payment_id: string | null
+  paid_at: string | null
+  created_at: string
+  updated_at: string
 }

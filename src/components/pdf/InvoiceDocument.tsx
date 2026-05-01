@@ -4,6 +4,7 @@ import React from 'react'
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 import { siteConfig } from '@/config/site'
 import { numberToIndianWords } from '@/lib/utils'
+import { calculateTaxBreakdown } from '@/lib/tax' 
 
 // Define the styles for the PDF
 const styles = StyleSheet.create({
@@ -79,6 +80,7 @@ const styles = StyleSheet.create({
   addressValue: {
     fontSize: 10,
     flex: 1,
+    lineHeight: 1.5,
   },
   tableHeader: {
     flexDirection: 'row',
@@ -112,12 +114,28 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   totalsBox: {
-    width: 220,
+    width: 250, // Slightly wider to accommodate split layout
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 4,
+  },
+  // 🚨 Enterprise Currency Alignment
+  amountContainer: {
+    flexDirection: 'row',
+    width: 100, 
+    justifyContent: 'space-between',
+  },
+  amountSymbol: {
+    fontSize: 10,
+    color: '#333',
+  },
+  amountNumber: {
+    fontSize: 10,
+    color: '#333',
+    textAlign: 'right',
+    flex: 1,
   },
   grandTotalRow: {
     flexDirection: 'row',
@@ -130,6 +148,16 @@ const styles = StyleSheet.create({
   grandTotalText: {
     fontSize: 12,
     fontFamily: 'Helvetica-Bold',
+  },
+  grandTotalSymbol: {
+    fontSize: 12,
+    fontFamily: 'Helvetica-Bold',
+  },
+  grandTotalNumber: {
+    fontSize: 12,
+    fontFamily: 'Helvetica-Bold',
+    textAlign: 'right',
+    flex: 1,
   },
   footer: {
     borderTopWidth: 1,
@@ -162,14 +190,12 @@ const styles = StyleSheet.create({
   }
 })
 
-const formatCurrency = (amount: number) => {
-  // Notice: We use "Rs." instead of "₹" because the default Helvetica font in 
-  // @react-pdf/renderer does not support the ₹ symbol natively.
-  const formattedNumber = new Intl.NumberFormat('en-IN', {
+// Helper to format just the number without the currency symbol
+const formatJustNumber = (amount: number) => {
+  return new Intl.NumberFormat('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }).format(amount)
-  return `Rs. ${formattedNumber}`
 }
 
 const formatDate = (dateString: string) => {
@@ -198,9 +224,11 @@ const formatPhoneNumber = (phone: string) => {
   return phone
 }
 
-export default function InvoiceDocument({ order }: { order: any }) {
+export default function InvoiceDocument({ order, invoiceType = 'customer' }: { order: any, invoiceType?: 'customer' | 'merchant' }) {
   const shippingCost = order.shipping_cost ?? (order.total_amount > 1000 ? 0 : 50)
   const subtotal = order.total_amount - shippingCost
+
+  const taxInfo = calculateTaxBreakdown(subtotal)
 
   const isStorePickup = order.delivery_method === 'pickup' || 
                         order.addresses?.delivery_method === 'pickup' ||
@@ -211,20 +239,25 @@ export default function InvoiceDocument({ order }: { order: any }) {
   const capitalize = (str: string) => str ? str.charAt(0).toUpperCase() + str.slice(1) : ''
 
   let watermarkText = 'PENDING'
-  let watermarkColor = '#d97706' // Darker amber for readability
+  let watermarkColor = '#d97706' 
   
   if (order.status?.toLowerCase().includes('cancel')) {
     watermarkText = 'CANCELLED'
-    watermarkColor = '#dc2626' // Darker red
+    watermarkColor = '#dc2626' 
   } else if (order.payment_status?.toLowerCase() === 'paid' || order.payment_status?.toLowerCase() === 'captured' || order.payment_status?.toLowerCase() === 'success') {
     watermarkText = 'PAID'
-    watermarkColor = '#15803d' // Professional dark green
+    watermarkColor = '#15803d' 
   }
+
+  // Pre-process address lines to prevent overlap
+  const line1 = order.addresses?.address || order.addresses?.address_line1 || ''
+  const line2 = order.addresses?.address_line2 || ''
+  const cityPin = `${order.addresses?.city || ''} - ${order.addresses?.pincode || ''}`
+  const stateCountry = `${order.addresses?.state || ''}, ${order.addresses?.country || 'India'}`
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.title}>{siteConfig.name}</Text>
@@ -236,7 +269,7 @@ export default function InvoiceDocument({ order }: { order: any }) {
             <Text style={styles.text}>GSTIN: {siteConfig.business.gstin}</Text>
           </View>
           <View style={styles.headerRight}>
-            <Text style={styles.invoiceTitle}>Tax Invoice</Text>
+            <Text style={styles.invoiceTitle}>{invoiceType === 'merchant' ? "Owner Tax Invoice" : "Tax Invoice"}</Text>
             
             <View style={styles.headerRow}>
               <Text style={styles.headerLabel}>Order #:</Text>
@@ -262,7 +295,6 @@ export default function InvoiceDocument({ order }: { order: any }) {
           </View>
         </View>
 
-        {/* Billing Address */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Billing & Shipping Address</Text>
           
@@ -276,11 +308,16 @@ export default function InvoiceDocument({ order }: { order: any }) {
             <Text style={styles.addressValue}>{order.addresses?.name}</Text>
           </View>
           
+          {/* 🚨 RESTRUCTURED ENTERPRISE ADDRESS BLOCK (No Overlaps) 🚨 */}
           {!isStorePickup ? (
             <View style={styles.addressRow}>
-              <Text style={styles.addressLabel}>Address & Pincode:</Text>
+              <Text style={styles.addressLabel}>Address:</Text>
               <Text style={styles.addressValue}>
-                {order.addresses?.address || order.addresses?.address_line1}, {order.addresses?.city} {order.addresses?.pincode}
+                {[line1, line2].filter(Boolean).join(', ')}
+                {'\n'}
+                {cityPin}
+                {'\n'}
+                {stateCountry}
               </Text>
             </View>
           ) : (
@@ -290,36 +327,30 @@ export default function InvoiceDocument({ order }: { order: any }) {
             </View>
           )}
           
-          <View style={styles.addressRow}>
-            <Text style={styles.addressLabel}>Country:</Text>
-            <Text style={styles.addressValue}>{order.addresses?.country || 'India'}</Text>
-          </View>
-          
-          <View style={styles.addressRow}>
+          <View style={[styles.addressRow, { marginTop: 4 }]}>
             <Text style={styles.addressLabel}>Mobile number:</Text>
             <Text style={styles.addressValue}>{formatPhoneNumber(order.addresses?.phone)}</Text>
           </View>
           
           {order.addresses?.landmark && (
-            <View style={[styles.addressRow, { marginTop: 4 }]}>
+            <View style={styles.addressRow}>
               <Text style={styles.addressLabel}>Landmark:</Text>
               <Text style={styles.addressValue}>{order.addresses.landmark}</Text>
             </View>
           )}
           
           {order.addresses?.delivery_instructions && (
-            <View style={[styles.addressRow, { marginTop: 4 }]}>
+            <View style={styles.addressRow}>
               <Text style={styles.addressLabel}>Instructions:</Text>
               <Text style={styles.addressValue}>{order.addresses.delivery_instructions}</Text>
             </View>
           )}
         </View>
 
-        {/* Order Items Table */}
         <View style={styles.section}>
           <View style={styles.tableHeader}>
             <Text style={[styles.tableHeaderLabel, styles.col1]}>#</Text>
-            <Text style={[styles.tableHeaderLabel, styles.col2]}>Product Description</Text>
+            <Text style={[styles.tableHeaderLabel, styles.col2]}>Item & Customization</Text>
             <Text style={[styles.tableHeaderLabel, styles.col3]}>Qty</Text>
             <Text style={[styles.tableHeaderLabel, styles.col4]}>Unit Price</Text>
             <Text style={[styles.tableHeaderLabel, styles.col5]}>Total</Text>
@@ -328,45 +359,95 @@ export default function InvoiceDocument({ order }: { order: any }) {
           {order.order_items?.map((item: any, index: number) => (
             <View key={item.id} style={[styles.tableRow, index % 2 === 1 ? styles.tableRowAlt : {}]}>
               <Text style={[styles.text, styles.col1]}>{index + 1}</Text>
+              
               <View style={styles.col2}>
                 <Text style={[styles.text, { fontFamily: 'Helvetica-Bold' }]}>{item.products?.name}</Text>
+                
                 {item.is_bulk_pricing && (
-                  <Text style={{ fontSize: 8, color: '#15803d', marginTop: 2 }}>[Bulk Price Applied]</Text>
+                  <Text style={{ fontSize: 8, color: '#15803d', marginTop: 2 }}>[Bulk Wholesale Price Applied]</Text>
+                )}
+
+                {item.printing_type && item.printing_type !== 'None' && item.printing_type !== 'Retail (Readymade)' && (
+                  <Text style={{ fontSize: 8, color: '#4b5563', marginTop: 2 }}>
+                    Print: {item.printing_type} {(item.artwork_urls && item.artwork_urls.length > 0) ? `[${item.artwork_urls.length} File(s) Uploaded]` : ''}
+                  </Text>
+                )}
+
+                {item.printing_instructions && (
+                  <Text style={{ fontSize: 8, color: '#6b7280', fontStyle: 'italic', marginTop: 1 }}>
+                    Note: {item.printing_instructions}
+                  </Text>
                 )}
               </View>
+
               <Text style={[styles.text, styles.col3]}>{item.quantity}</Text>
               <View style={styles.col4}>
-                <Text style={styles.text}>{formatCurrency(item.price)}</Text>
+                <Text style={styles.text}>Rs. {formatJustNumber(item.price)}</Text>
                 {item.original_price && item.original_price > item.price && (
-                  <Text style={{ fontSize: 8, color: '#6b7280', textDecoration: 'line-through', marginTop: 1 }}>{formatCurrency(item.original_price)}</Text>
+                  <Text style={{ fontSize: 8, color: '#6b7280', textDecoration: 'line-through', marginTop: 1 }}>Rs. {formatJustNumber(item.original_price)}</Text>
                 )}
               </View>
               <Text style={[styles.text, styles.col5, { fontFamily: 'Helvetica-Bold' }]}>
-                {formatCurrency(item.price * item.quantity)}
+                Rs. {formatJustNumber(item.price * item.quantity)}
               </Text>
             </View>
           ))}
         </View>
 
-        {/* Totals */}
         <View style={styles.totalsContainer}>
           <View style={styles.stampContainer}>
             <Text style={[styles.stampText, { color: watermarkColor }]}>Payment Status: {watermarkText}</Text>
           </View>
 
           <View style={styles.totalsBox}>
+            {/* 🚨 Split Currency Rendering 🚨 */}
             <View style={styles.totalRow}>
-              <Text style={[styles.text, { fontFamily: 'Helvetica-Bold' }]}>Subtotal:</Text>
-              <Text style={styles.text}>{formatCurrency(subtotal)}</Text>
+              <Text style={[styles.text, { fontFamily: 'Helvetica-Bold' }]}>Taxable Value (Base):</Text>
+              <View style={styles.amountContainer}>
+                <Text style={styles.amountSymbol}>Rs.</Text>
+                <Text style={styles.amountNumber}>{formatJustNumber(taxInfo.basePrice)}</Text>
+              </View>
             </View>
+            
+            <View style={styles.totalRow}>
+              <Text style={[styles.text, { fontFamily: 'Helvetica-Bold' }]}>CGST (9%):</Text>
+              <View style={styles.amountContainer}>
+                <Text style={styles.amountSymbol}>Rs.</Text>
+                <Text style={styles.amountNumber}>{formatJustNumber(taxInfo.cgst)}</Text>
+              </View>
+            </View>
+            
+            <View style={styles.totalRow}>
+              <Text style={[styles.text, { fontFamily: 'Helvetica-Bold' }]}>SGST (9%):</Text>
+              <View style={styles.amountContainer}>
+                <Text style={styles.amountSymbol}>Rs.</Text>
+                <Text style={styles.amountNumber}>{formatJustNumber(taxInfo.sgst)}</Text>
+              </View>
+            </View>
+            
             <View style={styles.totalRow}>
               <Text style={[styles.text, { fontFamily: 'Helvetica-Bold' }]}>Shipping & Handling:</Text>
-              <Text style={styles.text}>{shippingCost === 0 ? 'Free' : formatCurrency(shippingCost)}</Text>
+              {shippingCost === 0 ? (
+                <View style={styles.amountContainer}>
+                  <Text style={styles.amountSymbol}></Text>
+                  <Text style={styles.amountNumber}>Free</Text>
+                </View>
+              ) : (
+                <View style={styles.amountContainer}>
+                  <Text style={styles.amountSymbol}>Rs.</Text>
+                  <Text style={styles.amountNumber}>{formatJustNumber(shippingCost)}</Text>
+                </View>
+              )}
             </View>
+            
             <View style={styles.grandTotalRow}>
               <Text style={styles.grandTotalText}>Grand Total:</Text>
-              <Text style={styles.grandTotalText}>{formatCurrency(order.total_amount)}</Text>
+              <View style={styles.amountContainer}>
+                <Text style={styles.grandTotalSymbol}>Rs.</Text>
+                <Text style={styles.grandTotalNumber}>{formatJustNumber(order.total_amount)}</Text>
+              </View>
             </View>
+            
             {order.total_amount > 0 && (
               <View style={{ marginTop: 6, paddingTop: 4, borderTopWidth: 1, borderTopColor: '#f3f4f6' }}>
                 <Text style={{ fontSize: 9, color: '#4b5563', fontStyle: 'italic', textAlign: 'right' }}>

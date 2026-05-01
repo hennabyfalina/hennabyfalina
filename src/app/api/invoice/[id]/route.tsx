@@ -5,53 +5,72 @@ import { createClient } from '@/lib/supabase/server'
 import { renderToStream } from '@react-pdf/renderer'
 import InvoiceDocument from '@/components/pdf/InvoiceDocument'
 
-// Ensure this API route is forced to run in Node.js where stream rendering is available
+// Node.js Runtime is REQUIRED for @react-pdf/renderer's stream rendering
 export const runtime = 'nodejs'
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params
-  const supabase = await createClient()
+  try {
+    const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const invoiceType = (searchParams.get('type') as 'customer' | 'merchant') || 'customer'
+    const supabase = await createClient()
 
-  // 1. Authenticate user
-  const { data: { user }, error: userError } = await supabase.auth.getUser()
-  if (userError || !user) {
-    return new NextResponse('Unauthorized', { status: 401 })
-  }
+    // 1. GATEKEEPER: Verify the user is authenticated
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user) {
+      return new NextResponse('Unauthorized: Please log in to download invoices.', { status: 401 })
+    }
 
-  // 2. Fetch order data
-  const { data: order, error: orderError } = await supabase
-    .from('orders')
-    .select(`
-      *,
-      addresses (*),
-      order_items (
+    // 1b. Check if the user is an Admin
+    const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single()
+    const isAdmin = userData?.role === 'admin'
+
+    // 2. FETCH SECURE DATA: Fetch the order with addresses and B2B order items
+    let query = supabase.from('orders')
+      .select(`
         *,
-        products (*)
-      )
-    `)
-    .eq('id', id)
-    .eq('user_id', user.id)
-    .single()
+        addresses (*),
+        order_items (
+          *,
+          products (*)
+        )
+      `)
+      .eq('id', id)
 
-  if (orderError || !order) {
-    return new NextResponse('Order not found', { status: 404 })
+    // CRITICAL SECURITY: Only the owner can download their invoice UNLESS they are an admin
+    if (!isAdmin) {
+      query = query.eq('user_id', user.id)
+    }
+
+    const { data: order, error: orderError } = await query.single()
+
+    if (orderError || !order) {
+      console.error('[Invoice API] Order not found or access denied:', id)
+      return new NextResponse('Invoice not found or you do not have permission to view it.', { status: 404 })
+    }
+
+    // 3. PAYMENT VALIDATION: Only allow downloads for paid orders to ensure tax compliance
+    if (order.payment_status !== 'paid') {
+      return new NextResponse('Payment Pending: Invoices are only generated after successful payment confirmation.', { status: 403 })
+    }
+
+    // 4. STREAM GENERATION: Instantly render and stream the PDF to prevent memory leaks
+    // Pass the rich B2B order object into our upgraded template
+    const stream = await renderToStream(<InvoiceDocument order={order} invoiceType={invoiceType} /> as any)
+    
+    // 5. SECURE DELIVERY: Set headers to trigger a direct download in the browser
+    return new Response(stream as unknown as ReadableStream, {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${invoiceType === 'merchant' ? 'Merchant-' : ''}Invoice-${order.order_number}.pdf"`,
+        'Cache-Control': 'no-store, max-age=0', // Security: Don't cache financial documents
+      },
+    })
+  } catch (error: any) {
+    console.error('[Invoice API Error]:', error.message)
+    return new NextResponse('An internal error occurred while generating your invoice. Please contact support.', { status: 500 })
   }
-
-  // Security check: only allow generating invoices for paid orders
-  if (order.payment_status !== 'paid') {
-    return new NextResponse('Unauthorized: Order is not paid', { status: 403 })
-  }
-
-  // 3. Generate and stream the PDF instantly to the browser
-  const stream = await renderToStream(<InvoiceDocument order={order} /> as any)
-  
-  return new Response(stream as unknown as ReadableStream, {
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="Invoice_${order.order_number}.pdf"`,
-    },
-  })
 }

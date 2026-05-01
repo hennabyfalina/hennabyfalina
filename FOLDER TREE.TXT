@@ -6,9 +6,12 @@ razack-packaging-centre/
 │   ├── globe.svg
 │   ├── icon-192x192.png
 │   ├── icon-512x512.png
+│   ├── logo.png
 │   ├── placeholder-category.svg
 │   ├── placeholder-loading.svg
 │   ├── placeholder-product.svg
+│   ├── Roboto-Bold.ttf
+│   ├── Roboto-Regular.ttf
 │   ├── sw.js
 │   ├── swe-worker-5c72df51bb1f6ee0.js
 │   ├── window.svg
@@ -91,6 +94,8 @@ razack-packaging-centre/
 │   │   │   │   └── page.tsx
 │   │   │   ├── dashboard/
 │   │   │   │   └── page.tsx
+│   │   │   ├── finance/
+│   │   │   │   └── page.tsx
 │   │   │   ├── inventory/
 │   │   │   │   ├── logs/
 │   │   │   │   │   └── page.tsx
@@ -106,6 +111,8 @@ razack-packaging-centre/
 │   │   │   └── page.tsx
 │   │   ├── api/
 │   │   │   ├── admin/
+│   │   │   │   ├── artwork/
+│   │   │   │   │   └── route.ts
 │   │   │   │   ├── inventory/
 │   │   │   │   │   └── route.ts
 │   │   │   │   ├── orders/
@@ -148,7 +155,16 @@ razack-packaging-centre/
 │   │   └── sitemap.ts
 │   ├── components/
 │   │   ├── admin/
+│   │   │   ├── layout/
+│   │   │   │   ├── AdminConfirmModal.tsx
+│   │   │   │   ├── AdminMobileNav.tsx
+│   │   │   │   └── AdminSidebar.tsx
+│   │   │   ├── AdminCommandPalette.tsx
+│   │   │   ├── AdminLoader.tsx
 │   │   │   ├── CategoryForm.tsx
+│   │   │   ├── CustomerModal.tsx
+│   │   │   ├── DashboardCharts.tsx
+│   │   │   ├── DashboardSearchBar.tsx
 │   │   │   ├── OrderModal.tsx
 │   │   │   ├── OrderStatusBadge.tsx
 │   │   │   ├── ProductForm.tsx
@@ -162,6 +178,8 @@ razack-packaging-centre/
 │   │   │   ├── AddressForm.tsx
 │   │   │   ├── DeliveryMethod.tsx
 │   │   │   ├── OrderSummary.tsx
+│   │   │   ├── ReviewOrderModal.tsx
+│   │   │   ├── SecureLoadingOverlay.tsx
 │   │   │   └── StorePickupInfo.tsx
 │   │   ├── home/
 │   │   │   ├── CategorySection.tsx
@@ -184,7 +202,8 @@ razack-packaging-centre/
 │   │   │   ├── InvoiceLink.tsx
 │   │   │   ├── PrintButton.tsx
 │   │   │   ├── RetryPaymentButton.tsx
-│   │   │   └── TrackingTimeline.tsx
+│   │   │   ├── TrackingTimeline.tsx
+│   │   │   └── ViewArtworkButton.tsx
 │   │   ├── pdf/
 │   │   │   └── InvoiceDocument.tsx
 │   │   ├── product/
@@ -193,10 +212,12 @@ razack-packaging-centre/
 │   │   │   ├── FilterDrawer.tsx
 │   │   │   ├── FilterSidebar.tsx
 │   │   │   ├── FrequentlyBoughtTogether.tsx
+│   │   │   ├── PrintingOptions.tsx
 │   │   │   ├── ProductCard.tsx
 │   │   │   ├── ProductHorizontalCard.tsx
 │   │   │   ├── ProductImage.tsx
 │   │   │   ├── ProductImageGallery.tsx
+│   │   │   ├── ProductInteractiveSection.tsx
 │   │   │   ├── ProductsGrid.tsx
 │   │   │   ├── ProductWishlistButton.tsx
 │   │   │   ├── QuantitySelector.tsx
@@ -214,11 +235,13 @@ razack-packaging-centre/
 │   │   │   ├── AnimatedIcon.tsx
 │   │   │   ├── Avatar.tsx
 │   │   │   ├── Container.tsx
+│   │   │   ├── GeminiToast.tsx
 │   │   │   ├── InstallPrompt.tsx
 │   │   │   ├── Loader.tsx
 │   │   │   ├── Modal.tsx
 │   │   │   ├── OrderStatusBadge.tsx
 │   │   │   ├── PhoneInput.tsx
+│   │   │   ├── PreviewModal.tsx
 │   │   │   ├── PriceRangeInputs.tsx
 │   │   │   ├── PullToRefresh.tsx
 │   │   │   ├── PWAUpdater.tsx
@@ -227,6 +250,8 @@ razack-packaging-centre/
 │   │   │   └── Toast.tsx
 │   │   └── CartSyncProvider.tsx
 │   ├── config/
+│   │   ├── admin.ts
+│   │   ├── b2b-rules.ts
 │   │   ├── navigation.ts
 │   │   └── site.ts
 │   ├── hooks/
@@ -235,13 +260,16 @@ razack-packaging-centre/
 │   ├── lib/
 │   │   ├── supabase/
 │   │   │   ├── admin.ts
+│   │   │   ├── b2b-storage.ts
 │   │   │   ├── client.ts
 │   │   │   ├── server.ts
 │   │   │   └── storage.ts
 │   │   ├── constants.ts
 │   │   ├── states.ts
+│   │   ├── tax.ts
 │   │   └── utils.ts
 │   ├── services/
+│   │   ├── admin.service.ts
 │   │   ├── auth.service.ts
 │   │   ├── category.service.ts
 │   │   ├── inventory.service.ts
@@ -266,6 +294,7 @@ razack-packaging-centre/
 ├── components.json
 ├── eslint.config.mjs
 ├── FOLDER TREE.TXT
+├── FOLDER_TREE_AUTO.TXT
 ├── next-env.d.ts
 ├── next.config.ts
 ├── package-lock.json
