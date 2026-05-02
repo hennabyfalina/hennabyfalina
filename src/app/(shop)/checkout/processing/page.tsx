@@ -101,7 +101,7 @@ export default function ProcessingPage() {
         
         // Wait 2 seconds so they can read the success message, then redirect
         setTimeout(() => {
-          router.replace(`/order/${orderId}`)
+          router.replace(`/order/${encodeURIComponent(orderId || '')}`)
         }, 2000)
       },
       prefill: { name: '', email: '', contact: '' },

@@ -110,11 +110,11 @@ export default function CartPage() {
             
             <div className="flex flex-row gap-3 w-full max-w-md justify-center">
               {!user && !isLoading && (
-                <Link href="/login" className="flex-1 py-2 px-4 bg-gray-900 text-white rounded-sm font-bold hover:bg-gray-800 transition-colors text-center text-sm whitespace-nowrap">
+                <Link href="/login?next=/cart" className="flex-1 py-2 px-4 bg-gray-900 text-white rounded-sm font-bold hover:bg-gray-800 transition-colors text-center text-sm whitespace-nowrap">
                   Sign in
                 </Link>
               )}
-              <Link href="/products" className="flex-1 py-2 px-4 border border-gray-300 bg-white text-gray-800 rounded-sm font-bold hover:bg-gray-50 transition-colors text-center text-sm shadow-sm whitespace-nowrap">
+              <Link href="/products" className="flex-1 py-2 px-4 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-sm font-bold transition-colors text-center text-sm shadow-sm whitespace-nowrap">
                 Shop Now
               </Link>
             </div>
@@ -295,7 +295,7 @@ export default function CartPage() {
                                 await toggleItem(item.product_id)
                                 showToast(isSaved ? 'Removed from Wishlist' : 'Saved to Wishlist')
                               } catch (error: any) {
-                                if (error.message === 'unauthorized') router.push('/login?redirect=/cart')
+                            if (error.message === 'unauthorized') router.push('/login?next=/cart')
                                 else showToast('Failed to update wishlist')
                               }
                             }}
@@ -312,7 +312,7 @@ export default function CartPage() {
                               removeItem(item.product_id, item.printing_type)
                               showToast('Item removed')
                             }}
-                            className="text-xs sm:text-sm font-medium text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer"
+                            className="text-xs sm:text-sm font-medium text-[#f60101] hover:text-[#ff4d00] hover:underline cursor-pointer"
                           >
                             Delete
                           </button>

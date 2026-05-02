@@ -28,7 +28,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   const { data: { user }, error: userError } = await supabase.auth.getUser()
   
   if (userError || !user) {
-    redirect('/login?redirect=/orders')
+    redirect('/login?next=/profile/orders')
   }
 
   const resolvedParams = await searchParams

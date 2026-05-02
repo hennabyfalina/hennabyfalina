@@ -14,7 +14,7 @@ export default async function AddressesPage() {
   const { data: { session } } = await supabase.auth.getSession()
 
   if (!session) {
-    redirect('/login?redirect=/profile/addresses')
+    redirect('/login?next=/profile/addresses')
   }
 
   // Fetch addresses and order by default first, then newest

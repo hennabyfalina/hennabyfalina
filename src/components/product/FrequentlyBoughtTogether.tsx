@@ -8,6 +8,7 @@ import { useCartStore } from '@/store/cart.store'
 import { showToast } from '@/components/ui/Toast'
 import { formatCurrency } from '@/lib/utils'
 import { getPublicUrl } from '@/lib/supabase/storage'
+import { B2B_CONSTANTS } from '@/config/b2b-rules'
 
 interface Product {
   id: string
@@ -39,7 +40,7 @@ export default function FrequentlyBoughtTogether({ mainProduct, bundleProducts }
 
   useEffect(() => {
     // By default, select all products that are currently in stock
-    setSelectedIds(allProducts.filter(p => p.stock > 0).map(p => p.id))
+    setSelectedIds(allProducts.filter(p => (p.stock ?? 99999) > 0).map(p => p.id))
   }, [mainProduct, bundleProducts])
 
   // If there are no bundle items assigned to this product, don't render the section
@@ -73,7 +74,7 @@ export default function FrequentlyBoughtTogether({ mainProduct, bundleProducts }
           name: product.name,
           slug: product.slug,
           price: finalPrice,
-          quantity: 1,
+          quantity: B2B_CONSTANTS.RETAIL_MIN_QTY,
           image: product.images?.[0] || '',
           stock: product.stock,
           category_id: product.category_id || null,
@@ -137,7 +138,7 @@ export default function FrequentlyBoughtTogether({ mainProduct, bundleProducts }
           <button
             onClick={handleAddAllToCart}
             disabled={isAdding || selectedProducts.length === 0}
-            className="w-full sm:w-auto px-6 py-2 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] text-sm font-medium rounded-full shadow-sm border border-[#FCD200] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            className="w-full sm:w-auto px-6 py-2 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] text-sm font-medium rounded-full shadow-sm border border-[#FCD200] transition-colors disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
           >
             {isAdding ? (
               <div className="w-4 h-4 border-2 border-[#0F1111] border-t-transparent rounded-full animate-spin" />
@@ -155,7 +156,8 @@ export default function FrequentlyBoughtTogether({ mainProduct, bundleProducts }
           const isSelected = selectedIds.includes(p.id)
           const sellingPrice = p.selling_price ?? p.price ?? 0
           const isMain = p.id === mainProduct.id
-          const isOutOfStock = p.stock <= 0
+          const safeStock = p.stock ?? 99999
+          const isOutOfStock = safeStock <= 0
 
           return (
             <label key={p.id} className={`flex items-start gap-3 ${isOutOfStock ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
@@ -173,6 +175,10 @@ export default function FrequentlyBoughtTogether({ mainProduct, bundleProducts }
                 </Link>
                 <span className="font-bold text-[#B12704] ml-2">{formatCurrency(sellingPrice)}</span>
                 {isOutOfStock && <span className="text-[#B12704] ml-2 font-medium">(Out of Stock)</span>}
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] font-bold text-[#007185] bg-[#F0F8FF] border border-[#007185]/20 px-1.5 py-0.5 rounded-sm shadow-sm">Min. Qty: {B2B_CONSTANTS.RETAIL_MIN_QTY}</span>
+                  <span className="text-[10px] text-gray-500 font-medium">Default: Retail (Readymade)</span>
+                </div>
               </div>
             </label>
           )

@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'High-quality packaging materials for your business needs.',
     start_url: '/',
     display: 'standalone', // Standard app feel that keeps the system status bar and navigation gestures visible
-    background_color: '#ffffff',
-    theme_color: '#ffffff',
+    background_color: '#111827',
+    theme_color: '#111827',
     icons: [
       {
         src: '/icon-192x192.png',

@@ -82,7 +82,7 @@ export default function QuickViewModal() {
       if (error.message === 'unauthorized') {
         const currentUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
         closeQuickView()
-        router.push(`/login?redirect=${currentUrl}`)
+        router.push(`/login?next=${currentUrl}`)
       } else {
         showToast('Failed to update wishlist', 'error')
       }
@@ -94,7 +94,8 @@ export default function QuickViewModal() {
   const sellingPrice = product.selling_price ?? product.price ?? 0
   const regularPrice = product.price ?? 0
   const hasDiscount = regularPrice > sellingPrice
-  const isOutOfStock = product.stock < retailMin
+  const safeStock = product.stock ?? retailMin
+  const isOutOfStock = safeStock < retailMin
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={closeQuickView}>
@@ -185,8 +186,8 @@ export default function QuickViewModal() {
             {/* B2B Dynamic Stock Alerts */}
             {isOutOfStock ? (
               <p className="text-red-600 font-bold text-sm">Currently unavailable.</p>
-            ) : product.stock < (retailMin + 150) ? (
-              <p className="text-[#B12704] font-bold text-sm">Only {product.stock} left in stock - order soon.</p>
+            ) : safeStock < (retailMin + 150) ? (
+              <p className="text-[#B12704] font-bold text-sm">Only {safeStock} left in stock - order soon.</p>
             ) : (
               <p className="text-green-700 font-bold text-sm">In Stock.</p>
             )}
@@ -197,11 +198,13 @@ export default function QuickViewModal() {
                 product={product as any} 
                 quantity={retailMin}
                 minQuantity={retailMin}
+                requireCustomizationChoice={true}
                 className="w-full h-11 text-base font-medium bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-full shadow-sm cursor-pointer" 
               />
               <BuyNowButton 
                 product={product as any} 
                 quantity={retailMin}
+                requireCustomizationChoice={true}
                 className="w-full h-11 flex items-center justify-center gap-2 text-base font-bold bg-[#FFA41C] hover:bg-[#FA8900] text-[#0F1111] border border-[#FF8F00] rounded-full shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed transition-all" 
               />
             </div>

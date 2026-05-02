@@ -9,6 +9,7 @@ import { uploadB2BArtwork, getSignedB2BUrl, deleteB2BArtwork } from '@/lib/supab
 import { useAuth } from '@/hooks/useAuth'
 import { showToast } from '@/components/ui/Toast'
 import PreviewModal from '@/components/ui/PreviewModal'
+import { useEffect } from 'react'
 
 interface ArtworkFile {
   path: string
@@ -18,41 +19,44 @@ interface ArtworkFile {
 }
 
 interface PrintingOptionsProps {
-  selectedType: string
-  onChange: (data: {
+  b2bState: {
     type: string
     minQty: number
     days: number
     instructions: string
-    artworkUrls: string[] // 🚨 CHANGED TO ARRAY
+    artworkUrls: string[]
+    artworks: ArtworkFile[]
     isAgreementChecked: boolean
-  }) => void
+  }
+  onChange: (data: any) => void
 }
 
 const MAX_FILES = 3
 const MAX_FILE_SIZE = 15 * 1024 * 1024 // 15MB per file
 const MAX_TOTAL_SIZE = 30 * 1024 * 1024 // 30MB total
 
-export default function PrintingOptions({ selectedType, onChange }: PrintingOptionsProps) {
-  const { user } = useAuth()
-  const [instructions, setInstructions] = useState('')
-  
-  // 🚨 State is now an Array of files
-  const [artworks, setArtworks] = useState<ArtworkFile[]>([]) 
-  const [isAgreementChecked, setIsAgreementChecked] = useState(false)
+export default function PrintingOptions({ b2bState, onChange }: PrintingOptionsProps) {
+  const { user, isLoading } = useAuth()
   const [isUploading, setIsUploading] = useState(false)
   
   const [previewFile, setPreviewFile] = useState<{ url: string, name: string } | null>(null)
 
+  const { type: selectedType, instructions = '', artworks = [], isAgreementChecked = true } = b2bState
+
   const activeTierConfig = PRINTING_TIERS.find(o => o.id === selectedType)
   const isCustomPrint = selectedType.includes('Color')
 
+  // Automatically check if they returned from login with a pending upload
+  useEffect(() => {
+    if (user && !isLoading && typeof window !== 'undefined' && sessionStorage.getItem('pending_upload') === 'true') {
+      sessionStorage.removeItem('pending_upload')
+      showToast('Session restored. You can now upload your artwork.', 'success')
+    }
+  }, [user, isLoading])
+
   const handleAgreementToggle = (checked: boolean) => {
-    setIsAgreementChecked(checked)
-    const opt = PRINTING_TIERS.find(o => o.id === selectedType)!
     onChange({ 
-      type: opt.id, minQty: opt.minQty, days: opt.days, instructions, 
-      artworkUrls: artworks.map(a => a.path), 
+      ...b2bState,
       isAgreementChecked: checked 
     })
   }
@@ -61,7 +65,18 @@ export default function PrintingOptions({ selectedType, onChange }: PrintingOpti
     const files = Array.from(e.target.files || [])
     if (!files.length) return
     if (!user) {
-      showToast('Please login to upload artwork', 'error')
+      if (isLoading) {
+        showToast('Please wait while we verify your session...', 'info')
+        return
+      }
+      showToast('Please login to upload artwork', 'warning')
+      
+      // Store a flag so the user knows they need to upload after login
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('pending_upload', 'true')
+        const currentUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
+        window.location.href = `/login?next=${currentUrl}`
+      }
       return
     }
 
@@ -100,13 +115,10 @@ export default function PrintingOptions({ selectedType, onChange }: PrintingOpti
         newArtworks.push({ path: internalPath, url: signed || '', name: file.name, size: file.size })
       }))
 
-      setArtworks(newArtworks)
-      
-      const opt = PRINTING_TIERS.find(o => o.id === selectedType)!
       onChange({ 
-        type: opt.id, minQty: opt.minQty, days: opt.days, instructions, 
-        artworkUrls: newArtworks.map(a => a.path), 
-        isAgreementChecked 
+        ...b2bState,
+        artworkUrls: newArtworks.map(a => a.path),
+        artworks: newArtworks
       })
       
       showToast(`${validFiles.length} file(s) uploaded and verified`, 'success')
@@ -124,13 +136,11 @@ export default function PrintingOptions({ selectedType, onChange }: PrintingOpti
     
     // 1. Remove from UI instantly
     const newArtworks = artworks.filter((_, idx) => idx !== indexToRemove)
-    setArtworks(newArtworks)
 
-    const opt = PRINTING_TIERS.find(o => o.id === selectedType)!
     onChange({ 
-      type: opt.id, minQty: opt.minQty, days: opt.days, instructions, 
-      artworkUrls: newArtworks.map(a => a.path), 
-      isAgreementChecked 
+      ...b2bState,
+      artworkUrls: newArtworks.map(a => a.path),
+      artworks: newArtworks
     })
     
     showToast('Artwork removed', 'info')
@@ -146,10 +156,9 @@ export default function PrintingOptions({ selectedType, onChange }: PrintingOpti
   const handleOptionClick = (opt: any) => {
     const isCustom = opt.id.includes('Color')
     const newAgreement = isCustom ? false : true 
-    setIsAgreementChecked(newAgreement)
     onChange({ 
-      type: opt.id, minQty: opt.minQty, days: opt.days, instructions, 
-      artworkUrls: artworks.map(a => a.path), 
+      ...b2bState,
+      type: opt.id, minQty: opt.minQty, days: opt.days, 
       isAgreementChecked: newAgreement 
     })
   }
@@ -159,12 +168,9 @@ export default function PrintingOptions({ selectedType, onChange }: PrintingOpti
       showToast('Instructions too long (Max 500 chars)', 'error')
       return
     }
-    setInstructions(text)
-    const opt = PRINTING_TIERS.find(o => o.id === selectedType)!
     onChange({ 
-      type: opt.id, minQty: opt.minQty, days: opt.days, instructions: text, 
-      artworkUrls: artworks.map(a => a.path), 
-      isAgreementChecked 
+      ...b2bState,
+      instructions: text
     })
   }
 

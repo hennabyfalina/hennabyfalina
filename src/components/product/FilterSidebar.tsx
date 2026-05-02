@@ -183,33 +183,6 @@ export default function FilterSidebar({
           </button>
         </form>
       </div>
-
-      {/* Deals & Discounts Filter */}
-      <div className="space-y-2 pt-4 border-t border-gray-200">
-        <h3 className="text-sm font-bold text-gray-900">Deals & Discounts</h3>
-        <div className="space-y-2">
-          <label className="flex items-center gap-2 cursor-pointer group mb-1">
-            <input
-              type="checkbox"
-              checked={activeBulk === 'true'}
-              onChange={() => updateFilters({ bulk: activeBulk === 'true' ? null : 'true' })}
-              className="w-4 h-4 text-[#e77600] border-gray-300 rounded-sm focus:ring-[#e77600] cursor-pointer"
-            />
-            <span className={`text-sm ${activeBulk === 'true' ? 'text-gray-900 font-bold' : 'text-gray-900 group-hover:text-[#e77600]'}`}>
-              Bulk Discount Available
-            </span>
-          </label>
-          {[10, 25, 50].map((pct) => (
-            <button
-              key={pct}
-              onClick={() => updateFilters({ discount: activeDiscount === pct.toString() ? null : pct.toString() })}
-              className={`block text-sm text-left w-full focus:outline-none cursor-pointer ${activeDiscount === pct.toString() ? 'text-[#e77600] font-bold' : 'text-gray-900 hover:text-[#e77600]'}`}
-            >
-              {pct}% Off or more
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }

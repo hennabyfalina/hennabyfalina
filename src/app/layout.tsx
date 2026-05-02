@@ -50,7 +50,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'default',
+    statusBarStyle: 'black-translucent',
     title: siteConfig.shortName,
   },
   formatDetection: {
@@ -88,6 +88,10 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#111827' },
+    { media: '(prefers-color-scheme: dark)', color: '#131314' },
+  ],
 }
 
 export default function RootLayout({
@@ -154,7 +158,7 @@ export default function RootLayout({
         `}} />
       </head>
       <body 
-        className="bg-[#eaeded] text-gray-900 antialiased w-full min-h-[100dvh] flex flex-col overflow-x-hidden"
+        className="bg-[#eaeded] text-gray-900 antialiased w-full min-h-[100dvh] flex flex-col touch-pan-y"
         suppressHydrationWarning
       >
         <WishlistProvider>

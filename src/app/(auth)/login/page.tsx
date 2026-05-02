@@ -127,7 +127,7 @@ export default function LoginPage() {
     sessionStorage.setItem('oauth_start_time', Date.now().toString())
     
     const params = new URLSearchParams(window.location.search)
-    const redirectPath = params.get('redirect') || '/products'
+    const redirectPath = params.get('next') || params.get('redirect') || '/products'
 
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithOAuth({
@@ -136,7 +136,7 @@ export default function LoginPage() {
         // 🚨 CRITICAL ROUTING FIX 🚨
         // This forces Google to send EVERYONE to the callback file first.
         // The callback file then sorts Admins to /admin-gate and Customers to the redirectPath.
-        redirectTo: `${window.location.origin}/auth/callback?next=${redirectPath}`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectPath)}`,
         queryParams: {
           access_type: 'offline',
           prompt: 'select_account',
@@ -305,7 +305,7 @@ export default function LoginPage() {
 
     setLoading(false)
     const params = new URLSearchParams(window.location.search)
-    const redirectPath = params.get('redirect') || '/products'
+    const redirectPath = params.get('next') || params.get('redirect') || '/products'
     router.push(redirectPath)
   }
 

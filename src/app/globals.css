@@ -35,6 +35,7 @@
     /* Mobile Optimization: Allow native vertical pull-to-refresh, but prevent horizontal swipe-back navigation */
     overscroll-behavior-y: auto;
     overscroll-behavior-x: none;
+    -webkit-overflow-scrolling: touch;
   }
   
   /* Focus styles */

@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Eye } from 'lucide-react'
 import ProductCard from '@/components/product/ProductCard'
+import { B2B_CONSTANTS } from '@/config/b2b-rules'
 
 interface ViewedProduct {
   id: string
@@ -102,7 +103,7 @@ export default function RecentlyViewed() {
             bulk_min_quantity: p.bulk_min_quantity,
             description: p.description,
             images: p.images && p.images.length > 0 ? p.images : [p.image],
-            stock: p.stock ?? 99, 
+            stock: p.stock ?? B2B_CONSTANTS.RETAIL_MIN_QTY, 
             rating: p.rating ?? 4.5,
             review_count: p.review_count ?? 128
           }))

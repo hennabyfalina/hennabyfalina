@@ -32,7 +32,7 @@ export default function ShopLayout({ children }: { children: ReactNode }) {
       <Suspense fallback={null}>
         <Navbar />
       </Suspense>
-      <main className={`flex-1 flex flex-col w-full relative min-h-screen ${isCheckoutPage ? 'pb-0' : 'pb-24 md:pb-0'}`}>
+      <main className={`flex-1 flex flex-col w-full relative min-h-screen overflow-x-hidden ${isCheckoutPage ? 'pb-0' : 'pb-24 md:pb-0'}`}>
         {children}
       </main>
       <MobileBottomNav />

@@ -3,6 +3,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useQuickViewStore } from '@/store/quickview.store'
 import { useCartStore } from '@/store/cart.store'
 import { showToast } from '@/components/ui/Toast'
 import BuyNowButton from '@/components/product/BuyNowButton'
@@ -35,6 +37,7 @@ interface AddToCartButtonProps {
   showQuantitySelector?: boolean
   className?: string
   onQuantityChange?: (qty: number) => void
+  requireCustomizationChoice?: boolean
 }
 
 export default function AddToCartButton({
@@ -48,8 +51,11 @@ export default function AddToCartButton({
   isAgreementChecked = true,
   showQuantitySelector = false,
   className = '',
-  onQuantityChange
+  onQuantityChange,
+  requireCustomizationChoice = false
 }: AddToCartButtonProps) {
+  const router = useRouter()
+  const closeQuickView = useQuickViewStore((state) => state.closeQuickView)
   const [quantity, setQuantity] = useState(Math.max(initialQuantity, minQuantity))
   const [isAdding, setIsAdding] = useState(false)
   const addItem = useCartStore((state) => state.addItem)
@@ -67,6 +73,12 @@ export default function AddToCartButton({
   const handleAddToCart = async (e?: React.MouseEvent) => {
     if (e) { e.preventDefault(); e.stopPropagation(); }
 
+    if (requireCustomizationChoice) {
+      closeQuickView()
+      router.push(`/product/${encodeURIComponent(product.slug)}?customize=true#b2b-options`)
+      return
+    }
+
     const isCustomPrint = printingType.includes('Single Color') || printingType.includes('Multi Color');
     
     if (isCustomPrint && !isAgreementChecked) {
@@ -80,13 +92,15 @@ export default function AddToCartButton({
       return;
     }
 
-    if (product.stock <= 0) {
+    const safeStock = product.stock ?? 99999
+
+    if (safeStock <= 0) {
       showToast('Out of stock', product.id)
       return
     }
 
-    if (quantity > product.stock) {
-      showToast(`Only ${product.stock} items available`, product.id)
+    if (quantity > safeStock) {
+      showToast(`Only ${safeStock} items available`, product.id)
       return
     }
 
@@ -129,7 +143,7 @@ export default function AddToCartButton({
     }
   }
 
-  const isOutOfStock = product.stock <= 0
+  const isOutOfStock = (product.stock ?? 99999) <= 0
   const buttonClasses = className || "w-full h-11 text-[15px] bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-full shadow-sm font-medium"
 
   return (
@@ -154,6 +168,8 @@ export default function AddToCartButton({
         >
           {isAdding ? (
             <><div className="w-4 h-4 border-2 border-gray-800 border-t-transparent rounded-full animate-spin" /><span>Adding...</span></>
+          ) : requireCustomizationChoice ? (
+            <span>View Options</span>
           ) : (
             <span>{isOutOfStock ? 'Currently Unavailable' : 'Add to Cart'}</span>
           )}

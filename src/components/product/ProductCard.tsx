@@ -64,7 +64,8 @@ export default function ProductCard({ product, priority = false, searchQuery = '
 
   // B2B Stock Validation: It is out of stock if we don't even have the minimum retail quantity!
   const retailMin = B2B_CONSTANTS.RETAIL_MIN_QTY
-  const isOutOfStock = product.stock < retailMin
+  const safeStock = product.stock ?? retailMin
+  const isOutOfStock = safeStock < retailMin
 
   const sellingPrice = product.selling_price ?? product.price ?? 0
   const regularPrice = product.price ?? 0
@@ -85,7 +86,7 @@ export default function ProductCard({ product, priority = false, searchQuery = '
     } catch (error: any) {
       if (error.message === 'unauthorized') {
         const currentUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
-        router.push(`/login?redirect=${currentUrl}`)
+        router.push(`/login?next=${currentUrl}`)
       } else {
         showToast('Failed to update wishlist', 'error')
       }
@@ -141,6 +142,13 @@ export default function ProductCard({ product, priority = false, searchQuery = '
             <StarRating rating={rating} reviewCount={reviewCount} size="sm" />
           </div>
 
+        {/* 🚨 B2B Transparency Badge 🚨 */}
+        <div className="mb-2">
+          <span className="inline-flex text-[10px] font-bold text-[#007185] bg-[#F0F8FF] border border-[#007185]/20 px-1.5 py-0.5 rounded-sm">
+            Min. Order: {retailMin}
+          </span>
+        </div>
+
           <div className="mt-auto pt-1">
             <div className="flex items-baseline gap-1.5 mb-0.5">
               <span className="text-xl font-bold text-gray-900">{formatCurrency(sellingPrice)}</span>
@@ -159,8 +167,8 @@ export default function ProductCard({ product, priority = false, searchQuery = '
             {/* B2B Dynamic Stock Alerts */}
             {isOutOfStock ? (
               <span className="text-xs font-bold text-[#B12704] block mt-1">Currently unavailable.</span>
-            ) : product.stock < (retailMin + 150) ? (
-              <span className="text-xs font-bold text-[#B12704] block mt-1">Only {product.stock} left in stock - order soon.</span>
+            ) : safeStock < (retailMin + 150) ? (
+              <span className="text-xs font-bold text-[#B12704] block mt-1">Only {safeStock} left in stock - order soon.</span>
             ) : null}
           </div>
         </div>
@@ -173,6 +181,7 @@ export default function ProductCard({ product, priority = false, searchQuery = '
             product={product as any} 
             quantity={retailMin}
             minQuantity={retailMin}
+            requireCustomizationChoice={true}
             className="w-full h-9 text-sm font-medium bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-full shadow-sm"
           />
         </div>

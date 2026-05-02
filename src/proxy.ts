@@ -5,7 +5,7 @@ import type { NextRequest } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 
 const AUTH_ROUTES = ['/login', '/signup', '/forgot-password']
-const PROTECTED_ROUTES = ['/profile', '/checkout', '/wishlist']
+const PROTECTED_ROUTES = ['/profile', '/checkout', '/wishlist', '/order']
 const ADMIN_ROUTES = ['/admin']
 const GATE_PAGE = '/admin-gate'
 
@@ -39,6 +39,15 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
   const path = request.nextUrl.pathname
+  
+  // 🚨 WHATSAPP TEMPLATE ROUTING FIX 🚨
+  // Meta WhatsApp template uses /profile/orders/{{1}} but the app uses /order/[id]
+  if (path.startsWith('/profile/orders/') && path.length > '/profile/orders/'.length) {
+    const rawOrderId = path.replace('/profile/orders/', '')
+    const newUrl = new URL(`/order/${encodeURIComponent(rawOrderId)}`, request.url)
+    newUrl.search = request.nextUrl.search
+    return NextResponse.redirect(newUrl)
+  }
 
   const isAuthRoute = AUTH_ROUTES.some((r) => path.startsWith(r))
   const isProtectedRoute = PROTECTED_ROUTES.some((r) => path.startsWith(r))
@@ -49,7 +58,7 @@ export async function proxy(request: NextRequest) {
   if (!user) {
     if (isProtectedRoute || isAdminRoute || isGatePage) {
       const redirectUrl = new URL('/login', request.url)
-      redirectUrl.searchParams.set('redirect', path + request.nextUrl.search)
+      redirectUrl.searchParams.set('next', path + request.nextUrl.search)
       return NextResponse.redirect(redirectUrl)
     }
     return response

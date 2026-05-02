@@ -26,7 +26,7 @@ export async function sendWhatsAppTemplate(
         type: 'body',
         parameters: bodyParams.map(param => ({
           type: 'text',
-          text: String(param).substring(0, 1024) // Meta strict limit protection
+          text: String(param).substring(0, 1000) // Safely under 1024 to prevent splitting multi-byte characters
         }))
       }
     ];
@@ -89,10 +89,10 @@ export async function notifyOrderConfirmed(order: any) {
   const addressObj = order.addresses || order.shipping_address || {};
   const isPickup = order.shipping_method === 'pickup' || addressObj.delivery_method === 'pickup';
 
-  // 🛡️ BULLETPROOF SANITIZER: Meta crashes if it sees a newline (\n) or an empty string
+  // 🛡️ BULLETPROOF SANITIZER: Meta crashes if it sees ANY newline (\n or \r), tab, or an empty string
   const sanitize = (str: any) => {
     if (!str) return 'N/A';
-    const cleaned = String(str).replace(/\n/g, ', ').trim();
+    const cleaned = String(str).replace(/[\r\n]+/g, ', ').replace(/\t/g, ' ').trim();
     return cleaned === '' ? 'N/A' : cleaned;
   };
 
@@ -136,7 +136,7 @@ export async function notifyOrderConfirmed(order: any) {
         sanitize(customerItemsRaw),   // {{3}}
         sanitize(totalAmount)         // {{4}}
       ],
-      sanitize(order.order_number)    // Button URL param
+      encodeURIComponent(String(order.order_number).trim()) // 🚨 SECURE URL PARAM 🚨
     );
     if (sent) successCount++;
   }

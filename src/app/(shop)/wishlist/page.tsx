@@ -16,7 +16,7 @@ export default async function WishlistPage() {
 
   // Secure the route
   if (!session) {
-    redirect('/login?redirect=/wishlist')
+    redirect('/login?next=/wishlist')
   }
 
   // Fetch the initial data server-side for speed and SEO

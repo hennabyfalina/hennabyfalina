@@ -2,7 +2,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { MapPin, Lock } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
@@ -30,16 +30,33 @@ export default function ProductInteractiveSection({
   discountPercentage
 }: ProductInteractiveSectionProps) {
   
-  // 🚨 DYNAMIC STATE: Pulled straight from b2b-rules.ts!
-  const [b2bState, setB2bState] = useState({
-    type: 'Retail (Readymade)',
-    minQty: B2B_CONSTANTS.RETAIL_MIN_QTY,
-    days: B2B_CONSTANTS.STANDARD_DELIVERY_DAYS,
-    instructions: '',
-    // 🚨 UPGRADED TO ARRAY 🚨
-    artworkUrls: [] as string[],
-    isAgreementChecked: true
+  // 🚨 HYDRATION: Restore B2B state from session storage if available
+  const [b2bState, setB2bState] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem(`b2b_state_${product.id}`)
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          parsed.artworkUrls = parsed.artworkUrls || []
+          parsed.artworks = parsed.artworks || []
+          return parsed
+        } catch (e) {}
+      }
+    }
+    return {
+      type: 'Retail (Readymade)',
+      minQty: B2B_CONSTANTS.RETAIL_MIN_QTY,
+      days: B2B_CONSTANTS.STANDARD_DELIVERY_DAYS,
+      instructions: '',
+      artworkUrls: [] as string[],
+      artworks: [] as any[],
+      isAgreementChecked: true
+    }
   })
+
+  useEffect(() => {
+    sessionStorage.setItem(`b2b_state_${product.id}`, JSON.stringify(b2bState))
+  }, [b2bState, product.id])
 
   const activePrice = product.bulk_price && b2bState.minQty >= (product.bulk_min_quantity || B2B_CONSTANTS.WHOLESALE_MIN_QTY) 
     ? product.bulk_price 
@@ -60,7 +77,7 @@ export default function ProductInteractiveSection({
             <Link href="/products" className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline">
               Visit the {siteConfig.shortName} Store
             </Link>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 [&_button]:cursor-pointer">
               <ProductWishlistButton productId={product.id} />
               <ShareButton productName={product.name} productSlug={product.slug} />
             </div>
@@ -93,9 +110,9 @@ export default function ProductInteractiveSection({
 
         {/* B2B Customization Engine */}
         {hasStock && (
-          <div className="mt-4">
+          <div className="mt-4 scroll-mt-24" id="b2b-options">
             <PrintingOptions 
-              selectedType={b2bState.type}
+              b2bState={b2bState}
               onChange={(newData) => setB2bState(newData)}
             />
           </div>
@@ -104,24 +121,24 @@ export default function ProductInteractiveSection({
         <hr className="border-gray-200 my-4" />
 
         {/* Trust Icons Row */}
-        <div className="flex justify-between items-start py-2 max-w-sm">
-           <div className="flex flex-col items-center text-center gap-1 px-1 w-1/3">
-             <div className="w-9 h-9 rounded-full flex items-center justify-center">
+        <div className="flex justify-around items-start py-2 w-full max-w-md mx-auto lg:mx-0">
+           <div className="flex flex-col items-center text-center gap-2 px-2 flex-1">
+             <div className="w-10 h-10 rounded-full flex items-center justify-center">
                <img src="https://m.media-amazon.com/images/G/31/A2I-Convert/mobile/IconFarm/icon-returns._CB484059092_.png" alt="Returns" className="w-8 h-8 object-contain" />
              </div>
-             <span className="text-[11px] text-[#007185] leading-tight font-medium">B2B Returns Policy</span>
+             <span className="text-[11px] sm:text-xs text-[#007185] leading-tight font-medium hover:text-[#C7511F] cursor-pointer transition-colors">B2B Returns Policy</span>
            </div>
-           <div className="flex flex-col items-center text-center gap-1 px-1 w-1/3">
-             <div className="w-9 h-9 rounded-full flex items-center justify-center">
+           <div className="flex flex-col items-center text-center gap-2 px-2 flex-1">
+             <div className="w-10 h-10 rounded-full flex items-center justify-center">
                <img src="https://m.media-amazon.com/images/G/31/A2I-Convert/mobile/IconFarm/icon-amazon-delivered._CB485933725_.png" alt="Delivery" className="w-8 h-8 object-contain" />
              </div>
-             <span className="text-[11px] text-[#007185] leading-tight font-medium">Factory Dispatched</span>
+             <span className="text-[11px] sm:text-xs text-[#007185] leading-tight font-medium hover:text-[#C7511F] cursor-pointer transition-colors">Factory Dispatched</span>
            </div>
-           <div className="flex flex-col items-center text-center gap-1 px-1 w-1/3">
-             <div className="w-9 h-9 rounded-full flex items-center justify-center">
+           <div className="flex flex-col items-center text-center gap-2 px-2 flex-1">
+             <div className="w-10 h-10 rounded-full flex items-center justify-center">
                <img src="https://m.media-amazon.com/images/G/31/A2I-Convert/mobile/IconFarm/Secure-payment._CB650126890_.png" alt="Secure" className="w-8 h-8 object-contain" />
              </div>
-             <span className="text-[11px] text-[#007185] leading-tight font-medium">Secure Transaction</span>
+             <span className="text-[11px] sm:text-xs text-[#007185] leading-tight font-medium hover:text-[#C7511F] cursor-pointer transition-colors">Secure Transaction</span>
            </div>
         </div>
 

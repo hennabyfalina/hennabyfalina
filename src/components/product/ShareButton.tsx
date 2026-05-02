@@ -26,7 +26,7 @@ export default function ShareButton({ productName, productSlug }: ShareButtonPro
   }
 
   return (
-    <button onClick={handleShare} className="flex items-center gap-1.5 text-sm text-[#007185] hover:text-[#C7511F] hover:underline transition-colors" title="Share this product">
+    <button onClick={handleShare} className="flex items-center gap-1.5 text-sm text-[#007185] hover:text-[#C7511F] hover:underline transition-colors cursor-pointer" title="Share this product">
       <Share2 className="w-4 h-4" />
       <span className="font-medium">Share</span>
     </button>

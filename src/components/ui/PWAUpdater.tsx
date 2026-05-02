@@ -13,27 +13,39 @@ export default function PWAUpdater() {
       navigator.serviceWorker.getRegistration().then((registration) => {
         if (!registration) return
 
+        // 🚨 1. Check if there's already an update waiting from a background sync
+        if (registration.waiting) {
+          triggerUpdate(registration.waiting)
+        }
+
+        // 🚨 2. Listen for new updates found by the Service Worker actively
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing
           if (!newWorker) return
 
           newWorker.addEventListener('statechange', () => {
-            // Wait for the worker to be fully installed before triggering UI
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              setIsUpdating(true) 
-              
-              // Only trigger the update after showing the banner to the user
-              setTimeout(() => {
-                newWorker.postMessage({ type: 'SKIP_WAITING' })
-              }, 2500) // Delay the actual update so the banner is visible
+              triggerUpdate(newWorker)
             }
           })
         })
       })
 
+      let refreshing = false
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload() // This happens automatically after Skip Waiting
+        if (!refreshing) {
+          refreshing = true
+          window.location.reload()
+        }
       })
+    }
+
+    function triggerUpdate(worker: ServiceWorker) {
+      setIsUpdating(true)
+      // Wait exactly 2.5 seconds so the user reads the "App Updated" banner before reloading
+      setTimeout(() => {
+        worker.postMessage({ type: 'SKIP_WAITING' })
+      }, 2500)
     }
   }, [])
 

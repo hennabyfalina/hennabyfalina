@@ -71,7 +71,7 @@ export default function RecentlyBoughtCarousel({ userId }: RecentlyBoughtCarouse
     try {
       const retailMin = B2B_CONSTANTS.RETAIL_MIN_QTY
       // B2B Validation: Only add products that have at least the minimum retail stock
-      const availableProducts = recentlyBought.filter(p => p.stock >= retailMin)
+      const availableProducts = recentlyBought.filter(p => (p.stock ?? retailMin) >= retailMin)
       
       await Promise.all(availableProducts.map(async (product) => {
         const sellingPrice = product.selling_price ?? product.price ?? 0
@@ -109,13 +109,14 @@ export default function RecentlyBoughtCarousel({ userId }: RecentlyBoughtCarouse
   return (
     <div className="bg-white p-4 sm:p-5 rounded-sm shadow-[0_1px_4px_rgba(0,0,0,0.1)] overflow-hidden w-full">
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <h3 className="text-lg sm:text-2xl font-bold text-gray-900 tracking-tight">Buy Again</h3>
+        <div className="flex flex-col">
+          <h3 className="text-lg sm:text-2xl font-bold text-gray-900 tracking-tight leading-tight">Buy Again</h3>
+          <p className="text-[11px] text-gray-500 font-medium mt-0.5 hidden sm:block">Quick reorder base retail configurations (Min. Qty: {B2B_CONSTANTS.RETAIL_MIN_QTY})</p>
         </div>
         <button
           onClick={handleAddAllToCart}
           // B2B Validation: Disable button if NO products have enough stock for the minimum
-          disabled={isAdding || recentlyBought.filter(p => p.stock >= B2B_CONSTANTS.RETAIL_MIN_QTY).length === 0}
+          disabled={isAdding || recentlyBought.filter(p => (p.stock ?? B2B_CONSTANTS.RETAIL_MIN_QTY) >= B2B_CONSTANTS.RETAIL_MIN_QTY).length === 0}
           className="px-4 py-1.5 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] text-sm font-medium rounded-full shadow-sm border border-[#FCD200] transition-colors disabled:opacity-60 flex items-center gap-2 cursor-pointer focus:outline-none"
         >
           {isAdding ? (

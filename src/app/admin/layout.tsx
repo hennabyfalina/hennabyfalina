@@ -47,8 +47,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // 🚨 Prevent mobile overscroll bouncing and white background flashes
     document.body.style.backgroundColor = '#131314'
     document.documentElement.style.backgroundColor = '#131314'
-    document.body.style.overscrollBehavior = 'none'
-    document.documentElement.style.overscrollBehavior = 'none'
+    document.body.style.overscrollBehavior = 'auto'
+    document.documentElement.style.overscrollBehavior = 'auto'
 
     const checkAdmin = async () => {
       setCheckingAdmin(true)
@@ -56,7 +56,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        if (!session) { router.push('/login?redirect=/admin'); return }
+        if (!session) { router.push('/login?next=/admin'); return }
 
         const { data: userData, error } = await supabase
           .from('users')
@@ -81,8 +81,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => {
       document.body.style.backgroundColor = ''
       document.documentElement.style.backgroundColor = ''
-      document.body.style.overscrollBehavior = ''
-      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = 'auto'
+      document.documentElement.style.overscrollBehavior = 'auto'
     }
   }, [router])
 
@@ -128,7 +128,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const initial = userEmail ? userEmail.charAt(0).toUpperCase() : 'A'
 
   return (
-    <div className="h-[100dvh] w-full overflow-hidden overscroll-none bg-[#131314] text-[#E3E3E3] flex flex-col md:flex-row font-sans selection:bg-[#A8C7FA]/30 selection:text-white">
+    <div className="h-[100dvh] w-full overflow-hidden bg-[#131314] text-[#E3E3E3] flex flex-col md:flex-row font-sans selection:bg-[#A8C7FA]/30 selection:text-white touch-pan-y">
       
       {/* 🚨 GEMINI FULL-HEIGHT SIDEBAR 🚨 */}
       <aside
@@ -174,7 +174,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* 🚨 MAIN CONTENT AREA 🚨 */}
-      <div className={`flex-1 flex flex-col h-[100dvh] overflow-y-auto overflow-x-hidden transition-all duration-300 ease-in-out ${isSidebarOpen ? 'md:ml-[280px]' : 'md:ml-[76px]'}`}>
+      <div className={`flex-1 flex flex-col h-[100dvh] overflow-y-auto overflow-x-hidden transition-all duration-300 ease-in-out touch-pan-y ${isSidebarOpen ? 'md:ml-[280px]' : 'md:ml-[76px]'}`} style={{ WebkitOverflowScrolling: 'touch' }}>
         
         {/* 🚨 GEMINI MAIN HEADER 🚨 */}
         <header className="h-16 bg-[#131314] px-4 md:px-6 flex items-center justify-between sticky top-0 z-30 pt-1">

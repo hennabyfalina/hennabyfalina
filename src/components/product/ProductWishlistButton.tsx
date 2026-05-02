@@ -23,7 +23,7 @@ export default function ProductWishlistButton({ productId }: ProductWishlistButt
     } catch (error: any) {
       if (error.message === 'unauthorized') {
         const currentUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
-        router.push(`/login?redirect=${currentUrl}`)
+        router.push(`/login?next=${currentUrl}`)
       } else {
         showToast('Failed to update wishlist', 'error')
       }
@@ -31,7 +31,7 @@ export default function ProductWishlistButton({ productId }: ProductWishlistButt
   }
 
   return (
-    <button onClick={handleWishlist} className="flex items-center gap-1.5 text-sm text-[#007185] hover:text-[#C7511F] hover:underline transition-colors focus:outline-none" title={isSaved ? "Remove from Wishlist" : "Add to Wishlist"}>
+    <button onClick={handleWishlist} className="flex items-center gap-1.5 text-sm text-[#007185] hover:text-[#C7511F] hover:underline transition-colors focus:outline-none cursor-pointer" title={isSaved ? "Remove from Wishlist" : "Add to Wishlist"}>
       <Heart className={`w-4 h-4 transition-colors ${isSaved ? 'fill-red-500 text-red-500' : 'text-gray-500 hover:text-red-500'}`} />
       <span className="font-medium">{isSaved ? 'Saved' : 'Save'}</span>
     </button>

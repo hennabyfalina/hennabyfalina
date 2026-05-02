@@ -138,7 +138,7 @@ export default function CheckoutPage() {
       const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
-        router.push('/login?redirect=/checkout')
+        router.push('/login?next=/checkout')
         return
       }
       setUserId(session.user.id)
@@ -287,7 +287,7 @@ export default function CheckoutPage() {
       }
 
       // 🚨 Transition to Secure Payment Processing Page
-      router.push(`/checkout/processing?order_id=${order.id}&amount=${razorpayData.amount}&rzp_order=${razorpayData.orderId}`)
+      router.push(`/checkout/processing?order_id=${encodeURIComponent(order.id)}&amount=${encodeURIComponent(razorpayData.amount)}&rzp_order=${encodeURIComponent(razorpayData.orderId)}`)
     } catch (err: any) {
       console.error(err)
       alert(err.message || 'Failed to initialize payment')
