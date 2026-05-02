@@ -293,7 +293,7 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
             Order Items
           </div>
           <div className="divide-y divide-gray-200">
-            {order.order_items.map((item: any) => {
+            {order.order_items.map((item: any, index: number) => {
               let imageUrl = '/placeholder-product.svg'
               const rawImage = item.products?.images?.[0]
               if (rawImage) {
@@ -312,7 +312,7 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
                     </div>
                     <div className="flex-1 min-w-0">
                       <Link href={`/product/${item.products?.slug}`} className="text-base font-bold text-[#007185] hover:text-[#C7511F] hover:underline line-clamp-2">
-                        {item.products?.name}
+                        {order.order_items.length > 1 ? `${index + 1}. ` : ''}{item.products?.name}
                       </Link>
 
                       <div className="mt-1">

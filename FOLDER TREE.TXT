@@ -10,6 +10,7 @@ razack-packaging-centre/
 │   ├── placeholder-category.svg
 │   ├── placeholder-loading.svg
 │   ├── placeholder-product.svg
+│   ├── razorpay-icon.jpg
 │   ├── Roboto-Bold.ttf
 │   ├── Roboto-Regular.ttf
 │   ├── sw.js
@@ -243,7 +244,6 @@ razack-packaging-centre/
 │   │   │   ├── PhoneInput.tsx
 │   │   │   ├── PreviewModal.tsx
 │   │   │   ├── PriceRangeInputs.tsx
-│   │   │   ├── PullToRefresh.tsx
 │   │   │   ├── PWAUpdater.tsx
 │   │   │   ├── Section.tsx
 │   │   │   ├── SortDropdown.tsx
@@ -294,7 +294,6 @@ razack-packaging-centre/
 ├── components.json
 ├── eslint.config.mjs
 ├── FOLDER TREE.TXT
-├── FOLDER_TREE_AUTO.TXT
 ├── next-env.d.ts
 ├── next.config.ts
 ├── package-lock.json

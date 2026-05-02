@@ -279,13 +279,13 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
             </div>
             
             <div className="flex flex-col gap-3">
-              {order.order_items?.map((item: any) => (
+              {order.order_items?.map((item: any, index: number) => (
                 <div key={item.id} className="bg-[#131314] border border-[#333538] rounded-[24px] p-4 sm:p-5 flex flex-col gap-4 hover:border-[#44474A] transition-colors">
                   
                   <div className="flex justify-between items-start gap-3">
                     <div className="flex-1">
                       <h4 className="font-medium text-[#E3E3E3] text-[15px] sm:text-base leading-tight">
-                        {item.products?.name || 'Product'}
+                        {order.order_items.length > 1 ? `${index + 1}. ` : ''}{item.products?.name || 'Product'}
                       </h4>
                       {item.is_bulk_pricing && (
                         <span className="mt-2 inline-block px-2 py-0.5 bg-[#214332]/40 text-[#93D7A4] rounded text-[9px] font-bold tracking-widest">

@@ -235,7 +235,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                             
                             <div className="flex-1">
                               <Link href={`/product/${item.products?.slug}`} className="text-sm md:text-base font-bold text-[#007185] hover:text-[#C7511F] hover:underline line-clamp-2">
-                                {item.products?.name}
+                                {order.order_items.length > 1 ? `${itemIndex + 1}. ` : ''}{item.products?.name}
                               </Link>
 
                               <div className="mt-1">

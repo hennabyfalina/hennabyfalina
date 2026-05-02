@@ -89,10 +89,10 @@ export async function notifyOrderConfirmed(order: any) {
   const addressObj = order.addresses || order.shipping_address || {};
   const isPickup = order.shipping_method === 'pickup' || addressObj.delivery_method === 'pickup';
 
-  // 🛡️ BULLETPROOF SANITIZER: Strip newlines/tabs which crash Meta, but keep Unicode (₹, Emojis, Local scripts)
+  // 🛡️ BULLETPROOF SANITIZER: Strip tabs/carriage returns which crash Meta, BUT KEEP Newlines (\n) for lists
   const sanitize = (str: any) => {
     if (!str) return 'N/A';
-    const cleaned = String(str).replace(/[\r\n\t]+/g, ' ').trim();
+    const cleaned = String(str).replace(/[\r\t]+/g, ' ').trim();
     return cleaned === '' ? 'N/A' : cleaned.substring(0, 950);
   };
 
@@ -117,18 +117,20 @@ export async function notifyOrderConfirmed(order: any) {
 
   const itemsArray = order.order_items || order.items || [];
   
-  const customerItemsRaw = itemsArray.map((item: any) => {
+  const customerItemsRaw = itemsArray.map((item: any, index: number) => {
     const name = item.products?.name || item.name || 'Product';
-    return `${item.quantity}x ${name}`;
-  }).join(', '); 
+    const itemStr = `${item.quantity}x ${name}`;
+    return itemsArray.length > 1 ? `${index + 1}. ${itemStr}` : itemStr;
+  }).join('\n'); 
 
-  const adminItemsRaw = itemsArray.map((item: any) => {
+  const adminItemsRaw = itemsArray.map((item: any, index: number) => {
     const name = item.products?.name || item.name || 'Product';
     const print = item.printing_type && item.printing_type !== 'None' ? ` | Print: ${item.printing_type}` : '';
     const files = item.artwork_urls?.length ? ` | Files: ${item.artwork_urls.length} Attached` : '';
     const note = item.printing_instructions ? ` | Note: ${item.printing_instructions}` : '';
-    return `${item.quantity}x ${name}${print}${files}${note}`;
-  }).join('; ');
+    const itemStr = `${item.quantity}x ${name}${print}${files}${note}`;
+    return itemsArray.length > 1 ? `${index + 1}. ${itemStr}` : itemStr;
+  }).join('\n');
 
   const delMethod = isPickup ? 'Store Pickup' : 'Home Delivery';
   const totalAmount = formatCurrency(order.total_amount);
