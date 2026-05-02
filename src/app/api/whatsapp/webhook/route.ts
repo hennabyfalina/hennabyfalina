@@ -33,6 +33,17 @@ export async function POST(request: Request) {
       for (const entry of body.entry) {
         for (const change of entry.changes) {
           
+          // --- NEW: LISTEN FOR DELIVERY STATUS REPORTS ---
+          if (change.value && change.value.statuses && change.value.statuses[0]) {
+            const statusObj = change.value.statuses[0];
+            console.log(`[WhatsApp Status] Phone ${statusObj.recipient_id} is now: ${statusObj.status}`);
+            
+            if (statusObj.errors) {
+              console.error(`[WhatsApp Delivery Failure Reason]:`, JSON.stringify(statusObj.errors, null, 2));
+            }
+          }
+
+          
           // Check if it's an incoming message from a customer
           if (change.value && change.value.messages && change.value.messages[0]) {
             const message = change.value.messages[0];

@@ -89,53 +89,54 @@ export async function notifyOrderConfirmed(order: any) {
   const addressObj = order.addresses || order.shipping_address || {};
   const isPickup = order.shipping_method === 'pickup' || addressObj.delivery_method === 'pickup';
 
-  // --- BUILD CLEAN ORDER SUMMARIES (NO NEWLINES ALLOWED BY META) ---
+  // 🛡️ BULLETPROOF SANITIZER: Meta crashes if it sees a newline (\n) or an empty string
+  const sanitize = (str: any) => {
+    if (!str) return 'N/A';
+    const cleaned = String(str).replace(/\n/g, ', ').trim();
+    return cleaned === '' ? 'N/A' : cleaned;
+  };
+
   const itemsArray = order.order_items || order.items || [];
   
-  // Minimal summary for the Customer (Comma separated instead of newlines)
-  const customerItems = itemsArray.map((item: any) => {
+  const customerItemsRaw = itemsArray.map((item: any) => {
     const name = item.products?.name || item.name || 'Product';
     return `${item.quantity}x ${name}`;
-  }).join(', '); // 🚨 FIXED: Used comma instead of \n
+  }).join(', '); 
 
-  // Detailed summary for Admin/Uncle (Pipes and semicolons instead of newlines)
-  const adminItems = itemsArray.map((item: any) => {
+  const adminItemsRaw = itemsArray.map((item: any) => {
     const name = item.products?.name || item.name || 'Product';
     const print = item.printing_type && item.printing_type !== 'None' ? ` | Print: ${item.printing_type}` : '';
     const files = item.artwork_urls?.length ? ` | Files: ${item.artwork_urls.length} Attached` : '';
     const note = item.printing_instructions ? ` | Note: ${item.printing_instructions}` : '';
     return `${item.quantity}x ${name}${print}${files}${note}`;
-  }).join('; '); // 🚨 FIXED: Used semicolon instead of \n
+  }).join('; ');
 
   const delMethod = isPickup ? 'Store Pickup' : 'Home Delivery';
   const totalAmount = formatCurrency(order.total_amount);
   
-  // Format Address cleanly for Admin (Commas instead of newlines)
-  let adminAddress = 'Store Pickup';
+  let adminAddressRaw = 'Store Pickup';
   if (!isPickup) {
-    adminAddress = `${addressObj.address_line1 || addressObj.address || ''}`;
-    if (addressObj.city) adminAddress += `, ${addressObj.city} - ${addressObj.pincode}`; // 🚨 FIXED
-    if (addressObj.landmark) adminAddress += `, Landmark: ${addressObj.landmark}`;       // 🚨 FIXED
-    if (addressObj.delivery_instructions) adminAddress += `, Note: ${addressObj.delivery_instructions}`; // 🚨 FIXED
+    adminAddressRaw = `${addressObj.address_line1 || addressObj.address || ''}`;
+    if (addressObj.city) adminAddressRaw += `, ${addressObj.city} - ${addressObj.pincode}`; 
+    if (addressObj.landmark) adminAddressRaw += `, Landmark: ${addressObj.landmark}`;       
+    if (addressObj.delivery_instructions) adminAddressRaw += `, Note: ${addressObj.delivery_instructions}`; 
   }
 
   // --- 1. SEND TO CUSTOMER ---
   if (addressObj.phone) {
     let customerPhone = addressObj.phone.replace(/\D/g, '');
     if (customerPhone.length === 10) customerPhone = `91${customerPhone}`;
-    
-    const buttonUrlVariable = order.order_number;
 
     const sent = await sendWhatsAppTemplate(
       customerPhone, 
-      'order_confirmed_receipt', // 🚨 FIXED: Matches your exact Meta dashboard name!
+      'order_confirmed_receipt', 
       [
-        order.order_number, // {{1}}
-        delMethod,          // {{2}}
-        customerItems,      // {{3}}
-        totalAmount         // {{4}}
+        sanitize(order.order_number), // {{1}}
+        sanitize(delMethod),          // {{2}}
+        sanitize(customerItemsRaw),   // {{3}}
+        sanitize(totalAmount)         // {{4}}
       ],
-      buttonUrlVariable
+      sanitize(order.order_number)    // Button URL param
     );
     if (sent) successCount++;
   }
@@ -149,12 +150,12 @@ export async function notifyOrderConfirmed(order: any) {
       adminPhone, 
       'admin_order_alert', 
       [
-        order.order_number,                               
-        addressObj.name || order.customer_name || 'N/A',  
-        addressObj.phone || 'N/A',                        
-        adminAddress,                                     // 🚨 Now safe (no newlines)
-        adminItems,                                       // 🚨 Now safe (no newlines)
-        totalAmount                                       
+        sanitize(order.order_number),                               
+        sanitize(addressObj.name || order.customer_name),  
+        sanitize(addressObj.phone),                        
+        sanitize(adminAddressRaw),                                     
+        sanitize(adminItemsRaw),                                       
+        sanitize(totalAmount)                                       
       ]
     );
     if (sent) successCount++;
