@@ -47,7 +47,7 @@ export async function sendWhatsAppTemplate(
     }
 
     const response = await fetch(
-      `https://graph.facebook.com/v17.0/${META_PHONE_NUMBER_ID}/messages`,
+      `https://graph.facebook.com/v19.0/${META_PHONE_NUMBER_ID}/messages`,
       {
         method: 'POST',
         headers: {
@@ -89,12 +89,30 @@ export async function notifyOrderConfirmed(order: any) {
   const addressObj = order.addresses || order.shipping_address || {};
   const isPickup = order.shipping_method === 'pickup' || addressObj.delivery_method === 'pickup';
 
-  // 🛡️ BULLETPROOF SANITIZER: Meta crashes if it sees ANY newline (\n or \r), tab, or an empty string
+  // 🛡️ BULLETPROOF SANITIZER: Strip newlines/tabs which crash Meta, but keep Unicode (₹, Emojis, Local scripts)
   const sanitize = (str: any) => {
     if (!str) return 'N/A';
-    // Strip all special characters that crash Meta APIs
-    const cleaned = String(str).replace(/[\r\n\t]+/g, ' ').replace(/[^\x20-\x7E]/g, '').trim();
+    const cleaned = String(str).replace(/[\r\n\t]+/g, ' ').trim();
     return cleaned === '' ? 'N/A' : cleaned.substring(0, 950);
+  };
+
+  // 📞 PHONE FORMATTER: Fixes multiple numbers, '0' prefixes, and formats for WhatsApp
+  const formatWhatsAppNumber = (phone: string) => {
+    if (!phone) return null;
+    let cleaned = phone.replace(/\D/g, '');
+    // Handle "0" prefix common in India (e.g. 09444233768)
+    if (cleaned.length === 11 && cleaned.startsWith('0')) {
+      cleaned = cleaned.substring(1);
+    }
+    // Handle standard 10-digit numbers by prepending India code
+    if (cleaned.length === 10) {
+      cleaned = `91${cleaned}`;
+    }
+    // WhatsApp requires a valid country code + number length (typically 11-15 digits)
+    if (cleaned.length < 11 || cleaned.length > 15) {
+      return null;
+    }
+    return cleaned;
   };
 
   const itemsArray = order.order_items || order.items || [];
@@ -125,41 +143,51 @@ export async function notifyOrderConfirmed(order: any) {
 
   // --- 1. SEND TO CUSTOMER ---
   if (addressObj.phone) {
-    let customerPhone = addressObj.phone.replace(/\D/g, '');
-    if (customerPhone.length === 10) customerPhone = `91${customerPhone}`;
-
-    const sent = await sendWhatsAppTemplate(
-      customerPhone, 
-      'order_confirmed_receipt', 
-      [
-        sanitize(order.order_number), // {{1}}
-        sanitize(delMethod),          // {{2}}
-        sanitize(customerItemsRaw),   // {{3}}
-        sanitize(totalAmount)         // {{4}}
-      ],
-      encodeURIComponent(String(order.order_number).trim()) // 🚨 SECURE URL PARAM 🚨
-    );
-    if (sent) successCount++;
+    const customerPhone = formatWhatsAppNumber(addressObj.phone);
+    if (customerPhone) {
+      const buttonParam = order.order_number ? encodeURIComponent(String(order.order_number).trim()) : 'UNKNOWN';
+      const sent = await sendWhatsAppTemplate(
+        customerPhone, 
+        'order_confirmed_receipt', 
+        [
+          sanitize(order.order_number), // {{1}}
+          sanitize(delMethod),          // {{2}}
+          sanitize(customerItemsRaw),   // {{3}}
+          sanitize(totalAmount)         // {{4}}
+        ],
+        buttonParam // 🚨 SECURE URL PARAM 🚨
+      );
+      if (sent) successCount++;
+    } else {
+      console.warn(`[WhatsApp] Invalid customer phone number: ${addressObj.phone}`);
+    }
   }
 
   // --- 2. SEND TO ADMIN (UNCLE ISMATH) ---
   if (META_ADMIN_PHONE) {
-    let adminPhone = META_ADMIN_PHONE.replace(/\D/g, '');
-    if (adminPhone.length === 10) adminPhone = `91${adminPhone}`;
-
-    const sent = await sendWhatsAppTemplate(
-      adminPhone, 
-      'admin_order_alert', 
-      [
-        sanitize(order.order_number),                               
-        sanitize(addressObj.name || order.customer_name),  
-        sanitize(addressObj.phone),                        
-        sanitize(adminAddressRaw),                                     
-        sanitize(adminItemsRaw),                                       
-        sanitize(totalAmount)                                       
-      ]
-    );
-    if (sent) successCount++;
+    // Split by comma to support multiple admin numbers in the .env file
+    const adminPhones = META_ADMIN_PHONE.split(',').map(p => p.trim()).filter(Boolean);
+    
+    for (const phone of adminPhones) {
+      const adminPhone = formatWhatsAppNumber(phone);
+      if (adminPhone) {
+        const sent = await sendWhatsAppTemplate(
+          adminPhone, 
+          'admin_order_alert', 
+          [
+            sanitize(order.order_number),                               
+            sanitize(addressObj.name || order.customer_name),  
+            sanitize(addressObj.phone),                        
+            sanitize(adminAddressRaw),                                     
+            sanitize(adminItemsRaw),                                       
+            sanitize(totalAmount)                                       
+          ]
+        );
+        if (sent) successCount++;
+      } else {
+        console.warn(`[WhatsApp] Invalid admin phone number in env: ${phone}`);
+      }
+    }
   }
 
   return successCount > 0;
