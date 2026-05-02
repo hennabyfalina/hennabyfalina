@@ -8,7 +8,6 @@ import { useEffect } from 'react'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import MobileBottomNav from '@/components/layout/MobileBottomNav'
-import PullToRefresh from '@/components/ui/PullToRefresh'
 import Toaster from '@/components/ui/Toast'
 import { useCartStore } from '@/store/cart.store'
 
@@ -34,9 +33,7 @@ export default function ShopLayout({ children }: { children: ReactNode }) {
         <Navbar />
       </Suspense>
       <main className={`flex-1 flex flex-col w-full relative min-h-screen ${isCheckoutPage ? 'pb-0' : 'pb-24 md:pb-0'}`}>
-        <PullToRefresh>
-          {children}
-        </PullToRefresh>
+        {children}
       </main>
       <MobileBottomNav />
       {!isProfilePage && !isCheckoutPage && <Footer />}

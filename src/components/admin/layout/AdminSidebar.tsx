@@ -38,7 +38,7 @@ export default function AdminSidebar({ pathname, isSidebarOpen, setIsSidebarOpen
         </div>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto no-scrollbar">
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto overscroll-contain no-scrollbar">
         {ADMIN_NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const isActive = pathname.includes(item.href)

@@ -58,7 +58,7 @@ export default function ProfileClient({ user, profile }: ProfileClientProps) {
     },
     {
       title: 'Payment options',
-      desc: 'Edit or add payment methods',
+      desc: 'Razorpay secure payment methods',
       icon: CreditCard,
       href: '/profile/payments'
     },

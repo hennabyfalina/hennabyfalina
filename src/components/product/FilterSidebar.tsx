@@ -59,7 +59,7 @@ export default function FilterSidebar({
 
       <div className="space-y-2">
         <h3 className="text-sm font-bold text-gray-900">Category</h3>
-        <div className="space-y-1.5 max-h-60 overflow-y-auto no-scrollbar">
+        <div className="space-y-1.5 max-h-60 overflow-y-auto overscroll-contain no-scrollbar">
           <label className="flex items-center gap-2 cursor-pointer group">
             <input 
               type="checkbox"

@@ -292,7 +292,7 @@ export default function ProductForm({
         )}
 
         {/* 🚨 GEMINI TABS 🚨 */}
-        <div className="border-b border-[#333538] overflow-x-auto no-scrollbar">
+        <div className="border-b border-[#333538] overflow-x-auto overscroll-contain-x no-scrollbar">
           <nav className="flex gap-2 min-w-max pb-px">
             {['basic', 'images', 'inventory', 'seo', 'bundles'].map((tab) => (
               <button
@@ -516,7 +516,7 @@ export default function ProductForm({
               <div className="p-3 border-b border-[#333538] bg-[#131314]">
                 <input type="text" placeholder="Search catalog..." title="Search catalog" value={bundleSearch} onChange={(e) => setBundleSearch(e.target.value)} className="w-full px-4 py-2.5 bg-[#1E1F20] border border-[#333538] rounded-xl text-sm focus:outline-none focus:border-[#A8C7FA] text-[#E3E3E3]" aria-label="Search for products to bundle" />
               </div>
-              <div className="flex-1 overflow-y-auto p-2 no-scrollbar">
+              <div className="flex-1 overflow-y-auto overscroll-contain p-2 no-scrollbar">
                 {allProducts.filter(p => p.id !== initialData?.id && p.name.toLowerCase().includes(bundleSearch.toLowerCase())).map(p => {
                   const isSelected = formData.frequently_bought_together.includes(p.id)
                   return (

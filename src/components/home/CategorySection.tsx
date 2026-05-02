@@ -33,7 +33,7 @@ export default function CategorySection({ categories }: CategorySectionProps) {
       </div>
 
       {/* Mobile: Horizontal Scroll with Snapping | Desktop: Grid */}
-      <div className="flex overflow-x-auto gap-4 sm:grid sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 sm:gap-6 no-scrollbar pb-2 snap-x snap-mandatory">
+      <div className="flex overflow-x-auto gap-4 sm:grid sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 sm:gap-6 no-scrollbar pb-2 touch-pan-x overscroll-contain-x snap-carousel">
         {categories.map((category) => {
           let imgUrl = '/placeholder-category.svg'
           if (category.image) {
@@ -46,7 +46,7 @@ export default function CategorySection({ categories }: CategorySectionProps) {
             <Link
               key={category.id}
               href={`/products?category=${category.id}`}
-              className="flex flex-col items-center gap-3 group min-w-[100px] sm:min-w-0 flex-shrink-0 snap-center"
+              className="flex flex-col items-center gap-3 group min-w-[100px] sm:min-w-0 flex-shrink-0"
             >
               <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full bg-[#F7F8F8] border border-gray-100 overflow-hidden relative flex items-center justify-center transition-all duration-300 group-hover:border-[#FBD18E] group-hover:shadow-md">
                 <div className="relative w-full h-full p-3">

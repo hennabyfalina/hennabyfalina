@@ -1,19 +1,51 @@
 // src/services/whatsapp.service.ts
 
 import { siteConfig } from '@/config/site';
-import { formatCurrency, numberToIndianWords } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 
 const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID;
-const ADMIN_PHONE_NUMBER = process.env.ADMIN_PHONE_NUMBER;
+const META_ADMIN_PHONE = process.env.META_ADMIN_PHONE;
 
-export async function sendWhatsAppMessage(to: string, message: string) {
+// 🚨 CORE TEMPLATE SENDER ENGINE
+export async function sendWhatsAppTemplate(
+  to: string, 
+  templateName: string, 
+  bodyParams: any[], 
+  buttonParam?: string // Used for the dynamic Amazon-style tracking link
+) {
   if (!META_ACCESS_TOKEN || !META_PHONE_NUMBER_ID) {
-    console.error('[WhatsApp] Meta credentials missing in environment variables');
+    console.error('[WhatsApp] Meta credentials missing');
     return false;
   }
 
   try {
+    // 1. Map the text variables for the body
+    const components: any[] = [
+      {
+        type: 'body',
+        parameters: bodyParams.map(param => ({
+          type: 'text',
+          text: String(param).substring(0, 1024) // Meta strict limit protection
+        }))
+      }
+    ];
+
+    // 2. Map the dynamic URL variable for the button (if it exists)
+    if (buttonParam) {
+      components.push({
+        type: 'button',
+        sub_type: 'url',
+        index: '0',
+        parameters: [
+          {
+            type: 'text',
+            text: buttonParam
+          }
+        ]
+      });
+    }
+
     const response = await fetch(
       `https://graph.facebook.com/v17.0/${META_PHONE_NUMBER_ID}/messages`,
       {
@@ -25,8 +57,12 @@ export async function sendWhatsAppMessage(to: string, message: string) {
         body: JSON.stringify({
           messaging_product: 'whatsapp',
           to: to,
-          type: 'text',
-          text: { body: message },
+          type: 'template',
+          template: {
+            name: templateName,
+            language: { code: 'en' },
+            components: components
+          }
         }),
       }
     );
@@ -34,10 +70,11 @@ export async function sendWhatsAppMessage(to: string, message: string) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('[WhatsApp] API Error:', data);
+      console.error(`[WhatsApp] Template Error (${templateName}):`, data);
       return false;
     }
 
+    console.log(`[WhatsApp] Successfully sent ${templateName} to ${to}`);
     return true;
   } catch (error) {
     console.error('[WhatsApp] Network Error:', error);
@@ -45,108 +82,83 @@ export async function sendWhatsAppMessage(to: string, message: string) {
   }
 }
 
-// ==========================================
-// CLEAN CUSTOMER MESSAGE
-// ==========================================
-function formatCustomerOrderMessage(order: any): string {
-  const itemsArray = order.order_items || order.items || [];
-  const itemsList = itemsArray.map((item: any) => {
-    const productName = item.products?.name || item.name || 'Product';
-    // 🚨 UPGRADED: Add file count to WhatsApp receipt
-    const fileCount = item.artwork_urls?.length || 0;
-    const attachmentText = fileCount > 0 ? ` [${fileCount} File(s) Attached]` : '';
-    return `- ${item.quantity}x ${productName}${attachmentText}`;
-  }).join('\n');
-
-  const orderUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/order/${order.order_number}`;
-  const payMethod = order.payment_method === 'razorpay' ? 'Prepaid (Razorpay)' : (order.payment_method || 'N/A');
-  const delMethod = order.delivery_method === 'pickup' || order.addresses?.delivery_method === 'pickup' ? 'Store Pickup' : 'Home Delivery';
-  
-  const formattedAmount = formatCurrency(order.total_amount); 
-  const amountWords = numberToIndianWords(order.total_amount);
-
-  return `Order Confirmation\n${siteConfig.name}\n\n` +
-         `Dear ${order.customer_name},\n` +
-         `Your order *${order.order_number}* has been successfully placed.\n\n` +
-         `*Order Summary:*\n${itemsList}\n\n` +
-         `*Delivery:* ${delMethod}\n` +
-         `*Payment:* ${payMethod}\n` +
-         `*Total Paid:* ${formattedAmount} (${amountWords})\n\n` +
-         `Track your order securely here:\n${orderUrl}\n\n` +
-         `Thank you for shopping with us.`;
-}
-
-// ==========================================
-// CLEAN ADMIN MESSAGE (With DB Mapping & Landmarks)
-// ==========================================
-function formatAdminOrderMessage(order: any): string {
-  const itemsArray = order.order_items || order.items || [];
-  const itemsList = itemsArray.map((item: any) => {
-    const productName = item.products?.name || item.name || 'Product';
-    // 🚨 UPGRADED: Alert Uncle on WhatsApp if files need downloading
-    const fileCount = item.artwork_urls?.length || 0;
-    const attachmentText = fileCount > 0 ? ` [${fileCount} File(s) Attached]` : '';
-    return `- ${item.quantity}x ${productName}${attachmentText}`;
-  }).join('\n');
-  
-  // Smart mapping for the addresses table
-  const addressObj = order.addresses || order.shipping_address || {};
-  const line1 = addressObj.address_line1 || addressObj.address || '';
-  
-  let addressDetails = 'Store Pickup / No Address Provided';
-  
-  if (line1) {
-    addressDetails = `${line1}, ${addressObj.city || ''} - ${addressObj.pincode || ''}`;
-    
-    if (addressObj.landmark) {
-      addressDetails += `\n*Landmark:* ${addressObj.landmark}`;
-    }
-    
-    const notes = order.delivery_instructions || order.notes || addressObj.delivery_instructions;
-    if (notes) {
-      addressDetails += `\n*Instructions:* ${notes}`;
-    }
-  }
-    
-  const phone = addressObj.phone || 'N/A';
-  const payMethod = order.payment_method === 'razorpay' ? 'Prepaid (Razorpay)' : (order.payment_method || 'N/A');
-  const delMethod = order.delivery_method === 'pickup' || addressObj.delivery_method === 'pickup' ? 'Store Pickup' : 'Home Delivery';
-
-  const formattedAmount = formatCurrency(order.total_amount);
-  const amountWords = numberToIndianWords(order.total_amount);
-
-  return `New Order Received\n\n` +
-         `*Order ID:* ${order.order_number}\n` +
-         `*Customer:* ${order.customer_name}\n` +
-         `*Phone:* ${phone}\n` +
-         `*Address:* ${addressDetails}\n\n` +
-         `*Delivery:* ${delMethod}\n` +
-         `*Payment:* ${payMethod}\n` +
-         `*Total Amount:* ${formattedAmount} (${amountWords})\n\n` +
-         `*Items:*\n${itemsList}\n\n` +
-         `Please check the admin dashboard to process this order.`;
-}
-
+// 🚨 ORDER DISPATCH ENGINE
 export async function notifyOrderConfirmed(order: any) {
   let successCount = 0;
   
   const addressObj = order.addresses || order.shipping_address || {};
+  const isPickup = order.shipping_method === 'pickup' || addressObj.delivery_method === 'pickup';
 
-  // 1. Send to Customer
+  // --- BUILD CLEAN ORDER SUMMARIES ---
+  const itemsArray = order.order_items || order.items || [];
+  
+  // Minimal summary for the Customer (Amazon Style)
+  const customerItems = itemsArray.map((item: any) => {
+    const name = item.products?.name || item.name || 'Product';
+    return `${item.quantity}x ${name}`;
+  }).join('\n');
+
+  // Detailed summary for Admin/Uncle (Includes printing & artwork notes)
+  const adminItems = itemsArray.map((item: any) => {
+    const name = item.products?.name || item.name || 'Product';
+    const print = item.printing_type && item.printing_type !== 'None' ? `\n  Print: ${item.printing_type}` : '';
+    const files = item.artwork_urls?.length ? `\n  Files: ${item.artwork_urls.length} Attached` : '';
+    const note = item.printing_instructions ? `\n  Note: ${item.printing_instructions}` : '';
+    return `${item.quantity}x ${name}${print}${files}${note}`;
+  }).join('\n');
+
+  const delMethod = isPickup ? 'Store Pickup' : 'Home Delivery';
+  const totalAmount = formatCurrency(order.total_amount);
+  
+  // Format Address cleanly for Admin
+  let adminAddress = 'Store Pickup';
+  if (!isPickup) {
+    adminAddress = `${addressObj.address_line1 || addressObj.address || ''}`;
+    if (addressObj.city) adminAddress += `\n${addressObj.city} - ${addressObj.pincode}`;
+    if (addressObj.landmark) adminAddress += `\nLandmark: ${addressObj.landmark}`;
+    if (addressObj.delivery_instructions) adminAddress += `\nNote: ${addressObj.delivery_instructions}`;
+  }
+
+  // --- 1. SEND TO CUSTOMER ---
   if (addressObj.phone) {
     let customerPhone = addressObj.phone.replace(/\D/g, '');
     if (customerPhone.length === 10) customerPhone = `91${customerPhone}`;
     
-    const customerMsg = formatCustomerOrderMessage(order);
-    const sent = await sendWhatsAppMessage(customerPhone, customerMsg);
+    // We only pass the Order Number for the dynamic URL button (e.g., RPC-10293)
+    const buttonUrlVariable = order.order_number;
+
+    const sent = await sendWhatsAppTemplate(
+      customerPhone, 
+      'customer_order_receipt', 
+      [
+        order.order_number, // {{1}}
+        delMethod,          // {{2}}
+        customerItems,      // {{3}}
+        totalAmount         // {{4}}
+      ],
+      buttonUrlVariable     // Injects directly into the track button!
+    );
     if (sent) successCount++;
   }
 
-  // 2. Send to Admin (Uncle Ismath)
-  if (ADMIN_PHONE_NUMBER) {
-    let adminPhone = ADMIN_PHONE_NUMBER.replace(/\D/g, '');
-    const adminMsg = formatAdminOrderMessage(order);
-    const sent = await sendWhatsAppMessage(adminPhone, adminMsg);
+  // --- 2. SEND TO ADMIN (UNCLE ISMATH) ---
+  if (META_ADMIN_PHONE) {
+    let adminPhone = META_ADMIN_PHONE.replace(/\D/g, '');
+    if (adminPhone.length === 10) adminPhone = `91${adminPhone}`;
+
+    // Admin has a Static URL button, so we DO NOT pass a buttonParam here
+    const sent = await sendWhatsAppTemplate(
+      adminPhone, 
+      'admin_order_alert', 
+      [
+        order.order_number,                               // {{1}}
+        addressObj.name || order.customer_name || 'N/A',  // {{2}}
+        addressObj.phone || 'N/A',                        // {{3}}
+        adminAddress,                                     // {{4}}
+        adminItems,                                       // {{5}}
+        totalAmount                                       // {{6}}
+      ]
+    );
     if (sent) successCount++;
   }
 

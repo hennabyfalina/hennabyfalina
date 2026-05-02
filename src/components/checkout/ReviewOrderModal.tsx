@@ -66,7 +66,7 @@ export default function ReviewOrderModal({
           </button>
         </div>
         
-        <div className="p-4 space-y-4 overflow-y-auto flex-1">
+        <div className="p-4 space-y-4 overflow-y-auto overscroll-contain flex-1">
           
           <div className="bg-white border border-[#D5D9D9] p-3 rounded-sm flex items-center justify-between">
             <span className="font-bold text-[#0F1111]">Delivery Method</span>
@@ -141,7 +141,7 @@ export default function ReviewOrderModal({
               <span>Order Items</span>
               <span className="font-normal text-sm">{totalItems} items</span>
             </div>
-            <div className="p-0 flex flex-col max-h-60 overflow-y-auto">
+            <div className="p-0 flex flex-col max-h-60 overflow-y-auto overscroll-contain">
               {items.map((item: any, idx) => {
                 const isBulkApplied = item.bulk_price && item.bulk_min_quantity && item.quantity >= item.bulk_min_quantity;
                 const tier = PRINTING_TIERS.find(t => t.id === item.printing_type)

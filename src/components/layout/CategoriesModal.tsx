@@ -32,7 +32,7 @@ export default function CategoriesModal({ isOpen, onClose }: CategoriesModalProp
             <X className="w-5 h-5" />
           </button>
         </div>
-        <nav className="space-y-1 pb-4 max-h-[60vh] overflow-y-auto no-scrollbar">
+        <nav className="space-y-1 pb-4 max-h-[60vh] overflow-y-auto overscroll-contain no-scrollbar">
           <ul>
             {CATEGORIES_LIST.map((item) => (
               <li key={item.id} className="border-b border-gray-100 last:border-0">

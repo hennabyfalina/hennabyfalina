@@ -47,7 +47,7 @@ function OrderSummary({
         <span className="text-sm font-medium text-gray-600">{totalItems} Item{totalItems > 1 ? 's' : ''} in Cart</span>
       </div>
       
-      <div className="flex flex-col gap-4 max-h-[40vh] overflow-y-auto pr-1 no-scrollbar mb-4">
+      <div className="flex flex-col gap-4 max-h-[40vh] overflow-y-auto overscroll-contain pr-1 no-scrollbar mb-4">
         {items.map((item, index) => {
           let imageUrl = '/placeholder-product.svg'
           if (item.image) {

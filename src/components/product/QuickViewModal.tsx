@@ -135,7 +135,7 @@ export default function QuickViewModal() {
 
         {/* Right Side: Details */}
         <div 
-          className="w-full md:w-1/2 p-6 md:p-8 flex flex-col overflow-y-auto no-scrollbar"
+          className="w-full md:w-1/2 p-6 md:p-8 flex flex-col overflow-y-auto overscroll-contain no-scrollbar"
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}

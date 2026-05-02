@@ -105,7 +105,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         )}
 
         {/* Filter Tabs */}
-        <div className="flex overflow-x-auto no-scrollbar border-b border-gray-200 mb-6 gap-6 text-sm font-medium pb-1">
+        <div className="flex overflow-x-auto overscroll-contain-x no-scrollbar border-b border-gray-200 mb-6 gap-6 text-sm font-medium pb-1">
           <Link href="/profile/orders" className={`whitespace-nowrap pb-2 border-b-2 ${filter === 'all' ? 'text-gray-900 border-[#e77600] font-bold' : 'text-[#007185] border-transparent hover:text-[#C7511F] hover:underline'}`}>Orders</Link>
           <Link href="/profile/orders?filter=buy-again" className={`whitespace-nowrap pb-2 border-b-2 ${filter === 'buy-again' ? 'text-gray-900 border-[#e77600] font-bold' : 'text-[#007185] border-transparent hover:text-[#C7511F] hover:underline'}`}>Buy Again</Link>
           <Link href="/profile/orders?filter=unshipped" className={`whitespace-nowrap hidden sm:block pb-2 border-b-2 ${filter === 'unshipped' ? 'text-gray-900 border-[#e77600] font-bold' : 'text-[#007185] border-transparent hover:text-[#C7511F] hover:underline'}`}>Not Yet Shipped</Link>

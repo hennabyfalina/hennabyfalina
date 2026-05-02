@@ -137,7 +137,7 @@ export default function ProductImageGallery({ images, productName }: ProductImag
     <>
       <div className="flex flex-col md:flex-row gap-4">
         {images.length > 1 && (
-          <div className="flex md:flex-col gap-2 overflow-x-auto md:overflow-y-auto no-scrollbar w-full md:w-[60px] flex-shrink-0 order-2 md:order-1">
+          <div className="flex md:flex-col gap-2 overflow-x-auto md:overflow-y-auto overscroll-contain no-scrollbar w-full md:w-[60px] flex-shrink-0 order-2 md:order-1">
             {images.map((img, idx) => (
               <button
                 key={idx}
@@ -251,7 +251,7 @@ export default function ProductImageGallery({ images, productName }: ProductImag
 
           {images.length > 1 && (
             <div className="bg-white border-t border-gray-200 p-3 sm:p-4 shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] z-[1000]">
-              <div className="flex gap-3 overflow-x-auto no-scrollbar max-w-5xl mx-auto justify-start sm:justify-center px-2">
+              <div className="flex gap-3 overflow-x-auto overscroll-contain-x no-scrollbar max-w-5xl mx-auto justify-start sm:justify-center px-2">
                 {images.map((img, idx) => (
                   <button
                     key={idx}

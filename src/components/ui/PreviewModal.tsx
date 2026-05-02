@@ -93,7 +93,7 @@ export default function PreviewModal({ isOpen, onClose, fileUrl, fileName }: Pre
       </div>
 
       {/* 🖼️ Content Body - 100dvh safe, allows panning when zoomed */}
-      <div className="flex-1 overflow-auto relative flex items-center justify-center p-2 md:p-8 w-full h-full">
+      <div className="flex-1 overflow-auto overscroll-contain relative flex items-center justify-center p-2 md:p-8 w-full h-full">
          {isPdf ? (
            <iframe 
              src={`${fileUrl}#toolbar=0`} 
@@ -101,7 +101,7 @@ export default function PreviewModal({ isOpen, onClose, fileUrl, fileName }: Pre
              title="PDF Preview" 
            />
          ) : (
-           <div className="relative w-full h-full flex items-center justify-center overflow-auto touch-pan-x touch-pan-y">
+           <div className="relative w-full h-full flex items-center justify-center overflow-auto overscroll-contain touch-pan-x touch-pan-y">
              <img
                 src={fileUrl}
                 alt={fileName || "Preview"}

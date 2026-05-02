@@ -6,7 +6,6 @@ import './globals.css'
 import CartSyncProvider from '@/components/CartSyncProvider'
 import InstallPrompt from '@/components/ui/InstallPrompt'
 import PWAUpdater from '@/components/ui/PWAUpdater'
-import PullToRefresh from '@/components/ui/PullToRefresh'
 import WishlistProvider from '@/components/providers/WishlistProvider'
 import QuickViewModal from '@/components/product/QuickViewModal'
 import { siteConfig } from '@/config/site'
@@ -99,7 +98,7 @@ export default function RootLayout({
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
   return (
-    <html lang="en" className={`${inter.variable} overscroll-none`} data-scroll-behavior="smooth" suppressHydrationWarning>
+    <html lang="en" className={`${inter.variable}`} data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         {supabaseUrl && (
           <>
@@ -155,13 +154,11 @@ export default function RootLayout({
         `}} />
       </head>
       <body 
-        className="bg-[#eaeded] text-gray-900 antialiased w-full min-h-[100dvh] flex flex-col overflow-x-hidden overscroll-none"
+        className="bg-[#eaeded] text-gray-900 antialiased w-full min-h-[100dvh] flex flex-col overflow-x-hidden"
         suppressHydrationWarning
       >
         <WishlistProvider>
-          <PullToRefresh>
-            {children}
-          </PullToRefresh>
+          {children}
           <CartSyncProvider />
           <InstallPrompt />
           <PWAUpdater />

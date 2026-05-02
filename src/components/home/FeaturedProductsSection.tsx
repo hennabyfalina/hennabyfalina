@@ -38,7 +38,7 @@ export default function FeaturedProductsSection({ products, title }: FeaturedPro
         </Link>
       </div>
 
-      <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 snap-x">
+      <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 touch-pan-x overscroll-contain-x snap-carousel">
         {products.map((product) => (
           <div key={product.id} className="w-[220px] flex-shrink-0 snap-start h-full">
             <ProductCard product={product} priority={false} productList={products} />

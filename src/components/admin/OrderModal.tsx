@@ -225,7 +225,7 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
   return (
     <>
       <Modal isOpen={isOpen} onClose={onClose} title={`Order #${order.order_number}`}>
-        <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-1 sm:pr-2 no-scrollbar text-[#E3E3E3] pb-6">
+        <div className="space-y-6 max-h-[75vh] overflow-y-auto overscroll-contain pr-1 sm:pr-2 no-scrollbar text-[#E3E3E3] pb-6">
           
           {/* Order Summary Block */}
           <div className="bg-[#131314] rounded-[24px] p-5 sm:p-6 border border-[#333538]">

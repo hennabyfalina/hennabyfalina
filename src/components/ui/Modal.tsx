@@ -53,7 +53,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
           </button>
         </div>
         
-        <div className="p-4 md:p-6 overflow-y-auto no-scrollbar bg-white dark:bg-[#1E1F20]">
+        <div className="p-4 md:p-6 overflow-y-auto overscroll-contain no-scrollbar bg-white dark:bg-[#1E1F20]">
           {children}
         </div>
       </div>

@@ -75,7 +75,7 @@ export default function AccountModal({ isOpen, onClose }: AccountModalProps) {
             </button>
           </div>
 
-          <nav className="pb-4">
+          <nav className="pb-4 max-h-[70vh] overflow-y-auto overscroll-contain no-scrollbar">
             {user ? (
               <div className="space-y-1">
                 <h3 className="text-sm font-bold text-gray-900 px-2 py-2">Account Settings</h3>

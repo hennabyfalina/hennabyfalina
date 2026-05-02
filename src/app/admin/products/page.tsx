@@ -303,7 +303,7 @@ export default function AdminProducts() {
             )}
           </div>
           
-          <div className="flex gap-3 overflow-x-auto no-scrollbar">
+          <div className="flex gap-3 overflow-x-auto overscroll-contain-x no-scrollbar">
             {/* 🚨 DRY Sort Dropdown 🚨 */}
             <div className="relative shrink-0 min-w-[160px]">
               <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8E9196]" />
@@ -357,7 +357,7 @@ export default function AdminProducts() {
               <div className="h-full bg-[#A8C7FA] animate-pulse w-1/3 rounded-r-full"></div>
             </div>
           )}
-          <div className="overflow-x-auto no-scrollbar">
+          <div className="overflow-x-auto overscroll-contain-x no-scrollbar">
             <table className="w-full min-w-[1000px] text-left">
               <thead className="bg-[#131314]">
                 <tr>
