@@ -89,8 +89,8 @@ export const viewport: Viewport = {
   userScalable: false,
   viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#111827' },
-    { media: '(prefers-color-scheme: dark)', color: '#131314' },
+    { media: '(prefers-color-scheme: light)', color: '#000000' },
+    { media: '(prefers-color-scheme: dark)', color: '#000000' },
   ],
 }
 
@@ -141,20 +141,6 @@ export default function RootLayout({
           .fixed.bottom-0 {
             padding-bottom: env(safe-area-inset-bottom);
           }
-        `}} />
-        {/* Auto-generate iOS PWA Splash Screens */}
-        <script dangerouslySetInnerHTML={{ __html: `
-          (function() {
-            var script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/ios-pwa-splash@1.0.0/cdn.min.js';
-            script.onload = function() {
-              if (typeof iosPWASplash === 'function') {
-                var isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-                iosPWASplash('/icon-512x512.png', isDark ? '#111827' : '#ffffff');
-              }
-            };
-            document.head.appendChild(script);
-          })();
         `}} />
       </head>
       <body 

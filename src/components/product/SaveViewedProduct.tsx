@@ -34,8 +34,11 @@ export default function SaveViewedProduct({ product }: SaveViewedProductProps) {
       // Remove duplicate if product already exists
       recent = recent.filter((p: Product) => p.id !== product.id)
 
+      // Ensure stock is explicitly saved
+      const productToSave = { ...product, stock: product.stock ?? 0 }
+
       // Add new product to the beginning of the array
-      recent.unshift(product)
+      recent.unshift(productToSave)
 
       // Keep only the last 8 viewed products to give a nice scrollable shelf
       recent = recent.slice(0, 8)

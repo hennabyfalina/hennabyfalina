@@ -78,9 +78,11 @@ export default function ProductHorizontalCard({ product, priority = false, searc
   const handleWishlist = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    const willBeSaved = !isSaved
+    // 🚨 Trigger Toast Instantly before awaiting DB
+    showToast(willBeSaved ? 'Saved to Wishlist' : 'Removed from Wishlist', 'success')
     try {
       await toggleItem(product.id)
-      showToast(isSaved ? 'Removed from Wishlist' : 'Saved to Wishlist', 'success')
     } catch (error: any) {
       if (error.message === 'unauthorized') {
         const currentUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`)

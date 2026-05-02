@@ -31,28 +31,32 @@ export default function ProductInteractiveSection({
 }: ProductInteractiveSectionProps) {
   
   // 🚨 HYDRATION: Restore B2B state from session storage if available
-  const [b2bState, setB2bState] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem(`b2b_state_${product.id}`)
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved)
-          parsed.artworkUrls = parsed.artworkUrls || []
-          parsed.artworks = parsed.artworks || []
-          return parsed
-        } catch (e) {}
-      }
-    }
-    return {
-      type: 'Retail (Readymade)',
-      minQty: B2B_CONSTANTS.RETAIL_MIN_QTY,
-      days: B2B_CONSTANTS.STANDARD_DELIVERY_DAYS,
-      instructions: '',
-      artworkUrls: [] as string[],
-      artworks: [] as any[],
-      isAgreementChecked: true
-    }
+  const [b2bState, setB2bState] = useState({
+    type: 'Retail (Readymade)',
+    minQty: B2B_CONSTANTS.RETAIL_MIN_QTY,
+    days: B2B_CONSTANTS.STANDARD_DELIVERY_DAYS,
+    instructions: '',
+    artworkUrls: [] as string[],
+    artworks: [] as any[],
+    isAgreementChecked: true
   })
+
+  useEffect(() => {
+    // Safely load state AFTER React hydration to prevent wipeouts
+    const saved = sessionStorage.getItem(`b2b_state_${product.id}`)
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        if (parsed.type) {
+          setB2bState({
+            ...parsed,
+            artworkUrls: parsed.artworkUrls || [],
+            artworks: parsed.artworks || []
+          })
+        }
+      } catch (e) {}
+    }
+  }, [product.id])
 
   useEffect(() => {
     sessionStorage.setItem(`b2b_state_${product.id}`, JSON.stringify(b2bState))

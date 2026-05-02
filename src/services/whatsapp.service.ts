@@ -92,8 +92,9 @@ export async function notifyOrderConfirmed(order: any) {
   // 🛡️ BULLETPROOF SANITIZER: Meta crashes if it sees ANY newline (\n or \r), tab, or an empty string
   const sanitize = (str: any) => {
     if (!str) return 'N/A';
-    const cleaned = String(str).replace(/[\r\n]+/g, ', ').replace(/\t/g, ' ').trim();
-    return cleaned === '' ? 'N/A' : cleaned;
+    // Strip all special characters that crash Meta APIs
+    const cleaned = String(str).replace(/[\r\n\t]+/g, ' ').replace(/[^\x20-\x7E]/g, '').trim();
+    return cleaned === '' ? 'N/A' : cleaned.substring(0, 950);
   };
 
   const itemsArray = order.order_items || order.items || [];

@@ -74,10 +74,12 @@ export default function QuickViewModal() {
   const handleWishlist = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!product) return
+    const willBeSaved = !isSaved
+    // 🚨 Trigger Toast Instantly before awaiting DB
+    showToast(willBeSaved ? 'Saved to Wishlist' : 'Removed from Wishlist', 'success')
     try {
+      if (!product) return
       await toggleItem(product.id)
-      showToast(isSaved ? 'Removed from Wishlist' : 'Saved to Wishlist', 'success')
     } catch (error: any) {
       if (error.message === 'unauthorized') {
         const currentUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
@@ -186,7 +188,7 @@ export default function QuickViewModal() {
             {/* B2B Dynamic Stock Alerts */}
             {isOutOfStock ? (
               <p className="text-red-600 font-bold text-sm">Currently unavailable.</p>
-            ) : safeStock < (retailMin + 150) ? (
+            ) : (product.stock !== undefined && product.stock > 0 && product.stock <= (retailMin + 150)) ? (
               <p className="text-[#B12704] font-bold text-sm">Only {safeStock} left in stock - order soon.</p>
             ) : (
               <p className="text-green-700 font-bold text-sm">In Stock.</p>
