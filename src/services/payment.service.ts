@@ -5,34 +5,70 @@ import { createClient } from '@/lib/supabase/server'
 export async function updatePaymentStatus(
   orderId: string,
   paymentId: string,
-  status: 'paid' | 'failed'
+  status: 'paid' | 'failed',
+  idempotencyKey?: string
 ) {
   const supabase = await createClient()
   
+  // ✅ FIX: Get current order first
+  const { data: existingOrder, error: fetchError } = await supabase
+    .from('orders')
+    .select('payment_status, idempotency_key, payment_attempts')
+    .eq('id', orderId)
+    .single()
+
+  if (fetchError) {
+    console.error('Error fetching order:', fetchError)
+    throw new Error('Failed to fetch order')
+  }
+
+  if (existingOrder?.payment_status === 'paid') {
+    console.log(`[Payment Service] Order ${orderId} already paid. Skipping.`)
+    return { alreadyProcessed: true }
+  }
+
+  if (idempotencyKey && existingOrder?.idempotency_key !== idempotencyKey) {
+    console.warn(`[Payment Service] Idempotency key mismatch for order ${orderId}`)
+    throw new Error('Invalid idempotency key')
+  }
+
+  const currentAttempts = existingOrder?.payment_attempts || 0
+
+  const updateData: any = {
+    payment_status: status === 'paid' ? 'paid' : 'failed',
+    status: status === 'paid' ? 'confirmed' : 'pending',
+    updated_at: new Date().toISOString(),
+    payment_attempts: currentAttempts + 1,
+  }
+
+  if (status === 'paid') {
+    updateData.razorpay_payment_id = paymentId
+    updateData.paid_at = new Date().toISOString()
+  } else {
+    updateData.last_payment_error = 'Manual update'
+  }
+
   const { error } = await supabase
     .from('orders')
-    .update({
-      payment_status: status === 'paid' ? 'paid' : 'failed',
-      status: status === 'paid' ? 'confirmed' : 'pending',
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq('id', orderId)
+    .eq('payment_status', 'pending')  // ✅ Atomic update
 
   if (error) {
     console.error('Error updating payment status:', error)
     throw new Error('Failed to update order status')
   }
 
-  // If payment is successful, update product stock
   if (status === 'paid') {
     await updateProductStock(orderId)
   }
+
+  return { alreadyProcessed: false }
 }
 
 async function updateProductStock(orderId: string) {
   const supabase = await createClient()
   
-  // Get order items
   const { data: orderItems, error: itemsError } = await supabase
     .from('order_items')
     .select('product_id, quantity')
@@ -43,17 +79,19 @@ async function updateProductStock(orderId: string) {
     return
   }
 
-  // 🚨 Unified and Hardened Stock Update Logic
   for (const item of orderItems) {
     const { error: rpcError } = await supabase.rpc('decrement_product_stock', {
       p_id: item.product_id,
       decrement_qty: item.quantity,
     })
 
-    // Smart Fallback just like the Webhook
     if (rpcError) {
-      console.warn(`[Payment Service] RPC failed for ${item.product_id}. Using fallback query.`)
-      const { data: product } = await supabase.from('products').select('stock').eq('id', item.product_id).single()
+      console.warn(`[Payment Service] RPC failed for ${item.product_id}. Using fallback.`)
+      const { data: product } = await supabase
+        .from('products')
+        .select('stock')
+        .eq('id', item.product_id)
+        .single()
       
       if (product) {
         await supabase

@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Script from 'next/script'
 import { Lock, ShieldCheck, Check, X } from 'lucide-react'
 import { siteConfig } from '@/config/site'
-import { createClient } from '@/lib/supabase/client'
+// ❌ REMOVED: import { createClient } from '@/lib/supabase/client'
 
 declare global {
   interface Window {
@@ -25,26 +25,23 @@ export default function ProcessingPage() {
   const [statusMessage, setStatusMessage] = useState('Securing your connection...')
   const [isScriptLoaded, setIsScriptLoaded] = useState(false)
   
-  // Ref prevents double-firing the Razorpay modal in React Strict Mode
   const hasTriggeredPayment = useRef(false)
 
   const orderId = searchParams.get('order_id')
   const amount = searchParams.get('amount')
   const razorpayOrderId = searchParams.get('rzp_order')
 
-  // 🚨 STRICT MODE: Warn user if they try to close the tab or refresh
+  // Warn on tab close
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (paymentState === 'initializing' || paymentState === 'processing') {
         e.preventDefault()
-        e.returnValue = '' // Required for Chrome/Edge to show the warning dialog
+        e.returnValue = ''
       }
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [paymentState])
-
-  // ... (keep the imports and setup the same)
 
   useEffect(() => {
     if (!orderId || !amount || !razorpayOrderId) {
@@ -54,21 +51,19 @@ export default function ProcessingPage() {
 
     if (isScriptLoaded && !hasTriggeredPayment.current) {
       hasTriggeredPayment.current = true
-      
-      // 🚨 AMAZON DELAY: Wait 2.5 seconds so the user reads the security warnings
       setTimeout(() => {
         triggerRazorpay()
       }, 2500)
     }
   }, [isScriptLoaded, orderId, amount, razorpayOrderId, router])
 
-  // ... (keep the triggerRazorpay function and return statement exactly the same)
-
   const triggerRazorpay = async () => {
     setPaymentState('processing')
     setStatusMessage('Waiting for payment completion...')
-    const supabase = createClient()
-    let localFailureReason = 'Payment cancelled by user'
+    
+    // ✅ REMOVED: Optimistic DB update – webhook is the source of truth
+    // We do NOT update order status here anymore.
+
     let isSuccess = false
 
     const options = {
@@ -86,41 +81,24 @@ export default function ProcessingPage() {
         setPaymentState('success')
         setStatusMessage('Payment successful! Thank you for your order.')
         
-        try {
-          // Optimistic update so the user doesn't have to wait for the webhook
-          await supabase.from('orders').update({
-            payment_status: 'paid',
-            status: 'confirmed',
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_order_id: response.razorpay_order_id,
-            paid_at: new Date().toISOString()
-          }).eq('id', orderId)
-        } catch (err) {
-          console.error(err)
-        }
-        
-        // Wait 2 seconds so they can read the success message, then redirect
+        // ✅ REMOVED: Direct DB update – webhook will handle it
+        // Just wait and redirect to order page
         setTimeout(() => {
           router.replace(`/order/${encodeURIComponent(orderId || '')}`)
         }, 2000)
       },
       prefill: { name: '', email: '', contact: '' },
-      theme: { color: '#131921' }, // Amazon Black
+      theme: { color: '#131921' },
       modal: {
-        escape: false, // Prevents closing the modal by pressing ESC
+        escape: false,
         ondismiss: function () {
           if (isSuccess) return; 
           
           setPaymentState('failed')
           setStatusMessage('Payment was cancelled or failed. Redirecting...')
           
-          // Fire-and-forget DB update in the background
-          supabase.from('orders').update({
-            payment_status: 'failed',
-            payment_failed_reason: localFailureReason
-          }).eq('id', orderId).then()
+          // ❌ REMOVED: Optimistic DB update – webhook will handle failure
           
-          // Wait 2 seconds so they can see the failure UI, then redirect
           setTimeout(() => {
             router.replace('/profile/orders?filter=failed')
           }, 2000)
@@ -130,20 +108,14 @@ export default function ProcessingPage() {
 
     try {
       const razorpay = new window.Razorpay(options)
-      
-      // Listen for actual gateway failures (insufficient funds, bad network)
       razorpay.on('payment.failed', function (response: any) {
-        localFailureReason = response.error?.description || 'Payment failed at gateway'
-        supabase.from('orders').update({
-          payment_status: 'failed',
-          payment_failed_reason: localFailureReason
-        }).eq('id', orderId).then()
+        // Webhook will update the order status
+        console.log('[Razorpay] Payment failed:', response.error)
       })
-      
       razorpay.open()
     } catch (error) {
       setPaymentState('failed')
-      setStatusMessage('Failed to load payment gateway. Redirecting to checkout...')
+      setStatusMessage('Failed to load payment gateway. Redirecting...')
       setTimeout(() => {
         router.replace('/checkout')
       }, 2000)
@@ -158,7 +130,6 @@ export default function ProcessingPage() {
         strategy="afterInteractive"
       />
       
-      {/* INITIALIZING / PROCESSING STATE */}
       {(paymentState === 'initializing' || paymentState === 'processing') && (
         <div className="bg-white p-8 md:p-12 max-w-md w-full text-center flex flex-col items-center animate-in zoom-in-95 duration-300">
           <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
@@ -166,11 +137,9 @@ export default function ProcessingPage() {
           </div>
           <h2 className="text-2xl font-extrabold text-[#0F1111] mb-2 tracking-tight">Processing Secure Payment</h2>
           <p className="text-gray-600 mb-8 font-medium text-sm">{statusMessage}</p>
-          
           <div className="flex justify-center mb-8">
             <div className="w-10 h-10 border-4 border-[#007185]/30 border-t-[#007185] rounded-full animate-spin"></div>
           </div>
-          
           <div className="bg-gray-50 rounded-md p-4 flex items-center justify-center gap-2 text-sm text-gray-700 border border-gray-200 w-full">
             <ShieldCheck className="w-5 h-5 text-green-600 shrink-0" />
             <span className="font-medium text-left leading-tight">Please do not refresh, go back, or close this window.</span>
@@ -178,7 +147,6 @@ export default function ProcessingPage() {
         </div>
       )}
 
-      {/* SUCCESS STATE */}
       {paymentState === 'success' && (
         <div className="bg-white p-8 md:p-12 max-w-md w-full text-center flex flex-col items-center animate-in zoom-in-95 duration-500">
           <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
@@ -193,7 +161,6 @@ export default function ProcessingPage() {
         </div>
       )}
 
-      {/* FAILED STATE */}
       {paymentState === 'failed' && (
         <div className="bg-white p-8 md:p-12 max-w-md w-full text-center flex flex-col items-center animate-in zoom-in-95 duration-500">
           <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-6 shadow-inner">

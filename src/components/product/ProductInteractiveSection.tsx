@@ -13,6 +13,9 @@ import ShareButton from './ShareButton'
 import StarRating from './StarRating'
 import PrintingOptions from './PrintingOptions'
 import AddToCartButton from './AddToCartButton'
+import { useProductDraftStore, ProductDraft } from '@/store/productDraft.store'
+import { useCartStore } from '@/store/cart.store'
+import { ClientOnly } from '@/components/ui/ClientOnly'
 
 interface ProductInteractiveSectionProps {
   product: any
@@ -22,56 +25,127 @@ interface ProductInteractiveSectionProps {
   discountPercentage: number
 }
 
+const getDefaultDraft = (product: any): ProductDraft => ({
+  printingType: 'Retail (Readymade)',
+  instructions: '',
+  artworkUrls: [],
+  artworks: [],
+  isAgreementChecked: true,
+  minQty: B2B_CONSTANTS.RETAIL_MIN_QTY,
+  days: B2B_CONSTANTS.STANDARD_DELIVERY_DAYS,
+})
+
 export default function ProductInteractiveSection({
   product,
   hasStock,
   sellingPrice,
   regularPrice,
-  discountPercentage
+  discountPercentage,
 }: ProductInteractiveSectionProps) {
-  
-  // 🚨 HYDRATION: Restore B2B state from session storage if available
-  const [b2bState, setB2bState] = useState({
-    type: 'Retail (Readymade)',
-    minQty: B2B_CONSTANTS.RETAIL_MIN_QTY,
-    days: B2B_CONSTANTS.STANDARD_DELIVERY_DAYS,
-    instructions: '',
-    artworkUrls: [] as string[],
-    artworks: [] as any[],
-    isAgreementChecked: true
-  })
+  const getDraft = useProductDraftStore((state) => state.getDraft)
+  const setDraft = useProductDraftStore((state) => state.setDraft)
+  const cartItems = useCartStore((state) => state.items)
 
-  useEffect(() => {
-    // Safely load state AFTER React hydration to prevent wipeouts
-    const saved = sessionStorage.getItem(`b2b_state_${product.id}`)
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        if (parsed.type) {
-          setB2bState({
-            ...parsed,
-            artworkUrls: parsed.artworkUrls || [],
-            artworks: parsed.artworks || []
-          })
-        }
-      } catch (e) {}
+  const cartItem = cartItems.find(item => item.product_id === product.id)
+
+  const getInitialState = (): ProductDraft => {
+    const savedDraft = getDraft(product.id)
+    if (savedDraft) return savedDraft
+
+    if (cartItem) {
+      return {
+        printingType: cartItem.printing_type || 'Retail (Readymade)',
+        instructions: cartItem.printing_instructions || '',
+        artworkUrls: cartItem.artwork_urls || [],
+        artworks: [],
+        isAgreementChecked: true,
+        minQty: cartItem.quantity >= B2B_CONSTANTS.WHOLESALE_MIN_QTY
+          ? B2B_CONSTANTS.WHOLESALE_MIN_QTY
+          : B2B_CONSTANTS.RETAIL_MIN_QTY,
+        days: B2B_CONSTANTS.STANDARD_DELIVERY_DAYS,
+      }
     }
-  }, [product.id])
+
+    return getDefaultDraft(product)
+  }
+
+  const [b2bState, setB2bState] = useState<ProductDraft>(getInitialState)
+  const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
-    sessionStorage.setItem(`b2b_state_${product.id}`, JSON.stringify(b2bState))
-  }, [b2bState, product.id])
+    setIsClient(true)
+  }, [])
 
-  const activePrice = product.bulk_price && b2bState.minQty >= (product.bulk_min_quantity || B2B_CONSTANTS.WHOLESALE_MIN_QTY) 
-    ? product.bulk_price 
-    : sellingPrice
+  // Hydrate from store on mount
+  useEffect(() => {
+    const saved = getDraft(product.id)
+    if (saved) {
+      setB2bState(saved)
+    } else if (cartItem) {
+      setB2bState({
+        printingType: cartItem.printing_type || 'Retail (Readymade)',
+        instructions: cartItem.printing_instructions || '',
+        artworkUrls: cartItem.artwork_urls || [],
+        artworks: [],
+        isAgreementChecked: true,
+        minQty: cartItem.quantity >= B2B_CONSTANTS.WHOLESALE_MIN_QTY
+          ? B2B_CONSTANTS.WHOLESALE_MIN_QTY
+          : B2B_CONSTANTS.RETAIL_MIN_QTY,
+        days: B2B_CONSTANTS.STANDARD_DELIVERY_DAYS,
+      })
+    }
+  }, [product.id, cartItem])
+
+  // Persist every change
+  useEffect(() => {
+    setDraft(product.id, b2bState)
+  }, [b2bState, product.id, setDraft])
+
+  // Show restoration message after login redirect
+  useEffect(() => {
+    if (b2bState.redirectedForLogin) {
+      // showToast('Your customisation details were restored. Please re‑upload your artwork.', 'info')
+      setDraft(product.id, { ...b2bState, redirectedForLogin: false })
+    }
+  }, [])
+
+  // Price calculation with hydration safety
+  let activePrice = sellingPrice
+  if (isClient) {
+    const shouldUseBulkPrice = product.bulk_price &&
+      b2bState.minQty >= (product.bulk_min_quantity || B2B_CONSTANTS.WHOLESALE_MIN_QTY)
+    if (shouldUseBulkPrice) {
+      activePrice = product.bulk_price
+    }
+  }
+
+  // Transform b2bState to the shape expected by PrintingOptions
+  const printingOptionsState = {
+    type: b2bState.printingType,
+    minQty: b2bState.minQty,
+    days: b2bState.days,
+    instructions: b2bState.instructions,
+    artworkUrls: b2bState.artworkUrls,
+    artworks: b2bState.artworks,
+    isAgreementChecked: b2bState.isAgreementChecked,
+  }
+
+  const handlePrintingOptionsChange = (newState: any) => {
+    setB2bState({
+      ...b2bState,
+      printingType: newState.type,
+      minQty: newState.minQty,
+      days: newState.days,
+      instructions: newState.instructions,
+      artworkUrls: newState.artworkUrls,
+      artworks: newState.artworks,
+      isAgreementChecked: newState.isAgreementChecked,
+    })
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-7 gap-6 lg:gap-8">
-      
-      {/* ========================================= */}
-      {/* MIDDLE COLUMN: Details & Customization    */}
-      {/* ========================================= */}
+      {/* Middle Column */}
       <div className="lg:col-span-4 space-y-3">
         <div>
           <h1 className="text-xl sm:text-[22px] leading-tight font-medium text-[#0F1111] mb-1">
@@ -86,7 +160,7 @@ export default function ProductInteractiveSection({
               <ShareButton productName={product.name} productSlug={product.slug} />
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2 mb-2 mt-2">
             <StarRating rating={product.rating ?? 4.5} reviewCount={product.review_count ?? 128} size="md" />
           </div>
@@ -105,20 +179,24 @@ export default function ProductInteractiveSection({
           {discountPercentage === 0 && (
             <span className="text-2xl sm:text-3xl font-medium text-[#0F1111]">{formatCurrency(activePrice)}</span>
           )}
-          
-          <div className="text-xs sm:text-sm text-gray-500">M.R.P.: <span className="line-through">{formatCurrency(regularPrice)}</span></div>
+
+          <div className="text-xs sm:text-sm text-gray-500">
+            M.R.P.: <span className="line-through">{formatCurrency(regularPrice)}</span>
+          </div>
           <div className="text-sm font-semibold text-[#0F1111] mt-1">
-            Inclusive of 18% GST <span className="font-normal text-gray-600 text-xs"></span>
+            Inclusive of 18% GST
           </div>
         </div>
 
-        {/* B2B Customization Engine */}
+        {/* B2B Customization Engine - Wrapped in ClientOnly to prevent hydration mismatch */}
         {hasStock && (
           <div className="mt-4 scroll-mt-24" id="b2b-options">
-            <PrintingOptions 
-              b2bState={b2bState}
-              onChange={(newData) => setB2bState(newData)}
-            />
+            <ClientOnly fallback={<div className="h-32 bg-gray-50 animate-pulse rounded-lg" />}>
+              <PrintingOptions
+                b2bState={printingOptionsState}
+                onChange={handlePrintingOptionsChange}
+              />
+            </ClientOnly>
           </div>
         )}
 
@@ -126,24 +204,42 @@ export default function ProductInteractiveSection({
 
         {/* Trust Icons Row */}
         <div className="flex justify-around items-start py-2 w-full max-w-md mx-auto lg:mx-0">
-           <div className="flex flex-col items-center text-center gap-2 px-2 flex-1">
-             <div className="w-10 h-10 rounded-full flex items-center justify-center">
-               <img src="https://m.media-amazon.com/images/G/31/A2I-Convert/mobile/IconFarm/icon-returns._CB484059092_.png" alt="Returns" className="w-8 h-8 object-contain" />
-             </div>
-             <span className="text-[11px] sm:text-xs text-[#007185] leading-tight font-medium hover:text-[#C7511F] cursor-pointer transition-colors">B2B Returns Policy</span>
-           </div>
-           <div className="flex flex-col items-center text-center gap-2 px-2 flex-1">
-             <div className="w-10 h-10 rounded-full flex items-center justify-center">
-               <img src="https://m.media-amazon.com/images/G/31/A2I-Convert/mobile/IconFarm/icon-amazon-delivered._CB485933725_.png" alt="Delivery" className="w-8 h-8 object-contain" />
-             </div>
-             <span className="text-[11px] sm:text-xs text-[#007185] leading-tight font-medium hover:text-[#C7511F] cursor-pointer transition-colors">Factory Dispatched</span>
-           </div>
-           <div className="flex flex-col items-center text-center gap-2 px-2 flex-1">
-             <div className="w-10 h-10 rounded-full flex items-center justify-center">
-               <img src="https://m.media-amazon.com/images/G/31/A2I-Convert/mobile/IconFarm/Secure-payment._CB650126890_.png" alt="Secure" className="w-8 h-8 object-contain" />
-             </div>
-             <span className="text-[11px] sm:text-xs text-[#007185] leading-tight font-medium hover:text-[#C7511F] cursor-pointer transition-colors">Secure Transaction</span>
-           </div>
+          <div className="flex flex-col items-center text-center gap-2 px-2 flex-1">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center">
+              <img
+                src="https://m.media-amazon.com/images/G/31/A2I-Convert/mobile/IconFarm/icon-returns._CB484059092_.png"
+                alt="Returns"
+                className="w-8 h-8 object-contain"
+              />
+            </div>
+            <span className="text-[11px] sm:text-xs text-[#007185] leading-tight font-medium hover:text-[#C7511F] cursor-pointer transition-colors">
+              B2B Returns Policy
+            </span>
+          </div>
+          <div className="flex flex-col items-center text-center gap-2 px-2 flex-1">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center">
+              <img
+                src="https://m.media-amazon.com/images/G/31/A2I-Convert/mobile/IconFarm/icon-amazon-delivered._CB485933725_.png"
+                alt="Delivery"
+                className="w-8 h-8 object-contain"
+              />
+            </div>
+            <span className="text-[11px] sm:text-xs text-[#007185] leading-tight font-medium hover:text-[#C7511F] cursor-pointer transition-colors">
+              Factory Dispatched
+            </span>
+          </div>
+          <div className="flex flex-col items-center text-center gap-2 px-2 flex-1">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center">
+              <img
+                src="https://m.media-amazon.com/images/G/31/A2I-Convert/mobile/IconFarm/Secure-payment._CB650126890_.png"
+                alt="Secure"
+                className="w-8 h-8 object-contain"
+              />
+            </div>
+            <span className="text-[11px] sm:text-xs text-[#007185] leading-tight font-medium hover:text-[#C7511F] cursor-pointer transition-colors">
+              Secure Transaction
+            </span>
+          </div>
         </div>
 
         <hr className="border-gray-200 my-4" />
@@ -152,13 +248,24 @@ export default function ProductInteractiveSection({
         <div className="pt-2">
           <div className="grid grid-cols-2 gap-y-3 text-sm">
             {product.sku && (
-              <><div className="font-bold text-[#0F1111]">SKU</div><div className="text-gray-700">{product.sku}</div></>
+              <>
+                <div className="font-bold text-[#0F1111]">SKU</div>
+                <div className="text-gray-700">{product.sku}</div>
+              </>
             )}
             {product.weight && (
-              <><div className="font-bold text-[#0F1111]">Item Weight</div><div className="text-gray-700">{product.weight} kg</div></>
+              <>
+                <div className="font-bold text-[#0F1111]">Item Weight</div>
+                <div className="text-gray-700">{product.weight} kg</div>
+              </>
             )}
             {product.dimensions && (
-              <><div className="font-bold text-[#0F1111]">Dimensions</div><div className="text-gray-700">{product.dimensions.length} x {product.dimensions.width} x {product.dimensions.height} cm</div></>
+              <>
+                <div className="font-bold text-[#0F1111]">Dimensions</div>
+                <div className="text-gray-700">
+                  {product.dimensions.length} x {product.dimensions.width} x {product.dimensions.height} cm
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -170,7 +277,9 @@ export default function ProductInteractiveSection({
           <h2 className="text-base font-bold text-[#0F1111] mb-2">About this item</h2>
           <ul className="list-disc space-y-2 marker:text-gray-800 pl-4 text-sm sm:text-base text-[#0F1111]">
             {product.description ? (
-              product.description.split('\n').filter(Boolean).map((line: string, i: number) => <li key={i}>{line}</li>)
+              product.description.split('\n').filter(Boolean).map((line: string, i: number) => (
+                <li key={i}>{line}</li>
+              ))
             ) : (
               <li>Premium B2B quality packaging material.</li>
             )}
@@ -178,20 +287,23 @@ export default function ProductInteractiveSection({
         </div>
       </div>
 
-      {/* ========================================= */}
-      {/* RIGHT COLUMN: The Clean Buy Box           */}
-      {/* ========================================= */}
+      {/* Right Column: Buy Box */}
       <div className="lg:col-span-3">
         <div className="border border-gray-300 rounded-lg p-4 sm:p-5 bg-white shadow-sm flex flex-col gap-4 sticky top-28">
-          
           <div className="flex items-baseline gap-1">
-             <span className="text-2xl sm:text-[28px] font-medium text-[#0F1111] leading-none">{formatCurrency(activePrice)}</span>
-             <span className="text-sm text-gray-500">/ unit</span>
+            <span className="text-2xl sm:text-[28px] font-medium text-[#0F1111] leading-none">
+              {formatCurrency(activePrice)}
+            </span>
+            <span className="text-sm text-gray-500">/ unit</span>
           </div>
 
           <div>
             <p className="text-sm text-[#0F1111]">
-              Estimated dispatch in <span className="font-bold">{b2bState.days} Days</span>.
+              Estimated dispatch in{' '}
+              <ClientOnly fallback={<span className="font-bold">7 Days</span>}>
+                <span className="font-bold">{b2bState.days} Days</span>
+              </ClientOnly>
+              .
             </p>
             <div className="flex items-center gap-1 mt-2 text-sm text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer">
               <MapPin className="w-4 h-4 text-gray-400" />
@@ -203,15 +315,13 @@ export default function ProductInteractiveSection({
             {hasStock ? 'In Stock' : <span className="text-[#B12704]">Currently unavailable</span>}
           </div>
 
-          {/* Add To Cart Button (Wired to B2B State) */}
           {hasStock && (
             <div className="mt-2">
-              <AddToCartButton 
-                product={product} 
+              <AddToCartButton
+                product={product}
                 showQuantitySelector={true}
                 minQuantity={b2bState.minQty}
-                printingType={b2bState.type}
-                // 🚨 UPGRADED TO ARRAY 🚨
+                printingType={b2bState.printingType}
                 artworkUrls={b2bState.artworkUrls}
                 printingInstructions={b2bState.instructions}
                 isAgreementChecked={b2bState.isAgreementChecked}

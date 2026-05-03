@@ -111,7 +111,7 @@ export default function Toaster() {
                   isError ? <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" /> : <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
                 )}
                 
-                <span className={`text-sm font-medium truncate ${isAdmin ? 'text-[#E3E3E3]' : 'text-[#0F1111]'}`}>
+                <span className={`text-sm font-medium ${isAdmin ? 'text-[#E3E3E3]' : 'text-[#0F1111]'}`}>
                   {toast.message}
                 </span>
               </div>

@@ -6,27 +6,26 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCartStore } from '@/store/cart.store'
 import { useQuickViewStore } from '@/store/quickview.store'
+import { useProductDraftStore } from '@/store/productDraft.store'
 import { showToast } from '@/components/ui/Toast'
-import { B2B_CONSTANTS } from '@/config/b2b-rules' 
+import { B2B_CONSTANTS } from '@/config/b2b-rules'
 
 interface BuyNowButtonProps {
   product: any
   quantity?: number
-  printingType?: string 
-  // 🚨 UPGRADED TO ARRAY 🚨
-  artworkUrls?: string[] 
-  printingInstructions?: string | null 
+  printingType?: string
+  artworkUrls?: string[]
+  printingInstructions?: string | null
   className?: string
   requireCustomizationChoice?: boolean
 }
 
-export default function BuyNowButton({ 
-  product, 
-  quantity = 1, 
-  printingType = 'None',
-  // 🚨 UPGRADED TO ARRAY DEFAULT 🚨
-  artworkUrls = [],
-  printingInstructions = null,
+export default function BuyNowButton({
+  product,
+  quantity = 1,
+  printingType: propPrintingType,
+  artworkUrls: propArtworkUrls = [],
+  printingInstructions: propPrintingInstructions = null,
   className = '',
   requireCustomizationChoice = false
 }: BuyNowButtonProps) {
@@ -35,16 +34,58 @@ export default function BuyNowButton({
   const closeQuickView = useQuickViewStore((state) => state.closeQuickView)
   const router = useRouter()
 
+  const getDraft = useProductDraftStore((state) => state.getDraft)
+  const draft = getDraft(product.id)
+
+  const effectivePrintingType = draft?.printingType ?? propPrintingType ?? 'Retail (Readymade)'
+  const effectiveArtworkUrls = draft?.artworkUrls ?? propArtworkUrls
+  const effectivePrintingInstructions = draft?.instructions ?? propPrintingInstructions
+  const effectiveIsAgreementChecked = draft?.isAgreementChecked ?? true
+  const effectiveMinQuantity = draft?.minQty ?? B2B_CONSTANTS.RETAIL_MIN_QTY
+
+  // 🚨 VALIDATION FUNCTION (same as AddToCartButton)
+  const validateCustomPrint = (): { valid: boolean; message?: string } => {
+    const isCustomPrint = effectivePrintingType.includes('Single Color') || 
+                          effectivePrintingType.includes('Multi Color')
+    
+    if (!isCustomPrint) {
+      return { valid: true }
+    }
+
+    if (!effectiveIsAgreementChecked) {
+      return { 
+        valid: false, 
+        message: 'Please agree to the custom printing terms & conditions.' 
+      }
+    }
+
+    if (!effectiveArtworkUrls || effectiveArtworkUrls.length === 0) {
+      return { 
+        valid: false, 
+        message: `Please upload your Logo/Artwork for ${effectivePrintingType} printing.` 
+      }
+    }
+
+    return { valid: true }
+  }
+
   const handleBuyNow = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    
+
     if (requireCustomizationChoice) {
       closeQuickView()
       router.push(`/product/${encodeURIComponent(product.slug)}?customize=true#b2b-options`)
       return
     }
-    
+
+    // 🚨 RUN VALIDATION
+    const validation = validateCustomPrint()
+    if (!validation.valid) {
+      showToast(validation.message!, 'error')
+      return
+    }
+
     const safeStock = product?.stock ?? 99999
 
     if (!product || safeStock <= 0) {
@@ -53,11 +94,11 @@ export default function BuyNowButton({
     }
 
     setIsBuying(true)
-    const sellingPrice = product.selling_price ?? product.price ?? 0;
-    
-    const finalPrice = product.bulk_price && (quantity >= (product.bulk_min_quantity || B2B_CONSTANTS.WHOLESALE_MIN_QTY)) 
-      ? product.bulk_price 
-      : sellingPrice;
+    const sellingPrice = product.selling_price ?? product.price ?? 0
+
+    const finalPrice = product.bulk_price && (quantity >= (product.bulk_min_quantity || B2B_CONSTANTS.WHOLESALE_MIN_QTY))
+      ? product.bulk_price
+      : sellingPrice
 
     try {
       await addItem({
@@ -76,12 +117,11 @@ export default function BuyNowButton({
         rating: product.rating || null,
         review_count: product.review_count || null,
         selling_price: sellingPrice,
-        printing_type: printingType,
-        // 🚨 UPGRADED TO ARRAY 🚨
-        artwork_urls: artworkUrls,
-        printing_instructions: printingInstructions,
+        printing_type: effectivePrintingType,
+        artwork_urls: effectiveArtworkUrls,
+        printing_instructions: effectivePrintingInstructions,
       })
-      
+
       router.push('/checkout')
     } catch (error) {
       showToast('Failed to proceed to checkout', 'error')
@@ -106,9 +146,9 @@ export default function BuyNowButton({
           <span>Processing...</span>
         </>
       ) : requireCustomizationChoice ? (
-          <span>Customize & Buy</span>
+        <span>Customize & Buy</span>
       ) : (
-          <span>Buy Now</span>
+        <span>Buy Now</span>
       )}
     </button>
   )

@@ -5,7 +5,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { generateOrderNumber } from '@/lib/utils'
 import { SHIPPING_THRESHOLD, SHIPPING_COST } from '@/lib/constants'
-import { calculateTaxBreakdown } from '@/lib/tax'
+import { moveAllTempToFinal, deleteB2BArtwork } from '@/lib/supabase/b2b-storage'
 
 export interface CreateOrderInput {
   addressId: string
@@ -14,14 +14,39 @@ export interface CreateOrderInput {
     quantity: number
     price: number
     printing_type?: string
-    // 🚨 UPGRADED TO ARRAY 🚨
     artwork_urls?: string[] | null
+    artwork_sizes?: number[] | null  // 🆕 Size tracking
     printing_instructions?: string | null
+    is_temp?: boolean  // 🆕 Flag to indicate if files are in temp folder
   }>
   totalAmount: number
   paymentMethod: string
   shippingMethod: 'delivery' | 'pickup'
   shippingCost: number
+  sessionId?: string  // 🆕 For moving temp files
+}
+
+// 🆕 Validation constants
+const MAX_FILES_PER_ITEM = 3
+const MAX_SIZE_PER_ITEM = 15 * 1024 * 1024 // 15MB
+
+/**
+ * Validate artwork limits for an order item
+ */
+function validateArtworkLimits(
+  artworkUrls: string[] | null | undefined,
+  artworkSizes: number[] | null | undefined
+): void {
+  const fileCount = artworkUrls?.length || 0
+  const totalSize = (artworkSizes || []).reduce((sum, size) => sum + size, 0)
+
+  if (fileCount > MAX_FILES_PER_ITEM) {
+    throw new Error(`Maximum ${MAX_FILES_PER_ITEM} files allowed per product. Found: ${fileCount}`)
+  }
+
+  if (totalSize > MAX_SIZE_PER_ITEM) {
+    throw new Error(`Total artwork size cannot exceed 15MB per product. Found: ${(totalSize / 1024 / 1024).toFixed(2)}MB`)
+  }
 }
 
 export async function createOrder(orderData: CreateOrderInput) {
@@ -48,12 +73,23 @@ export async function createOrder(orderData: CreateOrderInput) {
 
   let calculatedSubtotal = 0
 
-  const validatedItems = orderData.items.map((item) => {
+  // 🆕 Process items: validate artwork and move temp files if needed
+  const validatedItems = await Promise.all(orderData.items.map(async (item) => {
     const product = products.find((p) => p.id === item.product_id)
     if (!product) throw new Error(`Product not found: ${item.product_id}`)
     
+    // 🆕 Validate artwork limits
+    validateArtworkLimits(item.artwork_urls, item.artwork_sizes)
+
+    // 🆕 Move temp files to final folder if marked as temp
+    let finalArtworkUrls = item.artwork_urls || []
+    if (item.is_temp && item.artwork_urls && item.artwork_urls.length > 0) {
+      finalArtworkUrls = await moveAllTempToFinal(item.artwork_urls, user.id)
+    }
+
+    // Inventory check (warn but allow - manufacturing will handle)
     if (product.stock < item.quantity) {
-       console.warn(`[INVENTORY ALERT] Order exceeds physical readymade stock for: ${product.id}. Triggering manufacturing pipeline.`)
+      console.warn(`[INVENTORY ALERT] Order exceeds physical stock for: ${product.id}. Manufacturing pipeline triggered.`)
     }
 
     const basePrice = product.selling_price ?? product.price
@@ -74,11 +110,11 @@ export async function createOrder(orderData: CreateOrderInput) {
       original_price: basePrice,
       is_bulk_pricing: isBulkPricing,
       printing_type: item.printing_type || 'None',
-      // 🚨 UPGRADED TO ARRAY 🚨
-      artwork_urls: item.artwork_urls || [],
+      artwork_urls: finalArtworkUrls,
+      artwork_sizes: item.artwork_sizes || [],
       printing_instructions: item.printing_instructions || null,
     }
-  })
+  }))
 
   // Securely calculate shipping cost
   const actualShippingCost = orderData.shippingMethod === 'pickup' 
@@ -108,7 +144,7 @@ export async function createOrder(orderData: CreateOrderInput) {
     throw new Error(orderError.message || 'Failed to create order')
   }
 
-  // Inserting items WITH B2B Printing Details
+  // Insert order items
   const orderItems = validatedItems.map((item) => ({
     order_id: order.id,
     product_id: item.product_id,
@@ -117,7 +153,6 @@ export async function createOrder(orderData: CreateOrderInput) {
     original_price: item.original_price,
     is_bulk_pricing: item.is_bulk_pricing,
     printing_type: item.printing_type,
-    // 🚨 UPGRADED TO ARRAY 🚨
     artwork_urls: item.artwork_urls,
     printing_instructions: item.printing_instructions,
   }))
@@ -131,6 +166,7 @@ export async function createOrder(orderData: CreateOrderInput) {
     throw new Error(itemsError.message || 'Failed to create order items')
   }
 
+  // Clear cart
   const { error: cartError } = await supabase
     .from('cart_items')
     .delete()
@@ -193,7 +229,6 @@ export async function getSavedAddresses() {
   return data || []
 }
 
-// SMART UPSERT: Enforces max 2 addresses and prevents duplicates
 export async function saveAddress(addressData: {
   name: string;
   phone: string;
@@ -212,7 +247,6 @@ export async function saveAddress(addressData: {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('User not authenticated')
 
-  // Fetch existing addresses to check for duplicates and limits
   const { data: existingAddresses } = await supabase
     .from('addresses')
     .select('*')
@@ -266,4 +300,34 @@ export async function saveAddress(addressData: {
   }
 
   return data
+}
+
+// 🆕 Get product IDs for an order (for clearing drafts)
+export async function getProductIdsForOrder(orderId: string): Promise<string[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from('order_items')
+    .select('product_id')
+    .eq('order_id', orderId)
+
+  if (error) {
+    console.error('Error fetching order items for draft clearing:', error)
+    return []
+  }
+
+  return data.map(item => item.product_id)
+}
+
+// 🆕 Clean up temp files after failed order
+export async function cleanupTempFiles(tempPaths: string[]): Promise<void> {
+  for (const path of tempPaths) {
+    try {
+      await deleteB2BArtwork(path)
+    } catch (error) {
+      console.warn(`Failed to delete temp file ${path}:`, error)
+    }
+  }
 }

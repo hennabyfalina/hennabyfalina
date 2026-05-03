@@ -22,9 +22,45 @@ export interface CartItem {
   review_count?: number | null
   selling_price?: number
   printing_type?: string
-  // 🚨 UPGRADED TO ARRAY
   artwork_urls?: string[]
+  artwork_sizes?: number[]  // 🆕 Size tracking for 15MB limit
   printing_instructions?: string | null
+}
+
+// Helper to calculate total artwork size
+function getTotalArtworkSize(item: CartItem): number {
+  return (item.artwork_sizes || []).reduce((sum, size) => sum + size, 0)
+}
+
+// Helper to check if merging would exceed limits
+function wouldExceedLimits(
+  existingItem: CartItem,
+  newItem: Omit<CartItem, 'id'>
+): { exceeds: boolean; message?: string } {
+  const existingCount = existingItem.artwork_urls?.length || 0
+  const newCount = newItem.artwork_urls?.length || 0
+  const totalCount = existingCount + newCount
+
+  const existingSize = getTotalArtworkSize(existingItem)
+  const newSize = (newItem.artwork_sizes || []).reduce((sum, s) => sum + s, 0)
+  const totalSize = existingSize + newSize
+
+  if (totalCount > 3) {
+    return {
+      exceeds: true,
+      message: `You can only upload up to 3 files for this product. Current: ${existingCount}, Adding: ${newCount}`
+    }
+  }
+
+  const MAX_SIZE = 15 * 1024 * 1024 // 15MB
+  if (totalSize > MAX_SIZE) {
+    return {
+      exceeds: true,
+      message: `Total artwork size cannot exceed 15MB. Current: ${(existingSize / 1024 / 1024).toFixed(2)}MB, Adding: ${(newSize / 1024 / 1024).toFixed(2)}MB`
+    }
+  }
+
+  return { exceeds: false }
 }
 
 interface CartState {
@@ -75,21 +111,40 @@ export const useCartStore = create<CartState>()(
         const currentItems = get().items
         
         const existingItem = currentItems.find(
-          (item) => item.product_id === newItem.product_id && (item.printing_type || 'None') === (newItem.printing_type || 'None')
+          (item) => item.product_id === newItem.product_id && 
+                    (item.printing_type || 'None') === (newItem.printing_type || 'None')
         )
 
         let updatedItems: CartItem[]
 
         if (existingItem) {
+          // 🆕 Check if merging would exceed file limits
+          const limitCheck = wouldExceedLimits(existingItem, newItem)
+          if (limitCheck.exceeds) {
+            set({ isLoading: false })
+            throw new Error(limitCheck.message)
+          }
+
           const newQuantity = existingItem.quantity + newItem.quantity
           if (newQuantity > newItem.stock) {
             set({ isLoading: false })
             throw new Error(`Only ${newItem.stock} items available`)
           }
+
+          // Merge artwork arrays
+          const mergedUrls = [...(existingItem.artwork_urls || []), ...(newItem.artwork_urls || [])]
+          const mergedSizes = [...(existingItem.artwork_sizes || []), ...(newItem.artwork_sizes || [])]
+
           const basePrice = existingItem.selling_price ?? existingItem.original_price ?? existingItem.price
           updatedItems = currentItems.map((item) =>
             item.product_id === newItem.product_id && (item.printing_type || 'None') === (newItem.printing_type || 'None')
-              ? { ...item, quantity: newQuantity, price: calculateItemPrice(basePrice, item.bulk_price, item.bulk_min_quantity, newQuantity) }
+              ? { 
+                  ...item, 
+                  quantity: newQuantity,
+                  artwork_urls: mergedUrls,
+                  artwork_sizes: mergedSizes,
+                  price: calculateItemPrice(basePrice, item.bulk_price, item.bulk_min_quantity, newQuantity) 
+                }
               : item
           )
         } else {
@@ -107,8 +162,8 @@ export const useCartStore = create<CartState>()(
             review_count: newItem.review_count || null,
             selling_price: newItem.selling_price,
             printing_type: newItem.printing_type || 'None',
-            // 🚨 UPGRADED TO ARRAY
             artwork_urls: newItem.artwork_urls || [],
+            artwork_sizes: newItem.artwork_sizes || [],
             printing_instructions: newItem.printing_instructions || null,
           }
           updatedItems = [...currentItems, cartItem]
@@ -177,8 +232,8 @@ export const useCartStore = create<CartState>()(
             product_id: item.product_id,
             quantity: item.quantity,
             printing_type: item.printing_type || 'None',
-            // 🚨 UPGRADED TO ARRAY
             artwork_urls: item.artwork_urls || [],
+            artwork_sizes: item.artwork_sizes || [],
             printing_instructions: item.printing_instructions || null,
           }))
           await supabase.from('cart_items').insert(cartItemsToInsert)
@@ -191,7 +246,11 @@ export const useCartStore = create<CartState>()(
         const { data: { session } } = await supabase.auth.getSession()
         
         if (session?.user) {
-          const { data: dbItems, error } = await supabase.from('cart_items').select('*, products(*)').eq('user_id', session.user.id)
+          const { data: dbItems, error } = await supabase
+            .from('cart_items')
+            .select('*, products(*)')
+            .eq('user_id', session.user.id)
+          
           if (!error && dbItems && dbItems.length > 0) {
             const loadedItems: CartItem[] = dbItems.filter((item) => item.products !== null).map((item) => {
                 const basePrice = item.products.selling_price ?? item.products.price
@@ -213,8 +272,8 @@ export const useCartStore = create<CartState>()(
                   review_count: item.products.review_count,
                   selling_price: item.products.selling_price,
                   printing_type: item.printing_type || 'None',
-                  // 🚨 UPGRADED TO ARRAY
                   artwork_urls: item.artwork_urls || [],
+                  artwork_sizes: item.artwork_sizes || [],
                   printing_instructions: item.printing_instructions || null,
                 }
               })
@@ -229,7 +288,10 @@ export const useCartStore = create<CartState>()(
         if (currentItems.length === 0) return
         const supabase = createClient()
         const productIds = currentItems.map((item) => item.product_id)
-        const { data: products, error } = await supabase.from('products').select('id, name, slug, price, selling_price, bulk_price, bulk_min_quantity, stock, images, category_id, description, rating, review_count').in('id', productIds)
+        const { data: products, error } = await supabase
+          .from('products')
+          .select('id, name, slug, price, selling_price, bulk_price, bulk_min_quantity, stock, images, category_id, description, rating, review_count')
+          .in('id', productIds)
 
         if (!error && products) {
           const updatedItems = currentItems.map((item) => {

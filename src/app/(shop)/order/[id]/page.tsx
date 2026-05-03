@@ -7,13 +7,16 @@ import { createClient } from '@/lib/supabase/server'
 import Container from '@/components/ui/Container'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { getPublicUrl } from '@/lib/supabase/storage'
-import { ChevronLeft, X, ExternalLink, Package } from 'lucide-react' 
+import { ChevronLeft, X, ExternalLink, Package } from 'lucide-react'
 import PrintButton from '@/components/order/PrintButton'
 import TrackingTimeline from '@/components/order/TrackingTimeline'
 import OrderStatusBadge from '@/components/ui/OrderStatusBadge'
 import StarRating from '@/components/product/StarRating'
 import ProductWishlistButton from '@/components/product/ProductWishlistButton'
 import { siteConfig } from '@/config/site'
+
+// 🆕 Client component to clear drafts after successful order
+import ClearDraftsOnMount from '@/components/order/ClearDraftsOnMount'
 
 interface OrderPageProps {
   params: Promise<{ id: string }>;
@@ -63,14 +66,14 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
     redirect('/profile/orders?filter=failed')
   }
 
-  // 🚨 THE ARRAY URL FIX: Pre-generate secure signed URLs for all artworks on the detail page
+  // Generate signed URLs for artwork files
   const orderItemsWithUrls = await Promise.all(rawOrder.order_items.map(async (item: any) => {
     let signedUrls: string[] = []
     if (item.artwork_urls && item.artwork_urls.length > 0) {
       signedUrls = await Promise.all(item.artwork_urls.map(async (url: string) => {
         const { data } = await supabase.storage
-          .from('artworks') // Match your bucket name
-          .createSignedUrl(url, 3600) // 1 Hour Secure Link
+          .from('artworks')
+          .createSignedUrl(url, 3600) // 1 hour
         return data?.signedUrl
       }))
     }
@@ -100,8 +103,14 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
 
   const deliveryDate = new Date(new Date(order.created_at).getTime() + 5 * 24 * 60 * 60 * 1000).toISOString()
 
+  // Extract product IDs from this order (for clearing drafts)
+  const productIds = order.order_items.map((item: any) => item.product_id)
+
   return (
     <Container className="py-8 md:py-12 max-w-5xl">
+      {/* 🆕 Clear drafts for products in this order (only if payment is paid) */}
+      <ClearDraftsOnMount productIds={productIds} />
+
       <div className="mb-6 flex items-center justify-between">
         <Link href="/profile/orders" className="text-sm font-medium text-[#007185] hover:text-[#C7511F] hover:underline flex items-center gap-1">
           <ChevronLeft className="w-4 h-4" /> Back to Orders
@@ -189,7 +198,6 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
               <TrackingTimeline 
                 status={order.status} 
                 isPickup={isStorePickup} 
-                // 🚨 Pass the new DB variables here 🚨
                 courierName={order.courier_name}
                 trackingNumber={order.tracking_number}
                 trackingUrl={order.tracking_url}
@@ -200,7 +208,6 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* 🚨 RESTRUCTURED ADDRESS BLOCK 🚨 */}
           <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
             <h3 className="font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">Billing & Shipping Address</h3>
             <div className="grid gap-2 text-sm text-gray-800">
@@ -305,7 +312,6 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
               return (
                 <div key={item.id} className="p-5 flex flex-col md:flex-row gap-5 items-start">
                   
-                  {/* Left Side: Product Details & Customizations */}
                   <div className="flex gap-5 flex-1">
                     <div className="relative w-20 h-20 md:w-24 md:h-24 rounded-md bg-gray-50 border border-gray-200 overflow-hidden shrink-0">
                       <Image src={imageUrl} fill sizes="96px" unoptimized={imageUrl.includes('token=') || imageUrl.includes('supabase')} className="object-contain p-1 mix-blend-multiply" alt={item.products?.name || 'Product'} />
@@ -330,7 +336,6 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
                         <span className="text-xs text-gray-600 ml-1">Qty: <span className="font-medium text-gray-900">{item.quantity}</span></span>
                       </div>
 
-                      {/* 🚨 B2B ARTWORK MULTI-FILE RENDERER 🚨 */}
                       {item.printing_type && item.printing_type !== 'None' && item.printing_type !== 'Retail (Readymade)' && (
                         <div className="mt-2.5 pl-3 border-l-2 border-[#007185] text-xs">
                           <p className="font-bold text-[#007185] flex items-center gap-1.5 uppercase tracking-wide">
@@ -343,7 +348,6 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
                             <p className="text-gray-600 italic mt-0.5">Note: "{item.printing_instructions}"</p>
                           )}
                           
-                          {/* 🚨 Maps the array of generated URLs */}
                           {item.signed_artwork_urls && item.signed_artwork_urls.length > 0 && (
                             <div className="flex flex-wrap gap-2 mt-2">
                               {item.signed_artwork_urls.map((url: string, idx: number) => (
@@ -368,7 +372,6 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
                     </div>
                   </div>
 
-                  {/* Right Side: Total & Actions */}
                   <div className="flex flex-col items-center gap-3 shrink-0 md:ml-4 w-full md:w-48 mt-4 md:mt-0">
                     <div className="text-sm font-bold text-gray-900 whitespace-nowrap text-center w-full">
                       {formatCurrency(item.price * item.quantity)}

@@ -1,12 +1,9 @@
 // src/config/b2b-rules.ts
 
 export const B2B_CONSTANTS = {
-  // Minimum Quantities
   RETAIL_MIN_QTY: 100,
   WHOLESALE_MIN_QTY: 1000,
   OFFSET_PRINT_MIN_QTY: 5000,
-  
-  // Delivery Timelines
   STANDARD_DELIVERY_DAYS: 7,
   EXPRESS_DELIVERY_DAYS: 2,
 }
@@ -37,7 +34,7 @@ export const PRINTING_TIERS = [
     days: B2B_CONSTANTS.EXPRESS_DELIVERY_DAYS, 
     desc: 'Fast screen printing.', 
     tag: 'Fastest',
-    requiresArtwork: false // Doesn't absolutely require a logo upload, just color notes
+    requiresArtwork: true   // ✅ NOW REQUIRES UPLOAD
   },
   { 
     id: 'Wholesale (Multi Color)', 

@@ -6,10 +6,12 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuickViewStore } from '@/store/quickview.store'
 import { useCartStore } from '@/store/cart.store'
+import { useProductDraftStore, type ProductDraft } from '@/store/productDraft.store'
 import { showToast } from '@/components/ui/Toast'
 import BuyNowButton from '@/components/product/BuyNowButton'
 import QuantitySelector from '@/components/product/QuantitySelector'
-import { B2B_CONSTANTS } from '@/config/b2b-rules' 
+import { B2B_CONSTANTS } from '@/config/b2b-rules'
+import { ClientOnly } from '@/components/ui/ClientOnly'
 
 interface AddToCartButtonProps {
   product: {
@@ -28,12 +30,11 @@ interface AddToCartButtonProps {
     review_count?: number | null
   }
   quantity?: number
-  minQuantity?: number 
-  printingType?: string 
-  // 🚨 UPGRADED TO ARRAY 🚨
-  artworkUrls?: string[] 
-  printingInstructions?: string | null 
-  isAgreementChecked?: boolean 
+  minQuantity?: number
+  printingType?: string
+  artworkUrls?: string[]
+  printingInstructions?: string | null
+  isAgreementChecked?: boolean
   showQuantitySelector?: boolean
   className?: string
   onQuantityChange?: (qty: number) => void
@@ -44,11 +45,10 @@ export default function AddToCartButton({
   product,
   quantity: initialQuantity = 1,
   minQuantity = 1,
-  printingType = 'None',
-  // 🚨 UPGRADED TO ARRAY DEFAULT 🚨
-  artworkUrls = [],
-  printingInstructions = null,
-  isAgreementChecked = true,
+  printingType: propPrintingType,
+  artworkUrls: propArtworkUrls = [],
+  printingInstructions: propPrintingInstructions = null,
+  isAgreementChecked: propIsAgreementChecked = true,
   showQuantitySelector = false,
   className = '',
   onQuantityChange,
@@ -56,22 +56,60 @@ export default function AddToCartButton({
 }: AddToCartButtonProps) {
   const router = useRouter()
   const closeQuickView = useQuickViewStore((state) => state.closeQuickView)
-  const [quantity, setQuantity] = useState(Math.max(initialQuantity, minQuantity))
+
+  const getDraft = useProductDraftStore((state) => state.getDraft)
+  const draft = getDraft(product.id)
+
+  const effectivePrintingType = draft?.printingType ?? propPrintingType ?? 'Retail (Readymade)'
+  const effectiveArtworkUrls = draft?.artworkUrls ?? propArtworkUrls
+  const effectivePrintingInstructions = draft?.instructions ?? propPrintingInstructions
+  const effectiveIsAgreementChecked = draft?.isAgreementChecked ?? propIsAgreementChecked
+  const effectiveMinQuantity = draft?.minQty ?? minQuantity
+
+  const [quantity, setQuantity] = useState(Math.max(initialQuantity, effectiveMinQuantity))
   const [isAdding, setIsAdding] = useState(false)
   const addItem = useCartStore((state) => state.addItem)
 
   useEffect(() => {
-    setQuantity(minQuantity)
-    if (onQuantityChange) onQuantityChange(minQuantity)
-  }, [printingType, minQuantity, onQuantityChange])
+    setQuantity(effectiveMinQuantity)
+    if (onQuantityChange) onQuantityChange(effectiveMinQuantity)
+  }, [effectiveMinQuantity, onQuantityChange])
 
   const handleQuantityChange = (newQuantity: number) => {
     setQuantity(newQuantity)
     if (onQuantityChange) onQuantityChange(newQuantity)
   }
 
+  // 🚨 VALIDATION FUNCTION
+  const validateCustomPrint = (): { valid: boolean; message?: string } => {
+    const isCustomPrint = effectivePrintingType.includes('Single Color') || 
+                          effectivePrintingType.includes('Multi Color')
+    
+    if (!isCustomPrint) {
+      return { valid: true } // No validation needed for retail/no-print
+    }
+
+    // 1. Check terms agreement
+    if (!effectiveIsAgreementChecked) {
+      return { 
+        valid: false, 
+        message: 'Please agree to the custom printing terms & conditions.' 
+      }
+    }
+
+    // 2. Check artwork files (required for both Single and Multi Color)
+    if (!effectiveArtworkUrls || effectiveArtworkUrls.length === 0) {
+      return { 
+        valid: false, 
+        message: `Please upload your Logo/Artwork for ${effectivePrintingType} printing.` 
+      }
+    }
+
+    return { valid: true }
+  }
+
   const handleAddToCart = async (e?: React.MouseEvent) => {
-    if (e) { e.preventDefault(); e.stopPropagation(); }
+    if (e) { e.preventDefault(); e.stopPropagation() }
 
     if (requireCustomizationChoice) {
       closeQuickView()
@@ -79,17 +117,11 @@ export default function AddToCartButton({
       return
     }
 
-    const isCustomPrint = printingType.includes('Single Color') || printingType.includes('Multi Color');
-    
-    if (isCustomPrint && !isAgreementChecked) {
-      showToast('Please complete the details.', product.id);
-      return;
-    }
-
-    // 🚨 UPGRADED VALIDATION TO CHECK ARRAY LENGTH 🚨
-    if (printingType.includes('Multi Color') && (!artworkUrls || artworkUrls.length === 0)) {
-      showToast('Please upload your Logo/Artwork for Multi-Color printing.', product.id);
-      return;
+    // 🚨 RUN VALIDATION
+    const validation = validateCustomPrint()
+    if (!validation.valid) {
+      showToast(validation.message!, product.id)
+      return
     }
 
     const safeStock = product.stock ?? 99999
@@ -106,8 +138,10 @@ export default function AddToCartButton({
 
     setIsAdding(true)
 
-    const sellingPrice = product.selling_price ?? product.price ?? 0;
-    const finalPrice = product.bulk_price && (quantity >= (product.bulk_min_quantity || B2B_CONSTANTS.WHOLESALE_MIN_QTY)) ? product.bulk_price : sellingPrice;
+    const sellingPrice = product.selling_price ?? product.price ?? 0
+    const finalPrice = product.bulk_price && (quantity >= (product.bulk_min_quantity || B2B_CONSTANTS.WHOLESALE_MIN_QTY))
+      ? product.bulk_price
+      : sellingPrice
 
     try {
       await Promise.all([
@@ -127,14 +161,13 @@ export default function AddToCartButton({
           rating: product.rating || null,
           review_count: product.review_count || null,
           selling_price: sellingPrice,
-          printing_type: printingType,
-          // 🚨 UPGRADED TO ARRAY 🚨
-          artwork_urls: artworkUrls,
-          printing_instructions: printingInstructions,
+          printing_type: effectivePrintingType,
+          artwork_urls: effectiveArtworkUrls,
+          printing_instructions: effectivePrintingInstructions,
         }),
         new Promise((resolve) => setTimeout(resolve, 400))
       ])
-      
+
       showToast('Added to Cart', product.id)
     } catch (err: any) {
       showToast('Failed to add to cart', product.id)
@@ -149,15 +182,22 @@ export default function AddToCartButton({
   return (
     <div className={`w-full flex flex-col gap-3 ${showQuantitySelector ? 'mt-2' : ''}`} onClick={(e) => e.stopPropagation()}>
       {showQuantitySelector && !isOutOfStock && (
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-sm font-medium text-gray-700">Quantity:</span>
-          <QuantitySelector 
-            quantity={quantity} 
-            onQuantityChange={handleQuantityChange} 
-            min={minQuantity} 
-            max={product.stock > 0 ? product.stock : 99999} 
-          />
-        </div>
+        <ClientOnly fallback={
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm font-medium text-gray-700">Quantity:</span>
+            <div className="w-24 h-8 bg-gray-100 animate-pulse rounded-full" />
+          </div>
+        }>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm font-medium text-gray-700">Quantity:</span>
+            <QuantitySelector
+              quantity={quantity}
+              onQuantityChange={handleQuantityChange}
+              min={effectiveMinQuantity}
+              max={product.stock > 0 ? product.stock : 99999}
+            />
+          </div>
+        </ClientOnly>
       )}
       <div className="flex flex-col gap-2">
         <button
@@ -175,9 +215,13 @@ export default function AddToCartButton({
           )}
         </button>
         {!isOutOfStock && showQuantitySelector && (
-          
-          //* 🚨 UPGRADED PROP DRILLING 🚨
-          <BuyNowButton product={product as any} quantity={quantity} printingType={printingType} artworkUrls={artworkUrls} printingInstructions={printingInstructions} />
+          <BuyNowButton
+            product={product}
+            quantity={quantity}
+            printingType={effectivePrintingType}
+            artworkUrls={effectiveArtworkUrls}
+            printingInstructions={effectivePrintingInstructions}
+          />
         )}
       </div>
     </div>

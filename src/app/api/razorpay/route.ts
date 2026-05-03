@@ -5,35 +5,27 @@ import Razorpay from 'razorpay'
 import { createClient } from '@/lib/supabase/server'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
-import { calculateTaxBreakdown } from '@/lib/tax' // 🚨 Enterprise Tax Engine
+import { calculateTaxBreakdown } from '@/lib/tax'
+import { generateIdempotencyKey } from '@/lib/idempotency'
 
-// Serverless Rate Limiter (Falls back to bypassed if Redis env vars are missing during local dev)
 const ratelimit = process.env.UPSTASH_REDIS_REST_URL
   ? new Ratelimit({
       redis: Redis.fromEnv(),
-      limiter: Ratelimit.slidingWindow(5, '1 m'), // 5 requests per minute
+      limiter: Ratelimit.slidingWindow(5, '1 m'),
     })
   : null
 
-// Helper to get Razorpay instance (lazy initialization)
 function getRazorpayInstance() {
   const keyId = process.env.RAZORPAY_KEY_ID
   const keySecret = process.env.RAZORPAY_KEY_SECRET
-
   if (!keyId || !keySecret) {
     throw new Error('Razorpay credentials not configured')
   }
-
-  return new Razorpay({
-    key_id: keyId,
-    key_secret: keySecret,
-  })
+  return new Razorpay({ key_id: keyId, key_secret: keySecret })
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // 🔒 SECURITY: We do not extract 'amount' from the client payload. 
-    // We solely rely on the database to determine the exact price!
     const { orderId, orderNumber, userId } = await request.json()
 
     if (!orderId || !orderNumber || !userId) {
@@ -43,15 +35,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Rate limiting by user ID to prevent spam attacks
     if (ratelimit) {
       const { success, reset } = await ratelimit.limit(`razorpay_init_${userId}`)
       if (!success) {
         return NextResponse.json(
-          { 
-            error: 'Too many requests', 
-            waitTime: Math.ceil((reset - Date.now()) / 1000) 
-          },
+          { error: 'Too many requests', waitTime: Math.ceil((reset - Date.now()) / 1000) },
           { status: 429 }
         )
       }
@@ -67,52 +55,63 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify the order belongs to this user and is pending
+    // ✅ FIX: Include razorpay_order_id in select
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('status, payment_status, total_amount')
+      .select('id, status, payment_status, total_amount, idempotency_key, razorpay_order_id')
       .eq('id', orderId)
       .eq('user_id', userId)
       .single()
 
     if (orderError || !order) {
-      console.error('Order not found or access denied:', orderId)
-      return NextResponse.json(
-        { error: 'Order not found' },
-        { status: 404 }
-      )
+      console.error('Order not found:', orderId)
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
 
     if (order.payment_status === 'paid') {
       return NextResponse.json(
-        { error: 'Order already paid' },
+        { error: 'Order already paid', paid: true },
         { status: 400 }
       )
+    }
+
+    // ✅ FIX: Check for existing Razorpay order ID
+    if (order.razorpay_order_id) {
+      return NextResponse.json({
+        orderId: order.razorpay_order_id,
+        amount: Math.round(order.total_amount * 100),
+        currency: 'INR',
+        existing: true
+      })
     }
 
     let razorpay
     try {
       razorpay = getRazorpayInstance()
     } catch (configError: any) {
-      console.error('Razorpay configuration error:', configError.message)
+      console.error('Razorpay config error:', configError.message)
       return NextResponse.json(
-        { error: 'Payment service temporarily unavailable. Please contact support.' },
+        { error: 'Payment service temporarily unavailable' },
         { status: 500 }
       )
     }
 
-    // 🚨 Calculate the exact B2B Tax split for the Razorpay Dashboard
     const taxBreakdown = calculateTaxBreakdown(order.total_amount)
+    const idempotencyKey = generateIdempotencyKey()
 
-    // Create the secure Razorpay order
+    await supabase
+      .from('orders')
+      .update({ idempotency_key: idempotencyKey })
+      .eq('id', orderId)
+
     const options = {
-      amount: Math.round(order.total_amount * 100), // Razorpay accepts paise
+      amount: Math.round(order.total_amount * 100),
       currency: 'INR',
-      receipt: orderNumber.substring(0, 40), 
+      receipt: orderNumber.substring(0, 40),
       notes: {
-        internal_order_id: orderId, // Crucial for Webhook mapping
+        internal_order_id: orderId,
         user_id: userId,
-        // 🚨 The Accountant's Dream Metadata
+        idempotency_key: idempotencyKey,
         b2b_gst_compliant: 'true',
         base_amount_inr: taxBreakdown.basePrice.toString(),
         total_gst_inr: taxBreakdown.totalGST.toString(),
@@ -123,7 +122,12 @@ export async function POST(request: NextRequest) {
 
     const razorpayOrder = await razorpay.orders.create(options)
 
-    console.log(`[SECURE CHECKOUT] Razorpay Order ${razorpayOrder.id} generated for DB Order ${orderId}`)
+    await supabase
+      .from('orders')
+      .update({ razorpay_order_id: razorpayOrder.id })
+      .eq('id', orderId)
+
+    console.log(`[SECURE] Razorpay order ${razorpayOrder.id} for DB order ${orderId}`)
 
     return NextResponse.json({
       orderId: razorpayOrder.id,
@@ -132,9 +136,9 @@ export async function POST(request: NextRequest) {
     })
     
   } catch (error: any) {
-    console.error('Razorpay generation failure:', error)
+    console.error('Razorpay generation error:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to securely initialize payment' },
+      { error: error.message || 'Failed to initialize payment' },
       { status: 500 }
     )
   }

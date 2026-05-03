@@ -217,84 +217,82 @@ export default function CheckoutPage() {
   }
 
   const handleProceedToPaymentGateway = async () => {
-    setIsProcessing(true) // 🚨 Triggers the new Blur Overlay
-    try {
-      let addressToSave;
-      if (shippingMethod === 'pickup') {
-        addressToSave = {
-          name: formData.name,
-          phone: formData.phone,
-          pincode: formData.pincode,
-          country: selectedCountryCode === 'IN' ? 'India' : selectedCountryCode,
-          delivery_method: 'pickup'
-        }
-      } else {
-        addressToSave = {
-          name: formData.name,
-          phone: formData.phone,
-          address_line1: formData.addressLine1,
-          address_line2: formData.addressLine2,
-          landmark: formData.landmark,
-          delivery_instructions: formData.delivery_instructions,
-          city: formData.city,
-          state: formData.state,
-          pincode: formData.pincode,
-          country: selectedCountryCode === 'IN' ? 'India' : selectedCountryCode,
-          delivery_method: 'delivery'
-        }
+  setIsProcessing(true)
+  try {
+    let addressToSave;
+    if (shippingMethod === 'pickup') {
+      addressToSave = {
+        name: formData.name,
+        phone: formData.phone,
+        pincode: formData.pincode,
+        country: selectedCountryCode === 'IN' ? 'India' : selectedCountryCode,
+        delivery_method: 'pickup'
       }
-
-      const savedAddress = await saveAddress(addressToSave)
-
-      // 🚨 ENTERPRISE UPGRADE: Pass B2B Metadata to Backend!
-      const orderItems = items.map((item: any) => ({
-        product_id: item.product_id,
-        quantity: item.quantity,
-        price: item.price,
-        printing_type: item.printing_type || 'None', 
-        // 🚨 UPGRADED TO ARRAY 🚨
-        artwork_urls: item.artwork_urls || [],       
-        printing_instructions: item.printing_instructions || null 
-      }))
-
-      const { order, orderNumber } = await createOrder({
-        addressId: savedAddress.id,
-        items: orderItems,
-        totalAmount: finalTotal,
-        paymentMethod: 'razorpay',
-        shippingMethod,
-        shippingCost,
-      })
-
-      const response = await fetch('/api/razorpay', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          amount: finalTotal,
-          orderId: order.id,
-          orderNumber: orderNumber,
-          userId: userId
-        }),
-      })
-
-      const razorpayData = await response.json()
-      if (razorpayData.error) throw new Error(razorpayData.error)
-
-      clearCart()
-      if (userId) {
-        localStorage.removeItem(`checkout_form_${userId}`)
-        localStorage.removeItem(`checkout_shipping_method_${userId}`)
+    } else {
+      addressToSave = {
+        name: formData.name,
+        phone: formData.phone,
+        address_line1: formData.addressLine1,
+        address_line2: formData.addressLine2,
+        landmark: formData.landmark,
+        delivery_instructions: formData.delivery_instructions,
+        city: formData.city,
+        state: formData.state,
+        pincode: formData.pincode,
+        country: selectedCountryCode === 'IN' ? 'India' : selectedCountryCode,
+        delivery_method: 'delivery'
       }
-
-      // 🚨 Transition to Secure Payment Processing Page
-      router.push(`/checkout/processing?order_id=${encodeURIComponent(order.id)}&amount=${encodeURIComponent(razorpayData.amount)}&rzp_order=${encodeURIComponent(razorpayData.orderId)}`)
-    } catch (err: any) {
-      console.error(err)
-      alert(err.message || 'Failed to initialize payment')
-      setIsProcessing(false)
-      setShowConfirmModal(false)
     }
+
+    const savedAddress = await saveAddress(addressToSave)
+
+    const orderItems = items.map((item: any) => ({
+      product_id: item.product_id,
+      quantity: item.quantity,
+      price: item.price,
+      printing_type: item.printing_type || 'None',
+      artwork_urls: item.artwork_urls || [],
+      artwork_sizes: item.artwork_sizes || [],
+      printing_instructions: item.printing_instructions || null
+    }))
+
+    const { order, orderNumber } = await createOrder({
+      addressId: savedAddress.id,
+      items: orderItems,
+      totalAmount: finalTotal,
+      paymentMethod: 'razorpay',
+      shippingMethod,
+      shippingCost,
+    })
+
+    // ✅ FIX: Remove 'amount' from request – server fetches from DB
+    const response = await fetch('/api/razorpay', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        orderId: order.id,
+        orderNumber: orderNumber,
+        userId: userId
+      }),
+    })
+
+    const razorpayData = await response.json()
+    if (razorpayData.error) throw new Error(razorpayData.error)
+
+    clearCart()
+    if (userId) {
+      localStorage.removeItem(`checkout_form_${userId}`)
+      localStorage.removeItem(`checkout_shipping_method_${userId}`)
+    }
+
+    router.push(`/checkout/processing?order_id=${encodeURIComponent(order.id)}&amount=${encodeURIComponent(razorpayData.amount)}&rzp_order=${encodeURIComponent(razorpayData.orderId)}`)
+  } catch (err: any) {
+    console.error(err)
+    alert(err.message || 'Failed to initialize payment')
+    setIsProcessing(false)
+    setShowConfirmModal(false)
   }
+}
 
   if (isAuthChecking) {
     return (
