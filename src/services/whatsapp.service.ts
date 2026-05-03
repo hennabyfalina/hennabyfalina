@@ -7,11 +7,28 @@ const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID;
 const META_ADMIN_PHONE = process.env.META_ADMIN_PHONE;
 
+// 🛡️ RUTHLESS SANITIZER FOR META API
+// Removes \n, \r, \t and collapses multiple spaces (Meta forbids >4 consecutive spaces)
+const sanitizeForMeta = (value: any): string => {
+  if (!value) return 'N/A';
+  let str = String(value);
+  // Replace all newline, carriage return, tab with a single space
+  str = str.replace(/[\n\r\t]+/g, ' ');
+  // Collapse any run of 5 or more spaces into exactly 1 space
+  str = str.replace(/ {5,}/g, ' ');
+  // Trim leading/trailing whitespace
+  str = str.trim();
+  // If after cleaning it's empty, return 'N/A'
+  if (str.length === 0) return 'N/A';
+  // Safely truncate (Meta limit ~1024, we keep 950 to be safe)
+  return str.substring(0, 950);
+};
+
 // 🚨 CORE TEMPLATE SENDER ENGINE
 export async function sendWhatsAppTemplate(
-  to: string, 
-  templateName: string, 
-  bodyParams: any[], 
+  to: string,
+  templateName: string,
+  bodyParams: any[],
   buttonParam?: string // Used for the dynamic Amazon-style tracking link
 ) {
   if (!META_ACCESS_TOKEN || !META_PHONE_NUMBER_ID) {
@@ -20,18 +37,18 @@ export async function sendWhatsAppTemplate(
   }
 
   try {
-    // 1. Map the text variables for the body
+    // 1. Map the text variables for the body (sanitized)
     const components: any[] = [
       {
         type: 'body',
         parameters: bodyParams.map(param => ({
           type: 'text',
-          text: String(param).substring(0, 1000) // Safely under 1024 to prevent splitting multi-byte characters
+          text: sanitizeForMeta(param)
         }))
       }
     ];
 
-    // 2. Map the dynamic URL variable for the button (if it exists)
+    // 2. Map the dynamic URL variable for the button (if it exists) – also sanitized
     if (buttonParam) {
       components.push({
         type: 'button',
@@ -40,7 +57,7 @@ export async function sendWhatsAppTemplate(
         parameters: [
           {
             type: 'text',
-            text: buttonParam
+            text: sanitizeForMeta(buttonParam)
           }
         ]
       });
@@ -85,16 +102,9 @@ export async function sendWhatsAppTemplate(
 // 🚨 ORDER DISPATCH ENGINE
 export async function notifyOrderConfirmed(order: any) {
   let successCount = 0;
-  
+
   const addressObj = order.addresses || order.shipping_address || {};
   const isPickup = order.shipping_method === 'pickup' || addressObj.delivery_method === 'pickup';
-
-  // 🛡️ BULLETPROOF SANITIZER: Strip tabs/carriage returns which crash Meta, BUT KEEP Newlines (\n) for lists
-  const sanitize = (str: any) => {
-    if (!str) return 'N/A';
-    const cleaned = String(str).replace(/[\r\t]+/g, ' ').trim();
-    return cleaned === '' ? 'N/A' : cleaned.substring(0, 950);
-  };
 
   // 📞 PHONE FORMATTER: Fixes multiple numbers, '0' prefixes, and formats for WhatsApp
   const formatWhatsAppNumber = (phone: string) => {
@@ -116,12 +126,12 @@ export async function notifyOrderConfirmed(order: any) {
   };
 
   const itemsArray = order.order_items || order.items || [];
-  
+
   const customerItemsRaw = itemsArray.map((item: any, index: number) => {
     const name = item.products?.name || item.name || 'Product';
     const itemStr = `${item.quantity}x ${name}`;
     return itemsArray.length > 1 ? `${index + 1}. ${itemStr}` : itemStr;
-  }).join('\n'); 
+  }).join('\n'); // Newlines are allowed here, they will be sanitized later
 
   const adminItemsRaw = itemsArray.map((item: any, index: number) => {
     const name = item.products?.name || item.name || 'Product';
@@ -134,13 +144,13 @@ export async function notifyOrderConfirmed(order: any) {
 
   const delMethod = isPickup ? 'Store Pickup' : 'Home Delivery';
   const totalAmount = formatCurrency(order.total_amount);
-  
+
   let adminAddressRaw = 'Store Pickup';
   if (!isPickup) {
     adminAddressRaw = `${addressObj.address_line1 || addressObj.address || ''}`;
-    if (addressObj.city) adminAddressRaw += `, ${addressObj.city} - ${addressObj.pincode}`; 
-    if (addressObj.landmark) adminAddressRaw += `, Landmark: ${addressObj.landmark}`;       
-    if (addressObj.delivery_instructions) adminAddressRaw += `, Note: ${addressObj.delivery_instructions}`; 
+    if (addressObj.city) adminAddressRaw += `, ${addressObj.city} - ${addressObj.pincode}`;
+    if (addressObj.landmark) adminAddressRaw += `, Landmark: ${addressObj.landmark}`;
+    if (addressObj.delivery_instructions) adminAddressRaw += `, Note: ${addressObj.delivery_instructions}`;
   }
 
   // --- 1. SEND TO CUSTOMER ---
@@ -149,15 +159,15 @@ export async function notifyOrderConfirmed(order: any) {
     if (customerPhone) {
       const buttonParam = order.order_number ? encodeURIComponent(String(order.order_number).trim()) : 'UNKNOWN';
       const sent = await sendWhatsAppTemplate(
-        customerPhone, 
-        'order_confirmed_receipt', 
+        customerPhone,
+        'order_confirmed_receipt',
         [
-          sanitize(order.order_number), // {{1}}
-          sanitize(delMethod),          // {{2}}
-          sanitize(customerItemsRaw),   // {{3}}
-          sanitize(totalAmount)         // {{4}}
+          sanitizeForMeta(order.order_number),       // {{1}}
+          sanitizeForMeta(delMethod),                // {{2}}
+          sanitizeForMeta(customerItemsRaw),         // {{3}}
+          sanitizeForMeta(totalAmount)               // {{4}}
         ],
-        buttonParam // 🚨 SECURE URL PARAM 🚨
+        buttonParam // Will be sanitized inside sendWhatsAppTemplate
       );
       if (sent) successCount++;
     } else {
@@ -169,20 +179,20 @@ export async function notifyOrderConfirmed(order: any) {
   if (META_ADMIN_PHONE) {
     // Split by comma to support multiple admin numbers in the .env file
     const adminPhones = META_ADMIN_PHONE.split(',').map(p => p.trim()).filter(Boolean);
-    
+
     for (const phone of adminPhones) {
       const adminPhone = formatWhatsAppNumber(phone);
       if (adminPhone) {
         const sent = await sendWhatsAppTemplate(
-          adminPhone, 
-          'admin_order_alert', 
+          adminPhone,
+          'admin_order_alert',
           [
-            sanitize(order.order_number),                               
-            sanitize(addressObj.name || order.customer_name),  
-            sanitize(addressObj.phone),                        
-            sanitize(adminAddressRaw),                                     
-            sanitize(adminItemsRaw),                                       
-            sanitize(totalAmount)                                       
+            sanitizeForMeta(order.order_number),                        // {{1}}
+            sanitizeForMeta(addressObj.name || order.customer_name),    // {{2}}
+            sanitizeForMeta(addressObj.phone),                          // {{3}}
+            sanitizeForMeta(adminAddressRaw),                           // {{4}}
+            sanitizeForMeta(adminItemsRaw),                             // {{5}}
+            sanitizeForMeta(totalAmount)                                // {{6}}
           ]
         );
         if (sent) successCount++;
