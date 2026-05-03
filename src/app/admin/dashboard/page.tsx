@@ -12,11 +12,19 @@ import DashboardSearchBar from '@/components/admin/DashboardSearchBar'
 import { 
   ShoppingBag, Package, Sparkles, Box, Users, 
   History, IndianRupee, Bell, AlertTriangle, 
-  ChevronRight, ArrowUpRight, Zap
+  ChevronRight, ArrowUpRight, Zap, Lock
 } from 'lucide-react'
 
 export default async function AdminDashboard() {
   const supabase = await createClient()
+
+  // 0. Fetch User Role for Permissions
+  const { data: { user } } = await supabase.auth.getUser()
+  let isSuperAdmin = false
+  if (user) {
+    const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single()
+    isSuperAdmin = userData?.role === 'super_admin'
+  }
 
   // 1. Fetch Aggregated Totals
   const { count: totalOrders } = await supabase.from('orders').select('*', { count: 'exact', head: true })
@@ -130,7 +138,18 @@ export default async function AdminDashboard() {
       </div>
 
       {/* 🚨 ANALYTICS VISUALIZATION 🚨 */}
-      <DashboardCharts data={chartData} />
+      <div className="relative">
+        {!isSuperAdmin && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#131314]/60 backdrop-blur-md rounded-[32px] border border-[#333538]">
+            <Lock className="w-8 h-8 text-[#F9AB00] mb-3" />
+            <p className="text-[#E3E3E3] font-medium text-lg">Super Admin Required</p>
+            <p className="text-[#8E9196] text-sm mt-1">Analytics viewing is restricted.</p>
+          </div>
+        )}
+        <div className={!isSuperAdmin ? 'opacity-40 pointer-events-none select-none' : ''}>
+          <DashboardCharts data={chartData} />
+        </div>
+      </div>
 
       {/* 🚨 RECENT ORDERS & TOP PRODUCTS 🚨 */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -158,9 +177,18 @@ export default async function AdminDashboard() {
         </div>
 
         {/* Top Products Table */}
-        <div className="bg-[#1E1F20] rounded-[32px] border border-[#333538] overflow-hidden p-2">
-          <div className="px-6 py-4 flex items-center justify-between">
-            <h2 className="text-base font-medium text-[#E3E3E3]">Top Selling Products</h2>
+        <div className="relative bg-[#1E1F20] rounded-[32px] border border-[#333538] overflow-hidden p-2">
+          {!isSuperAdmin && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#131314]/60 backdrop-blur-md">
+              <Lock className="w-6 h-6 text-[#F9AB00] mb-2" />
+              <p className="text-[#E3E3E3] font-medium">Restricted Access</p>
+              <p className="text-[#8E9196] text-sm mt-1">Top selling products viewing is restricted.</p>
+            </div>
+          )}
+          <div className={!isSuperAdmin ? 'opacity-40 pointer-events-none select-none' : ''}>
+            <div className="px-6 py-4 flex items-center justify-between">
+              <h2 className="text-base font-medium text-[#E3E3E3]">Top Selling Products</h2>
+            </div>
           </div>
           <div className="space-y-1">
             {topProducts?.map((item: any, index: number) => (
@@ -177,7 +205,7 @@ export default async function AdminDashboard() {
                 </div>
               </div>
             ))}
-          </div>
+            </div>
         </div>
       </div>
     </div>

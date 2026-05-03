@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { MapPin, Lock } from 'lucide-react'
+import { MapPin, Lock, RefreshCw, Truck, ShieldCheck } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { siteConfig } from '@/config/site'
 import { B2B_CONSTANTS } from '@/config/b2b-rules'
@@ -44,14 +44,23 @@ export default function ProductInteractiveSection({
 }: ProductInteractiveSectionProps) {
   const getDraft = useProductDraftStore((state) => state.getDraft)
   const setDraft = useProductDraftStore((state) => state.setDraft)
+  const hydrateFromCart = useProductDraftStore((state) => state.hydrateFromCart)
   const cartItems = useCartStore((state) => state.items)
+  const findCartItem = useCartStore((state) => state.findCartItem)
 
-  const cartItem = cartItems.find(item => item.product_id === product.id)
-
-  const getInitialState = (): ProductDraft => {
+  const [b2bState, setB2bState] = useState<ProductDraft>(() => {
+    // 1. First check: saved draft (highest priority)
     const savedDraft = getDraft(product.id)
     if (savedDraft) return savedDraft
 
+    // 2. Second check: cart item
+    // We need to decide which printing type to show if multiple exist
+    // Default to the first one found, or the most common
+    const cartItem = findCartItem(product.id, 'Retail (Readymade)') ||
+                     findCartItem(product.id, 'Wholesale (No Print)') ||
+                     findCartItem(product.id, 'Wholesale (Single Color)') ||
+                     findCartItem(product.id, 'Wholesale (Multi Color)')
+    
     if (cartItem) {
       return {
         printingType: cartItem.printing_type || 'Retail (Readymade)',
@@ -63,38 +72,44 @@ export default function ProductInteractiveSection({
           ? B2B_CONSTANTS.WHOLESALE_MIN_QTY
           : B2B_CONSTANTS.RETAIL_MIN_QTY,
         days: B2B_CONSTANTS.STANDARD_DELIVERY_DAYS,
+        hydratedFromCart: true,
       }
     }
 
+    // 3. Default
     return getDefaultDraft(product)
-  }
-
-  const [b2bState, setB2bState] = useState<ProductDraft>(getInitialState)
+  })
+  
   const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
   }, [])
 
-  // Hydrate from store on mount
   useEffect(() => {
     const saved = getDraft(product.id)
     if (saved) {
       setB2bState(saved)
-    } else if (cartItem) {
-      setB2bState({
-        printingType: cartItem.printing_type || 'Retail (Readymade)',
-        instructions: cartItem.printing_instructions || '',
-        artworkUrls: cartItem.artwork_urls || [],
-        artworks: [],
-        isAgreementChecked: true,
-        minQty: cartItem.quantity >= B2B_CONSTANTS.WHOLESALE_MIN_QTY
-          ? B2B_CONSTANTS.WHOLESALE_MIN_QTY
-          : B2B_CONSTANTS.RETAIL_MIN_QTY,
-        days: B2B_CONSTANTS.STANDARD_DELIVERY_DAYS,
-      })
+    } else {
+      // If no saved draft, try to hydrate from cart
+      const cartItem = findCartItem(product.id, b2bState.printingType)
+      if (cartItem && !b2bState.hydratedFromCart) {
+        hydrateFromCart(product.id, cartItem)
+        setB2bState({
+          printingType: cartItem.printing_type || 'Retail (Readymade)',
+          instructions: cartItem.printing_instructions || '',
+          artworkUrls: cartItem.artwork_urls || [],
+          artworks: [],
+          isAgreementChecked: true,
+          minQty: cartItem.quantity >= B2B_CONSTANTS.WHOLESALE_MIN_QTY
+            ? B2B_CONSTANTS.WHOLESALE_MIN_QTY
+            : B2B_CONSTANTS.RETAIL_MIN_QTY,
+          days: B2B_CONSTANTS.STANDARD_DELIVERY_DAYS,
+          hydratedFromCart: true,
+        })
+      }
     }
-  }, [product.id, cartItem])
+  }, [product.id, cartItems, findCartItem])
 
   // Persist every change
   useEffect(() => {
@@ -140,6 +155,7 @@ export default function ProductInteractiveSection({
       artworkUrls: newState.artworkUrls,
       artworks: newState.artworks,
       isAgreementChecked: newState.isAgreementChecked,
+      hydratedFromCart: false, // User changed something, so it's no longer from cart
     })
   }
 
@@ -202,41 +218,29 @@ export default function ProductInteractiveSection({
 
         <hr className="border-gray-200 my-4" />
 
-        {/* Trust Icons Row */}
+        {/* Trust Icons Row - Now using local Lucide icons */}
         <div className="flex justify-around items-start py-2 w-full max-w-md mx-auto lg:mx-0">
-          <div className="flex flex-col items-center text-center gap-2 px-2 flex-1">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center">
-              <img
-                src="https://m.media-amazon.com/images/G/31/A2I-Convert/mobile/IconFarm/icon-returns._CB484059092_.png"
-                alt="Returns"
-                className="w-8 h-8 object-contain"
-              />
+          <div className="flex flex-col items-center text-center gap-2 px-2 flex-1 group cursor-pointer">
+            <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-gray-100 transition-colors">
+              <RefreshCw className="w-5 h-5 text-gray-600" strokeWidth={1.5} />
             </div>
-            <span className="text-[11px] sm:text-xs text-[#007185] leading-tight font-medium hover:text-[#C7511F] cursor-pointer transition-colors">
+            <span className="text-[11px] sm:text-xs text-[#007185] leading-tight font-medium group-hover:text-[#C7511F] transition-colors">
               B2B Returns Policy
             </span>
           </div>
-          <div className="flex flex-col items-center text-center gap-2 px-2 flex-1">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center">
-              <img
-                src="https://m.media-amazon.com/images/G/31/A2I-Convert/mobile/IconFarm/icon-amazon-delivered._CB485933725_.png"
-                alt="Delivery"
-                className="w-8 h-8 object-contain"
-              />
+          <div className="flex flex-col items-center text-center gap-2 px-2 flex-1 group cursor-pointer">
+            <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-gray-100 transition-colors">
+              <Truck className="w-5 h-5 text-gray-600" strokeWidth={1.5} />
             </div>
-            <span className="text-[11px] sm:text-xs text-[#007185] leading-tight font-medium hover:text-[#C7511F] cursor-pointer transition-colors">
+            <span className="text-[11px] sm:text-xs text-[#007185] leading-tight font-medium group-hover:text-[#C7511F] transition-colors">
               Factory Dispatched
             </span>
           </div>
-          <div className="flex flex-col items-center text-center gap-2 px-2 flex-1">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center">
-              <img
-                src="https://m.media-amazon.com/images/G/31/A2I-Convert/mobile/IconFarm/Secure-payment._CB650126890_.png"
-                alt="Secure"
-                className="w-8 h-8 object-contain"
-              />
+          <div className="flex flex-col items-center text-center gap-2 px-2 flex-1 group cursor-pointer">
+            <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-gray-100 transition-colors">
+              <ShieldCheck className="w-5 h-5 text-gray-600" strokeWidth={1.5} />
             </div>
-            <span className="text-[11px] sm:text-xs text-[#007185] leading-tight font-medium hover:text-[#C7511F] cursor-pointer transition-colors">
+            <span className="text-[11px] sm:text-xs text-[#007185] leading-tight font-medium group-hover:text-[#C7511F] transition-colors">
               Secure Transaction
             </span>
           </div>
@@ -297,6 +301,15 @@ export default function ProductInteractiveSection({
             <span className="text-sm text-gray-500">/ unit</span>
           </div>
 
+          {/* 🆕 Show indicator if product is already in cart – wrapped in ClientOnly */}
+          <ClientOnly>
+            {findCartItem(product.id, b2bState.printingType) && (
+              <div className="text-xs text-green-700 bg-green-50 p-2 rounded-md mb-1 border border-green-200">
+                ✓ Already in cart. Updating will modify your existing item.
+              </div>
+            )}
+          </ClientOnly>
+
           <div>
             <p className="text-sm text-[#0F1111]">
               Estimated dispatch in{' '}
@@ -311,8 +324,19 @@ export default function ProductInteractiveSection({
             </div>
           </div>
 
-          <div className="text-lg font-medium text-[#007600]">
-            {hasStock ? 'In Stock' : <span className="text-[#B12704]">Currently unavailable</span>}
+          <div>
+            {hasStock ? (
+              <>
+                <span className="text-lg font-medium text-[#007600]">In Stock</span>
+                {product.stock <= 50 && (
+                  <p className="text-sm font-bold text-[#B12704] mt-1">
+                    Only {product.stock} left in stock - order soon.
+                  </p>
+                )}
+              </>
+            ) : (
+              <span className="text-lg font-medium text-[#B12704]">Currently unavailable</span>
+            )}
           </div>
 
           {hasStock && (

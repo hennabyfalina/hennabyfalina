@@ -1,13 +1,28 @@
 import { NextResponse } from 'next/server'
 import { updateStock } from '@/services/inventory.service'
+import { verifyAdmin } from '@/lib/admin-auth'
+import { z } from 'zod'
+
+const inventoryUpdateSchema = z.object({
+  productId: z.string().min(1),
+  newStock: z.number().int().nonnegative(),
+  reason: z.string().min(1),
+  notes: z.string().optional(),
+})
 
 export async function POST(req: Request) {
   try {
-    const { productId, newStock, reason, notes } = await req.json()
+    const { authorized, response } = await verifyAdmin(['admin', 'super_admin'])
+    if (!authorized) return response!
 
-    if (!productId || typeof newStock !== 'number' || !reason) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    const rawBody = await req.json()
+    const parsed = inventoryUpdateSchema.safeParse(rawBody)
+
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid input', details: parsed.error.format() }, { status: 400 })
     }
+
+    const { productId, newStock, reason, notes } = parsed.data
 
     await updateStock(productId, newStock, reason, notes)
     return NextResponse.json({ success: true })

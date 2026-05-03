@@ -3,6 +3,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -15,7 +16,7 @@ import RecentlyViewed from '@/components/product/RecentlyViewed'
 import CartRecommendations from '@/components/cart/CartRecommendations'
 import Loader from '@/components/ui/Loader'
 import { formatCurrency, numberToIndianWords } from '@/lib/utils'
-import { getPublicUrl } from '@/lib/supabase/storage'
+import { getProductImageUrl } from '@/lib/supabase/storage'
 import { Trash2, ShoppingBag, XCircle, Package, Box, ShieldCheck, Truck, CheckCircle2, ExternalLink } from 'lucide-react'
 import { SHIPPING_THRESHOLD, SHIPPING_COST } from '@/lib/constants'
 import { showToast } from '@/components/ui/Toast'
@@ -166,7 +167,7 @@ export default function CartPage() {
                 const isSaved = savedProductIds.includes(item.product_id)
                 let imageSrc = '/placeholder-product.svg'
                 if (item.image) {
-                  imageSrc = item.image.startsWith('http') || item.image.startsWith('/') ? item.image : getPublicUrl(item.image)
+                  imageSrc = getProductImageUrl(item.image) // ✅ Use the new helper
                 }
 
                 const tier = PRINTING_TIERS.find(t => t.id === item.printing_type)
@@ -175,7 +176,17 @@ export default function CartPage() {
                 return (
                   <div key={`${item.id}-${item.printing_type}`} className={`flex gap-4 md:gap-6 py-5 ${index !== items.length - 1 ? 'border-b border-gray-200' : ''}`}>
                     <div className="relative w-24 h-24 md:w-32 md:h-32 bg-gray-50 rounded-sm border border-gray-100 overflow-hidden flex-shrink-0">
-                      <Image src={imageSrc} alt={item.name} fill sizes="(max-width: 768px) 96px, 128px" className="object-cover mix-blend-multiply" />
+                      <Image 
+                        src={imageSrc} 
+                        alt={item.name} 
+                        fill 
+                        sizes="(max-width: 768px) 96px, 128px" 
+                        className="object-cover mix-blend-multiply"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement
+                          target.src = '/placeholder-product.svg'
+                        }}
+                      />
                     </div>
 
                     <div className="flex flex-col flex-1 min-w-0">
@@ -209,7 +220,7 @@ export default function CartPage() {
                             <p className="text-xs text-gray-600 mt-1.5 mb-2 line-clamp-2 hidden sm:block">{item.description}</p>
                           )}
 
-                          {( (item as any).weight || (item as any).dimensions ) && (
+                          {((item as any).weight || (item as any).dimensions) && (
                             <div className="text-[11px] text-gray-500 mb-1.5 gap-3 hidden sm:flex">
                               {(item as any).weight && <span><span className="font-medium text-gray-700">Weight:</span> {(item as any).weight} kg</span>}
                               {(item as any).dimensions && <span><span className="font-medium text-gray-700">Dimensions:</span> {(item as any).dimensions.length}x{(item as any).dimensions.width}x{(item as any).dimensions.height} cm</span>}
@@ -218,7 +229,7 @@ export default function CartPage() {
                           
                           <p className="text-xs text-green-700 mt-1.5 font-medium">In stock</p>
                           
-                          {/* 🚨 CLEAN B2B METADATA UI 🚨 */}
+                          {/* CLEAN B2B METADATA UI */}
                           {item.printing_type && item.printing_type !== 'None' && item.printing_type !== 'Retail (Readymade)' && (
                             <div className="mt-2 text-xs sm:text-[13px] text-gray-700 bg-blue-50/50 p-2 sm:p-3 rounded-md border border-blue-100/50 space-y-1.5 sm:space-y-2">
                               <p>
@@ -231,7 +242,7 @@ export default function CartPage() {
                                 </p>
                               )}
 
-                              {/* 🚨 UPGRADED TO HANDLE ARRAY OF FILES 🚨 */}
+                              {/* UPGRADED TO HANDLE ARRAY OF FILES */}
                               {item.artwork_urls && item.artwork_urls.length > 0 && (
                                 <div className="mt-1 flex flex-wrap gap-2 pt-0.5">
                                   {item.artwork_urls.map((url, idx) => (
@@ -295,7 +306,7 @@ export default function CartPage() {
                                 await toggleItem(item.product_id)
                                 showToast(isSaved ? 'Removed from Wishlist' : 'Saved to Wishlist')
                               } catch (error: any) {
-                            if (error.message === 'unauthorized') router.push('/login?next=/cart')
+                                if (error.message === 'unauthorized') router.push('/login?next=/cart')
                                 else showToast('Failed to update wishlist')
                               }
                             }}
@@ -411,20 +422,34 @@ export default function CartPage() {
           <CartRecommendations />
         )}
 
-        {showConfirmClear && (
+        {/* Delete Confirmation Modal - Using Portal */}
+        {showConfirmClear && mounted && createPortal(
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <div className="bg-white rounded-md shadow-xl max-w-sm w-full p-6 text-center animate-in fade-in zoom-in duration-200 border border-gray-200">
               <div className="w-12 h-12 mx-auto mb-4 bg-red-50 rounded-full flex items-center justify-center">
                 <XCircle className="w-6 h-6 text-red-600" />
               </div>
               <h3 className="text-lg font-bold text-gray-900 mb-2">Clear Cart?</h3>
-              <p className="text-sm text-gray-600 mb-6">This action cannot be undone. All {items.length} items will be removed from your cart.</p>
+              <p className="text-sm text-gray-600 mb-6">
+                This action cannot be undone. All {items.length} items will be removed from your cart.
+              </p>
               <div className="flex gap-3">
-                <button onClick={() => setShowConfirmClear(false)} className="flex-1 px-4 py-2 text-sm font-medium text-gray-800 bg-white border border-gray-300 hover:bg-gray-50 rounded-sm transition-colors shadow-sm cursor-pointer">Cancel</button>
-                <button onClick={handleClearCart} className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-sm transition-colors shadow-sm border border-red-700 cursor-pointer">Clear All</button>
+                <button
+                  onClick={() => setShowConfirmClear(false)}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-800 bg-white border border-gray-300 hover:bg-gray-50 rounded-sm transition-colors shadow-sm cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleClearCart}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-sm transition-colors shadow-sm border border-red-700 cursor-pointer"
+                >
+                  Clear All
+                </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </Container>
 

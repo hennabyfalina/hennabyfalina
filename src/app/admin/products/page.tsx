@@ -18,6 +18,7 @@ import { Package, CheckCircle, Search, Filter, Trash2, Edit } from 'lucide-react
 
 // 🚨 IMPORTED DRY CONSTANTS 🚨
 import { PRODUCT_STATUS_FILTERS, PRODUCT_SORT_OPTIONS } from '@/lib/constants'
+import { useAuth } from '@/hooks/useAuth'
 
 const formatIST = (dateString?: string) => {
   if (!dateString) return '-'
@@ -39,6 +40,7 @@ type Product = BaseProduct & {
 }
 
 export default function AdminProducts() {
+  const { isSuperAdmin } = useAuth()
   const router = useRouter()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([])
@@ -471,13 +473,15 @@ export default function AdminProducts() {
                             >
                               <Edit className="w-4 h-4" />
                             </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); setProductToDelete(product); }} 
-                              className="p-2 text-[#F2B8B5] hover:bg-[#8C1D18]/40 rounded-full transition-colors cursor-pointer"
-                              title="Delete Product"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {isSuperAdmin && (
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setProductToDelete(product); }} 
+                                className="p-2 text-[#F2B8B5] hover:bg-[#8C1D18]/40 rounded-full transition-colors cursor-pointer"
+                                title="Delete Product"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

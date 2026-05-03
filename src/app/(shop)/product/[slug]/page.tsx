@@ -114,7 +114,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
           bulk_min_quantity: product.bulk_min_quantity,
           description: product.description,
           rating: product.rating,
-          review_count: product.review_count
+          review_count: product.review_count,
+          stock: product.stock, // Ensure stock is included for accurate tracking
         }}
       />
 

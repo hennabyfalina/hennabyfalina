@@ -32,10 +32,13 @@
     -ms-overflow-style: none; /* IE and Edge */
     scrollbar-width: none; /* Firefox */
     
-    /* Mobile Optimization: Allow native vertical pull-to-refresh, but prevent horizontal swipe-back navigation */
-    overscroll-behavior-y: auto;
+    /* 🚀 BUTTER-SMOOTH ENGINE: Prevent rubber-band bounce at top/bottom */
+    overscroll-behavior-y: none;
     overscroll-behavior-x: none;
     -webkit-overflow-scrolling: touch;
+    
+    /* Hardware acceleration for smoother scrolling */
+    will-change: scroll-position;
   }
   
   /* Focus styles */
@@ -353,24 +356,55 @@
     scrollbar-width: none;
   }
   
-  /* 
-   * Touch Optimizations for Sliders/Carousels
-   * Apply these classes to horizontal scrolling areas to stop them from feeling "stuck"
-   */
+  /* 🚀 BUTTER-SMOOTH ENGINE UTILITIES */
+  
+  /* For horizontal carousels – instant horizontal swipe, vertical scroll always allowed */
   .touch-pan-x {
-    touch-action: pan-x pinch-zoom; /* Forces browser to immediately accept horizontal swipes, ignoring slight diagonal drag */
+    touch-action: pan-y pinch-zoom;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    will-change: transform;
   }
   
-  .overscroll-contain-x {
-    overscroll-behavior-x: contain; /* Prevents swipe events from leaking to the parent/browser */
-  }
-  
-  .snap-carousel {
-    scroll-snap-type: x mandatory;
+  /* For vertical scrolling containers that should NOT bounce at top/bottom */
+  .touch-pan-y {
+    touch-action: pan-x pinch-zoom;
+    scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
   }
+  
+  /* Prevents swipe events from leaking to parent/browser */
+  .overscroll-contain-x {
+    overscroll-behavior-x: contain;
+  }
+  
+  .overscroll-contain-y {
+    overscroll-behavior-y: contain;
+  }
+  
+  /* Snap carousel with hardware acceleration */
+  .snap-carousel, .touch-pan-x {
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  
   .snap-carousel > * {
     scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+  
+  /* GPU acceleration for smooth animations */
+  .gpu-accelerated {
+    transform: translateZ(0);
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+  
+  /* Prevent accidental page drag on modal backgrounds */
+  .no-page-drag {
+    overscroll-behavior: contain;
+    touch-action: pan-y pinch-zoom;
   }
 }
 
@@ -420,14 +454,54 @@
   color: #9ca3af;
 }
 
-
 .cursor-pointer {
   cursor: pointer;
+}
+
+/* Only show splash container in standalone mode */
+@media all and (display-mode: browser) {
+  .splash-container {
+    display: none !important;
+  }
 }
 
 /* Hiding elements in app mode (Mobile & Desktop) */
 @media all and (display-mode: standalone) {
   .pwa-hide {
     display: none !important;
+  }
+
+  @keyframes fadeOut {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+      visibility: hidden;
+    }
+  }
+
+  @keyframes zoomIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-out {
+    animation-fill-mode: forwards;
+  }
+  .fade-out {
+    animation: fadeOut 0.4s ease-out;
+  }
+  .animate-in {
+    animation-fill-mode: backwards;
+  }
+  .zoom-in {
+    animation: zoomIn 0.3s ease-out;
   }
 }

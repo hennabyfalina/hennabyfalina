@@ -16,7 +16,7 @@ interface Product {
   bulk_price?: number | null
   bulk_min_quantity?: number | null
   description?: string | null
-  stock?: number
+  stock?: number  // ✅ Make sure this is included
   rating?: number | null
   review_count?: number | null
 }
@@ -34,22 +34,27 @@ export default function SaveViewedProduct({ product }: SaveViewedProductProps) {
       // Remove duplicate if product already exists
       recent = recent.filter((p: Product) => p.id !== product.id)
 
-      // Ensure stock is explicitly saved
-      const productToSave = { ...product, stock: product.stock ?? 0 }
+      // ✅ Ensure stock is explicitly saved with a fallback
+      const productToSave = { 
+        ...product, 
+        stock: product.stock ?? 0  // Make sure stock is saved (0 if undefined)
+      }
 
       // Add new product to the beginning of the array
       recent.unshift(productToSave)
 
-      // Keep only the last 8 viewed products to give a nice scrollable shelf
+      // Keep only the last 8 viewed products
       recent = recent.slice(0, 8)
 
       // Save back to localStorage
       localStorage.setItem('razack_recently_viewed', JSON.stringify(recent))
+      
+      // Debug: log to verify stock is saved
+      console.log('[SaveViewedProduct] Saved product:', productToSave.id, 'stock:', productToSave.stock)
     } catch (error) {
       console.error('Error saving recently viewed product:', error)
     }
   }, [product])
 
-  // This component doesn't render anything, it's just a data tracker
   return null
 }

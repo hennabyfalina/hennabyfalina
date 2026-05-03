@@ -3,6 +3,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
@@ -339,18 +340,23 @@ export default function Navbar() {
       </header>
       </div>
 
-      {showLogoutConfirm && (
+      {showLogoutConfirm && mounted && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowLogoutConfirm(false)} />
-          <div className="relative bg-white rounded-md shadow-2xl p-6 w-full max-w-sm border border-gray-200">
+          <div className="relative bg-white rounded-md shadow-2xl p-6 w-full max-w-sm border border-gray-200 animate-in fade-in zoom-in duration-200">
             <h2 className="text-xl font-bold text-gray-900 mb-2">Sign out</h2>
             <p className="text-sm text-gray-600 mb-6">Are you sure you want to sign out of your account?</p>
             <div className="flex gap-3">
-              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-2 px-4 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-sm text-sm font-medium transition-colors">Cancel</button>
-              <button onClick={confirmLogout} disabled={loggingOut} className="flex-1 py-2 px-4 bg-red-600 text-white rounded-sm text-sm font-medium hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50 border border-red-700">{loggingOut ? 'Signing out...' : 'Sign out'}</button>
+              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-2 px-4 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-sm text-sm font-medium transition-colors cursor-pointer">
+                Cancel
+              </button>
+              <button onClick={confirmLogout} disabled={loggingOut} className="flex-1 py-2 px-4 bg-red-600 text-white rounded-sm text-sm font-medium hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50 border border-red-700 cursor-pointer">
+                {loggingOut ? 'Signing out...' : 'Sign out'}
+              </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {isNameMissing && user && (

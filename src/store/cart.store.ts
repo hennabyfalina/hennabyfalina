@@ -76,6 +76,7 @@ interface CartState {
   getTotalPrice: () => number
   loadCart: () => Promise<void>
   refreshCartPrices: () => Promise<void>
+  findCartItem: (productId: string, printingType: string) => CartItem | undefined
 }
 
 const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
@@ -97,6 +98,13 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: [],
       isLoading: false,
+
+      findCartItem: (productId, printingType) => {
+        return get().items.find(
+          (item) => item.product_id === productId && 
+                    (item.printing_type || 'None') === (printingType || 'None')
+        )
+      },
 
       _syncAfterUpdate: async () => {
         const supabase = createClient()

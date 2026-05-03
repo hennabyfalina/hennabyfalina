@@ -7,7 +7,9 @@ import { createClient } from '@/lib/supabase/client'
 
 export function useAuth() {
   const [user, setUser] = useState<any>(null)
+  const [role, setRole] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isNameMissing, setIsNameMissing] = useState(false)
 
@@ -25,6 +27,11 @@ export function useAuth() {
           .eq('id', session.user.id)
           .maybeSingle()
           
+        const userRole = userData?.role || 'customer'
+        setRole(userRole)
+        setIsAdmin(userRole === 'admin' || userRole === 'super_admin')
+        setIsSuperAdmin(userRole === 'super_admin')
+
         const currentName = (userData?.name || '').trim()
         const emailLower = (session?.user?.email || '').trim().toLowerCase()
         const emailPrefix = emailLower.split('@')[0]
@@ -32,15 +39,18 @@ export function useAuth() {
 
         let isGenerated = !currentName || currentName.toLowerCase() === emailLower || normalize(currentName) === normalize(emailPrefix)
 
-        // Auto-sync Google name if available and current name is missing/generated
         const googleName = session.user.user_metadata?.full_name || session.user.user_metadata?.name
         if (isGenerated && googleName) {
           await supabase.from('users').update({ name: googleName }).eq('id', session.user.id)
           isGenerated = false
         }
 
-        setIsAdmin(userData?.role === 'admin')
-        setIsNameMissing(isGenerated && userData?.role !== 'admin')
+        setIsNameMissing(isGenerated && userRole !== 'super_admin' && userRole !== 'admin')
+      } else {
+        setRole(null)
+        setIsAdmin(false)
+        setIsSuperAdmin(false)
+        setIsNameMissing(false)
       }
       setIsLoading(false)
     }
@@ -56,6 +66,11 @@ export function useAuth() {
           .eq('id', session.user.id)
           .maybeSingle()
           .then(({ data }) => {
+            const userRole = data?.role || 'customer'
+            setRole(userRole)
+            setIsAdmin(userRole === 'admin' || userRole === 'super_admin')
+            setIsSuperAdmin(userRole === 'super_admin')
+            
             const currentName = (data?.name || '').trim()
             const emailLower = (session?.user?.email || '').trim().toLowerCase()
             const emailPrefix = emailLower.split('@')[0]
@@ -69,12 +84,13 @@ export function useAuth() {
               isGenerated = false
             }
 
-            setIsAdmin(data?.role === 'admin')
-            setIsNameMissing(isGenerated && data?.role !== 'admin')
+            setIsNameMissing(isGenerated && userRole !== 'super_admin' && userRole !== 'admin')
             setIsLoading(false)
           })
       } else {
+        setRole(null)
         setIsAdmin(false)
+        setIsSuperAdmin(false)
         setIsNameMissing(false)
         setIsLoading(false)
       }
@@ -83,5 +99,5 @@ export function useAuth() {
     return () => subscription.unsubscribe()
   }, [])
 
-  return { user, isAdmin, isLoading, isNameMissing }
+  return { user, role, isAdmin, isSuperAdmin, isLoading, isNameMissing }
 }

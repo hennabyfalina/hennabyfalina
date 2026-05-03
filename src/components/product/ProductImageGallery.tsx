@@ -36,6 +36,7 @@ export default function ProductImageGallery({ images, productName }: ProductImag
   // Reset zoom when changing images
   useEffect(() => {
     setZoomScale(1)
+    setFsZoomOrigin('50% 50%')
   }, [selectedIndex])
 
   const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
@@ -46,17 +47,27 @@ export default function ProductImageGallery({ images, productName }: ProductImag
     setZoomOrigin(`${x}% ${y}%`)
   }
 
-  // 🚨 Double Tap to Zoom Logic
+  // 🚨 IMPROVED: Double Tap to Zoom (toggle between 1x and 2.5x)
   const lastTapAt = useRef<number>(0)
   const handleDoubleTapZoom = (clientX: number, clientY: number, currentTarget: HTMLElement) => {
     if (zoomScale > 1) {
+      // Zoom out
       setZoomScale(1)
+      setFsZoomOrigin('50% 50%')
     } else {
+      // Zoom in at tap location
       const rect = currentTarget.getBoundingClientRect()
       const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100))
       const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100))
       setFsZoomOrigin(`${x}% ${y}%`)
       setZoomScale(2.5)
+    }
+  }
+
+  // 🚨 Double tap on background to close fullscreen
+  const handleBackgroundDoubleTap = () => {
+    if (zoomScale === 1) {
+      setShowFullscreen(false)
     }
   }
 
@@ -109,6 +120,8 @@ export default function ProductImageGallery({ images, productName }: ProductImag
     const distance = touchStartX - touchEndX
     if (distance > minSwipeDistance && selectedIndex < images.length - 1) setSelectedIndex(prev => prev + 1)
     if (distance < -minSwipeDistance && selectedIndex > 0) setSelectedIndex(prev => prev - 1)
+    setTouchStartX(null)
+    setTouchEndX(null)
   }
 
   const onDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -189,7 +202,10 @@ export default function ProductImageGallery({ images, productName }: ProductImag
       </div>
 
       {showFullscreen && mounted && createPortal(
-        <div className="fixed inset-0 z-[999999] bg-white flex flex-col w-screen h-[100dvh] animate-in fade-in duration-200">
+        <div 
+          className="fixed inset-0 z-[999999] bg-white flex flex-col w-screen h-[100dvh] animate-in fade-in duration-200"
+          onDoubleClick={handleBackgroundDoubleTap}
+        >
           
           <div className="absolute top-0 right-0 left-0 p-4 sm:p-6 flex justify-end z-[1000000] pointer-events-none">
             <button
@@ -206,7 +222,8 @@ export default function ProductImageGallery({ images, productName }: ProductImag
           </div>
 
           <div 
-            className="flex-1 relative bg-white flex items-center justify-center overflow-hidden w-full h-full touch-none"
+            className="flex-1 relative bg-white flex items-center justify-center overflow-hidden w-full h-full"
+            style={{ touchAction: 'pan-x pinch-zoom' }}
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
@@ -221,7 +238,10 @@ export default function ProductImageGallery({ images, productName }: ProductImag
               </button>
             )}
 
-            <div className="relative w-full h-[85vh] max-w-5xl">
+            <div 
+              className="relative w-full h-[85vh] max-w-5xl"
+              style={{ touchAction: 'pan-x pinch-zoom' }}
+            >
               <Image
                 src={mainImage}
                 alt={productName}
@@ -235,7 +255,7 @@ export default function ProductImageGallery({ images, productName }: ProductImag
                   transform: `scale(${zoomScale})`, 
                   transformOrigin: fsZoomOrigin,
                   transition: pinchDist ? 'none' : 'transform 0.2s ease-out' 
-                }} // 🚨 Pinch and Double Tap to Zoom Applied here
+                }}
               />
             </div>
 

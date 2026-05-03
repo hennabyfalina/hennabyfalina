@@ -13,6 +13,7 @@ import { Package, Truck, MapPin, CreditCard, Calendar, Hash, ExternalLink, Print
 import InvoiceLink from '@/components/order/InvoiceLink'
 import { siteConfig } from '@/config/site'
 import { ORDER_STATUS_FILTERS } from '@/lib/constants'
+import { useAuth } from '@/hooks/useAuth'
 
 interface OrderModalProps {
   isOpen: boolean
@@ -23,6 +24,7 @@ interface OrderModalProps {
 }
 
 export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSuccess }: OrderModalProps) {
+  const { isSuperAdmin } = useAuth()
   const [order, setOrder] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -511,14 +513,16 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
             </div>
           </div>
 
-          <div className="pt-2">
-            <button 
-              onClick={() => setShowDeleteConfirm(true)}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-full text-sm font-bold bg-[#3C1E0A]/40 text-[#F9AB00] hover:bg-[#3C1E0A] hover:text-[#F9AB00] border border-transparent transition-colors cursor-pointer"
-            >
-              <Trash2 className="w-4 h-4" /> Delete Order Permanently
-            </button>
-          </div>
+          {isSuperAdmin && (
+            <div className="pt-2">
+              <button 
+                onClick={() => setShowDeleteConfirm(true)}
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-full text-sm font-bold bg-[#3C1E0A]/40 text-[#F9AB00] hover:bg-[#3C1E0A] hover:text-[#F9AB00] border border-transparent transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" /> Delete Order Permanently
+              </button>
+            </div>
+          )}
 
         </div>
       </Modal>

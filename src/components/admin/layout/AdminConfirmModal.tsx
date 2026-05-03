@@ -3,6 +3,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'   // ✅ Add this
 import { AlertTriangle, ShieldAlert, CheckCircle2 } from 'lucide-react'
 
 interface AdminConfirmModalProps {
@@ -15,7 +16,7 @@ interface AdminConfirmModalProps {
   cancelText?: string
   icon?: React.ReactNode
   isDestructive?: boolean
-  requireMatch?: string // 🚨 If provided, triggers the Two-Step Verification
+  requireMatch?: string
   isLoading?: boolean
 }
 
@@ -34,6 +35,11 @@ export default function AdminConfirmModal({
 }: AdminConfirmModalProps) {
   const [step, setStep] = useState<1 | 2>(1)
   const [verifyText, setVerifyText] = useState('')
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (!isOpen) {
@@ -44,7 +50,7 @@ export default function AdminConfirmModal({
     }
   }, [isOpen])
 
-  if (!isOpen) return null
+  if (!isOpen || !mounted) return null
 
   const handleProceedToStep2 = () => {
     if (requireMatch) {
@@ -56,7 +62,6 @@ export default function AdminConfirmModal({
 
   const isMatchValid = requireMatch ? verifyText === requireMatch : true
 
-  // 🎨 Elite Gemini Color Dictionary
   const colors = {
     bg: 'bg-[#1E1F20]',
     surface: 'bg-[#131314]',
@@ -69,17 +74,16 @@ export default function AdminConfirmModal({
     dangerBorder: 'border-[#8C1D18]',
   }
 
-  return (
+  // 🚀 Render using createPortal
+  return createPortal(
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-      {/* High-Quality Backdrop Blur */}
+      {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-in fade-in duration-300" 
         onClick={!isLoading ? onClose : undefined} 
       />
       
       <div className={`relative ${colors.bg} border ${colors.border} rounded-[24px] shadow-2xl p-6 md:p-8 w-full max-w-[400px] animate-in zoom-in-95 duration-200 overflow-hidden`}>
-
-        {/* Step 1: Standard Premium Confirm (Sign out / Leave) */}
         {step === 1 && (
           <div className="animate-in fade-in duration-300">
             <div className="flex flex-col items-center text-center">
@@ -93,10 +97,8 @@ export default function AdminConfirmModal({
                   {icon}
                 </div>
               )}
-              
               <h2 className={`text-xl font-medium mb-2 tracking-tight ${colors.text}`}>{title}</h2>
               <div className={`text-sm ${colors.muted} mb-8 leading-relaxed`}>{description}</div>
-              
               <div className="flex flex-col w-full gap-2.5">
                 <button 
                   onClick={handleProceedToStep2} 
@@ -114,7 +116,6 @@ export default function AdminConfirmModal({
                     </div>
                   ) : (requireMatch ? 'Proceed to Action' : confirmText)}
                 </button>
-                
                 <button 
                   onClick={onClose} 
                   disabled={isLoading}
@@ -127,25 +128,22 @@ export default function AdminConfirmModal({
           </div>
         )}
 
-        {/* 🚨 Step 2: The Elite "Secure Entry" Verification 🚨 */}
         {step === 2 && requireMatch && (
           <div className="animate-in slide-in-from-right-8 fade-in duration-500">
             <div className="flex flex-col items-center text-center">
               <div className="w-14 h-14 bg-[#4D2628]/30 border border-[#8C1D18]/50 text-[#F2B8B5] rounded-full flex items-center justify-center mb-5">
                 <ShieldAlert className="w-6 h-6" />
               </div>
-              
               <h2 className="text-xl font-medium mb-2 text-[#E3E3E3] tracking-tight">Final Authorization</h2>
               <p className={`text-sm ${colors.muted} mb-6 leading-relaxed`}>
                 This is a permanent action. Please type <span className="font-mono text-[#E3E3E3] bg-[#131314] border border-[#333538] px-1.5 py-0.5 rounded text-xs select-all">{requireMatch}</span> to confirm.
               </p>
-
               <div className="w-full relative group mb-8">
                 <input
                   type="text"
                   value={verifyText}
                   onChange={(e) => setVerifyText(e.target.value)}
-                  onPaste={(e) => e.preventDefault()} // 🚨 STRICT: BLOCKS PASTING
+                  onPaste={(e) => e.preventDefault()}
                   placeholder="Type the key exactly..."
                   className={`w-full ${colors.surface} border ${colors.border} text-[#E3E3E3] px-4 py-3.5 rounded-xl focus:outline-none focus:border-[#A8C7FA] focus:ring-1 focus:ring-[#A8C7FA] transition-all font-mono text-center text-sm placeholder:text-[#565959] placeholder:font-sans`}
                   autoComplete="off"
@@ -155,7 +153,6 @@ export default function AdminConfirmModal({
                   <CheckCircle2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#93D7A4] animate-in zoom-in" />
                 )}
               </div>
-
               <div className="flex flex-col w-full gap-2.5">
                 <button 
                   onClick={onConfirm} 
@@ -180,6 +177,7 @@ export default function AdminConfirmModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

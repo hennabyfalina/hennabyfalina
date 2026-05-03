@@ -7,6 +7,7 @@ import Modal from '@/components/ui/Modal'
 import AdminConfirmModal from '@/components/admin/layout/AdminConfirmModal'
 import { showToast } from '@/components/ui/Toast'
 import { User, MapPin, Phone, Mail, Trash2, ShieldAlert } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 
 interface CustomerFormData {
   name: string
@@ -28,6 +29,7 @@ interface CustomerModalProps {
 }
 
 export default function CustomerModal({ isOpen, onClose, customer, onSuccess }: CustomerModalProps) {
+  const { isSuperAdmin } = useAuth()
   const [formData, setFormData] = useState<CustomerFormData>({
     name: '', email: '', phone: '', address_line1: '', address_line2: '', city: '', state: '', pincode: '', country: 'India'
   })
@@ -167,7 +169,7 @@ export default function CustomerModal({ isOpen, onClose, customer, onSuccess }: 
             <button type="submit" disabled={isSubmitting} className="w-full py-3.5 bg-[#0B57D0] text-white font-bold rounded-full hover:bg-[#0842A0] transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-blue-900/20">
               {isSubmitting ? 'Saving...' : customer ? 'Update Customer' : 'Create Customer'}
             </button>
-            {customer && (
+            {customer && isSuperAdmin && (
               <button type="button" onClick={() => setShowDeleteConfirm(true)} className="w-full py-3.5 bg-transparent border border-[#4D2628] text-[#F2B8B5] font-bold rounded-full hover:bg-[#4D2628] transition-all cursor-pointer">
                 Delete Customer
               </button>

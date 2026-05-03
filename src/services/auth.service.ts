@@ -1,6 +1,7 @@
 //src/services/auth.service.ts
 
 import { createClient } from '@/lib/supabase/client'
+import { z } from 'zod'
 
 // ─── Return Type ──────────────────────────────────────────────────────────────
 
@@ -21,12 +22,23 @@ export function validatePassword(password: string): string | null {
 
 // ─── Sign Up ──────────────────────────────────────────────────────────────────
 
+const signUpSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters."),
+  email: z.string().email("Invalid email format."),
+  password: z.string().min(8, "Password must be at least 8 characters."),
+  phone: z.string().optional(),
+})
+
 export async function signUp(
-  name: string,
-  email: string,
-  password: string,
-  phone?: string
+  rawName: string,
+  rawEmail: string,
+  rawPassword: string,
+  rawPhone?: string
 ): Promise<AuthResult> {
+  const parsed = signUpSchema.safeParse({ name: rawName, email: rawEmail, password: rawPassword, phone: rawPhone })
+  if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.message ?? "Invalid input." }
+  
+  const { name, email, password, phone } = parsed.data
   const supabase = createClient()
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin
@@ -75,10 +87,19 @@ export async function signUp(
 
 // ─── Sign In ──────────────────────────────────────────────────────────────────
 
+const signInSchema = z.object({
+  email: z.string().email("Invalid email format."),
+  password: z.string().min(1, "Password is required."),
+})
+
 export async function signIn(
-  email: string,
-  password: string
+  rawEmail: string,
+  rawPassword: string
 ): Promise<AuthResult<{ redirectTo: string; role?: string }>> {
+  const parsed = signInSchema.safeParse({ email: rawEmail, password: rawPassword })
+  if (!parsed.success) return { success: false, message: "Invalid email or password." }
+  
+  const { email, password } = parsed.data
   const supabase = createClient()
 
   const { data, error } = await supabase.auth.signInWithPassword({

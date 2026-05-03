@@ -79,7 +79,7 @@ export default function FeaturedProductsSection({ products, title }: FeaturedPro
           </button>
         )}
         
-        <div ref={scrollContainerRef} onScroll={checkScroll} className="flex gap-4 overflow-x-auto no-scrollbar pb-6 touch-pan-x overscroll-contain-x snap-carousel scroll-smooth">
+          <div ref={scrollContainerRef} onScroll={checkScroll} className="flex gap-4 overflow-x-auto no-scrollbar pb-6 touch-pan-x snap-carousel scroll-smooth">
           {products.map((product) => (
             <div key={product.id} className="w-[220px] flex-shrink-0 snap-start h-full">
               <ProductCard product={product} priority={false} productList={products} />

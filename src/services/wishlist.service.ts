@@ -4,9 +4,17 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { getProductImageUrl } from './product.service'
+import { z } from 'zod'
+
+const toggleWishlistSchema = z.object({
+  productId: z.string().min(1, "Product ID is required")
+})
 
 export async function toggleWishlistItem(productId: string) {
   try {
+    const parsed = toggleWishlistSchema.safeParse({ productId })
+    if (!parsed.success) return { success: false, error: 'Invalid product ID' }
+
     const supabase = await createClient()
     
     const { data: { user } } = await supabase.auth.getUser()
@@ -19,7 +27,7 @@ export async function toggleWishlistItem(productId: string) {
       .from('wishlists')
       .select('id')
       .eq('user_id', user.id)
-      .eq('product_id', productId)
+      .eq('product_id', parsed.data.productId)
       .single()
 
     if (existing) {
@@ -27,7 +35,7 @@ export async function toggleWishlistItem(productId: string) {
       if (error) throw error
       return { success: true, added: false }
     } else {
-      const { error } = await supabase.from('wishlists').insert({ user_id: user.id, product_id: productId })
+      const { error } = await supabase.from('wishlists').insert({ user_id: user.id, product_id: parsed.data.productId })
       if (error) throw error
       return { success: true, added: true }
     }

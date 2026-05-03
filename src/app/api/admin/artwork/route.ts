@@ -2,7 +2,7 @@
 
 import { NextResponse } from 'next/server'
 import { createClient as createSupabaseAdminClient } from '@supabase/supabase-js'
-import { createClient as createServerClient } from '@/lib/supabase/server'
+import { verifyAdmin } from '@/lib/admin-auth'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -11,13 +11,8 @@ export async function GET(request: Request) {
   if (!path) return new NextResponse('Artwork path is required', { status: 400 })
 
   try {
-    // 1. Verify Admin Status via standard server client
-    const serverSupabase = await createServerClient()
-    const { data: { user } } = await serverSupabase.auth.getUser()
-    if (!user) return new NextResponse('Unauthorized', { status: 401 })
-    
-    const { data: userData } = await serverSupabase.from('users').select('role').eq('id', user.id).single()
-    if (userData?.role !== 'admin') return new NextResponse('Forbidden', { status: 403 })
+    const { authorized, response } = await verifyAdmin(['admin', 'super_admin'])
+    if (!authorized) return response!
 
     // 2. Escalate Privileges: Use Service Role Key to bypass restrictive user RLS
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!

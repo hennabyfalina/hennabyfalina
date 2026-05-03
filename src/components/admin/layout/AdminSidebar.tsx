@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Menu, Store, LogOut } from 'lucide-react'
 import { siteConfig } from '@/config/site'
 import { ADMIN_NAV_ITEMS } from '@/config/admin'
+import { useAuth } from '@/hooks/useAuth'  // ✅ Added
 
 interface AdminSidebarProps {
   pathname: string
@@ -16,6 +17,18 @@ interface AdminSidebarProps {
 }
 
 export default function AdminSidebar({ pathname, isSidebarOpen, setIsSidebarOpen, onLeaveAdmin, onSignOut }: AdminSidebarProps) {
+  const { isSuperAdmin } = useAuth()  // ✅ Get role
+
+  // ✅ Filter nav items based on role (hide Settings & Users from regular admins)
+  const filteredNavItems = ADMIN_NAV_ITEMS.filter(item => {
+    if (isSuperAdmin) return true
+    // Hide super‑only routes (Settings, Admin Users)
+    const lowerHref = item.href.toLowerCase()
+    if (lowerHref.includes('settings')) return false
+    if (lowerHref.includes('users')) return false
+    return true
+  })
+
   return (
     <aside
       className={`
@@ -39,7 +52,7 @@ export default function AdminSidebar({ pathname, isSidebarOpen, setIsSidebarOpen
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto overscroll-contain no-scrollbar">
-        {ADMIN_NAV_ITEMS.map((item) => {
+        {filteredNavItems.map((item) => {   // ✅ Use filtered list
           const Icon = item.icon
           const isActive = pathname.includes(item.href)
           return (

@@ -90,7 +90,7 @@ export default function RecentlyViewed() {
         <h3 className="font-bold text-gray-900 text-lg">Recently Viewed</h3>
       </div>
       
-      <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 snap-x">
+      <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 touch-pan-x overscroll-contain-x snap-carousel">
         {recentItems.map((prod, _, arr) => {
           // Pre-map all items so QuickView can cycle through them perfectly
           const mappedList = arr.map(p => ({

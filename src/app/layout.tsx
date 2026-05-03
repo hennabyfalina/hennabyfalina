@@ -10,6 +10,7 @@ import WishlistProvider from '@/components/providers/WishlistProvider'
 import QuickViewModal from '@/components/product/QuickViewModal'
 import { siteConfig } from '@/config/site'
 import { Analytics } from '@vercel/analytics/next'
+import SplashScreen from '@/components/ui/SplashScreen'
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -147,6 +148,7 @@ export default function RootLayout({
         className="bg-[#eaeded] text-gray-900 antialiased w-full min-h-[100dvh] flex flex-col touch-pan-y"
         suppressHydrationWarning
       >
+        <SplashScreen />
         <WishlistProvider>
           {children}
           <CartSyncProvider />

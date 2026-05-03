@@ -19,6 +19,7 @@ import AdminConfirmModal from '@/components/admin/layout/AdminConfirmModal'
 import AdminLoader from '@/components/admin/AdminLoader'
 import { showToast } from '@/components/ui/Toast'
 import { Layers, CheckCircle, Package, GripVertical, Search, Filter, Edit, Trash2, Image as ImageIcon } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 
 // 🚨 IMPORTED DRY CONSTANT 🚨
 import { CATEGORY_SORT_OPTIONS } from '@/lib/constants'
@@ -36,6 +37,7 @@ const formatIST = (dateString?: string) => {
 }
 
 export default function AdminCategories() {
+  const { isSuperAdmin } = useAuth()
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -290,14 +292,16 @@ export default function AdminCategories() {
                             >
                               <Edit className="w-4 h-4" />
                             </button>
-                            <button
-                              onClick={() => setCategoryToDelete(category)}
-                              className="p-2 text-[#F2B8B5] hover:bg-[#8C1D18]/40 rounded-full transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                              disabled={(category.product_count ?? 0) > 0}
-                              title={(category.product_count ?? 0) > 0 ? `Cannot delete: Has ${category.product_count} products mapped` : 'Delete Category'}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {isSuperAdmin && (
+                              <button
+                                onClick={() => setCategoryToDelete(category)}
+                                className="p-2 text-[#F2B8B5] hover:bg-[#8C1D18]/40 rounded-full transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                                disabled={(category.product_count ?? 0) > 0}
+                                title={(category.product_count ?? 0) > 0 ? `Cannot delete: Has ${category.product_count} products mapped` : 'Delete Category'}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       )}

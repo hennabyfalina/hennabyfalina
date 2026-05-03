@@ -6,6 +6,9 @@ import { createClient } from '@/lib/supabase/server'
 import { generateOrderNumber } from '@/lib/utils'
 import { SHIPPING_THRESHOLD, SHIPPING_COST } from '@/lib/constants'
 import { moveAllTempToFinal, deleteB2BArtwork } from '@/lib/supabase/b2b-storage'
+import { headers } from 'next/headers'
+import { Ratelimit } from '@upstash/ratelimit'
+import { z } from 'zod'
 
 export interface CreateOrderInput {
   addressId: string
@@ -30,6 +33,25 @@ export interface CreateOrderInput {
 const MAX_FILES_PER_ITEM = 3
 const MAX_SIZE_PER_ITEM = 15 * 1024 * 1024 // 15MB
 
+const createOrderSchema = z.object({
+  addressId: z.string().min(1),
+  items: z.array(z.object({
+    product_id: z.string().min(1),
+    quantity: z.number().int().positive(),
+    price: z.number().nonnegative(),
+    printing_type: z.string().optional(),
+    artwork_urls: z.array(z.string()).nullable().optional(),
+    artwork_sizes: z.array(z.number()).nullable().optional(),
+    printing_instructions: z.string().nullable().optional(),
+    is_temp: z.boolean().optional(),
+  })).min(1, "Order must contain at least one item"),
+  totalAmount: z.number().nonnegative(),
+  paymentMethod: z.string().min(1),
+  shippingMethod: z.enum(['delivery', 'pickup']),
+  shippingCost: z.number().nonnegative(),
+  sessionId: z.string().optional(),
+})
+
 /**
  * Validate artwork limits for an order item
  */
@@ -49,7 +71,15 @@ function validateArtworkLimits(
   }
 }
 
-export async function createOrder(orderData: CreateOrderInput) {
+export async function createOrder(rawOrderData: CreateOrderInput) {
+  const parsed = createOrderSchema.safeParse(rawOrderData)
+  if (!parsed.success) throw new Error('Invalid order payload')
+  const orderData = parsed.data
+
+  const ip = (await headers()).get('x-forwarded-for') || 'unknown'
+  const { success } = Ratelimit ? await (Ratelimit as any).limit(`create_order_${ip}`) : { success: true }
+  if (!success) throw new Error('Too many attempts. Please try again later.')
+
   const supabase = await createClient()
   
   const { data: { user } } = await supabase.auth.getUser()

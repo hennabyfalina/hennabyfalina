@@ -2,11 +2,13 @@
 
 'use client'
 
+import { createPortal } from 'react-dom'
 import { useState, useEffect, useRef } from 'react'
 import { uploadProductImage, deleteProductImage, getPublicUrl } from '@/lib/supabase/storage'
 import { showToast } from '@/components/ui/Toast' // 🚨 Utilizing Global Toast
 import { PRODUCT_STATUS_FILTERS } from '@/lib/constants' // 🚨 DRY Architecture
 import { UploadCloud, X, AlertTriangle, CheckCircle2, Image as ImageIcon } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 
 interface ProductFormData {
   name: string
@@ -93,6 +95,8 @@ export default function ProductForm({
   onSubmit,
   isLoading = false,
 }: ProductFormProps) {
+  const { isSuperAdmin } = useAuth()
+
   const [initialFormData] = useState<ProductFormData>({
     name: initialData.name || '',
     slug: initialData.slug || '',
@@ -447,7 +451,11 @@ export default function ProductForm({
                         return (
                           <div key={path} className="relative group cursor-move" draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', idx.toString())} onDrop={(e) => { e.preventDefault(); reorderImages(parseInt(e.dataTransfer.getData('text/plain')), idx); }} onDragOver={(e) => e.preventDefault()}>
                             {publicUrl ? <img src={publicUrl} alt={`Product image ${idx + 1}`} title={`Product image ${idx + 1}`} className="w-24 h-24 object-cover rounded-2xl border border-[#333538] opacity-90 group-hover:opacity-100 transition-opacity" /> : <div className="w-24 h-24 bg-[#131314] rounded-2xl flex items-center justify-center border border-[#333538]"><ImageIcon className="w-6 h-6 text-[#565959] animate-pulse" /></div>}
-                            <button type="button" onClick={() => setDeleteConfirmPath(path)} className="absolute -top-2 -right-2 bg-[#4D2628] border border-[#8C1D18] text-[#F2B8B5] rounded-full w-7 h-7 flex items-center justify-center text-sm shadow-lg hover:bg-red-600 hover:text-white transition-all cursor-pointer z-10">✕</button>
+                            {isSuperAdmin ? (
+                              <button type="button" onClick={() => setDeleteConfirmPath(path)} className="absolute -top-2 -right-2 bg-[#4D2628] border border-[#8C1D18] text-[#F2B8B5] rounded-full w-7 h-7 flex items-center justify-center text-sm shadow-lg hover:bg-red-600 hover:text-white transition-all cursor-pointer z-10">✕</button>
+                            ) : (
+                              <div className="absolute -top-2 -right-2 bg-[#131314] border border-[#333538] text-[#8E9196] rounded-full w-7 h-7 flex items-center justify-center text-xs z-10">🔒</div>
+                            )}
                             <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black/80 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{idx + 1}</div>
                           </div>
                         )
@@ -541,7 +549,7 @@ export default function ProductForm({
       {/* 🚨 GEMINI INLINE MODALS 🚨 */}
       
       {/* Delete Image Confirm */}
-      {deleteConfirmPath && (
+      {deleteConfirmPath && createPortal(
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-[#1E1F20] border border-[#333538] rounded-[32px] p-7 md:p-8 max-w-sm w-full animate-in zoom-in-95 text-center flex flex-col items-center">
             <div className="w-14 h-14 bg-[#4D2628] border border-[#8C1D18] text-[#F2B8B5] rounded-full flex items-center justify-center mb-5">
@@ -554,7 +562,8 @@ export default function ProductForm({
               <button onClick={() => setDeleteConfirmPath(null)} className="w-full py-3.5 border border-[#333538] text-[#E3E3E3] hover:bg-[#282A2C] font-medium rounded-full transition-colors cursor-pointer">Cancel</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Save Product Confirm */}

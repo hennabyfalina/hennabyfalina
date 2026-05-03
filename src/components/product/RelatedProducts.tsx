@@ -34,7 +34,7 @@ export default function RelatedProducts({ currentProductId, categoryId }: Relate
     return (
       <div className="pb-8">
         <h2 className="font-bold text-gray-900 text-lg mb-4 leading-tight">Customers who viewed this item <span className="sm:inline block">also viewed</span></h2>
-        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6">
+        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 touch-pan-x overscroll-contain-x snap-carousel">
           {[...Array(6)].map((_, i) => (
             <div key={i} className="animate-pulse w-[220px] flex-shrink-0">
               <div className="aspect-square bg-gray-100 rounded-sm mb-3"></div>
@@ -53,7 +53,7 @@ export default function RelatedProducts({ currentProductId, categoryId }: Relate
     <div className="pb-8">
       <h2 className="font-bold text-gray-900 text-lg mb-4 leading-tight">Customers who viewed this item <span className="sm:inline block">also viewed</span></h2>
       
-      <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 snap-x">
+      <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 touch-pan-x overscroll-contain-x snap-carousel">
         {products.map((product) => (
           <div key={product.id} className="w-[220px] flex-shrink-0 snap-start h-full">
              {/* Reusing the exact logic and design of your main ProductCard */}

@@ -6,6 +6,31 @@ import { cache } from 'react'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { Product } from '@/types/database.types'
 import { uploadProductImage, getPublicUrl, deleteProductImage } from '@/lib/supabase/storage'
+import { verifyAdmin } from '@/lib/admin-auth'
+import { z } from 'zod'
+
+const productMutationSchema = z.object({
+  name: z.string().min(1),
+  slug: z.string().min(1),
+  description: z.string().nullable().optional(),
+  price: z.number().nonnegative(),
+  selling_price: z.number().nonnegative().nullable().optional(),
+  bulk_price: z.number().nonnegative().nullable().optional(),
+  bulk_min_quantity: z.number().int().positive().nullable().optional(),
+  stock: z.number().int().nonnegative(),
+  category_id: z.string().nullable().optional(),
+  images: z.array(z.string()).optional(),
+  is_active: z.boolean().optional(),
+  sku: z.string().nullable().optional(),
+  weight: z.number().nonnegative().nullable().optional(),
+  dimensions: z.any().nullable().optional(),
+  meta_title: z.string().nullable().optional(),
+  meta_description: z.string().nullable().optional(),
+  rating: z.number().min(0).max(5).nullable().optional(),
+  review_count: z.number().int().nonnegative().nullable().optional(),
+  frequently_bought_together: z.array(z.string()).optional(),
+  is_featured: z.boolean().optional()
+})
 
 // Cache for products
 let productsCache: Product[] | null = null
@@ -139,15 +164,19 @@ export const getProductWithSignedUrls = cache(async (slug: string): Promise<Prod
 })
 
 export async function createProduct(productData: Omit<Product, 'id' | 'created_at' | 'updated_at'>): Promise<Product> {
+  const { authorized } = await verifyAdmin(['admin', 'super_admin'])
+  if (!authorized) throw new Error('Unauthorized')
+
+  const parsed = productMutationSchema.parse(productData)
   const supabase = await createServerClient()
-  const { images, price, selling_price, bulk_price, bulk_min_quantity, ...rest } = productData
+  const { images, price, selling_price, bulk_price, bulk_min_quantity, ...rest } = parsed
   
   const { data: existing } = await supabase.from('products').select('id').eq('slug', rest.slug).single()
   if (existing) throw new Error(`Product with slug "${rest.slug}" already exists`)
   
   const { data, error } = await supabase
     .from('products')
-    .insert({ ...rest, price, selling_price, bulk_price, bulk_min_quantity, images: images || [] })
+    .insert({ ...rest, price, selling_price, bulk_price, bulk_min_quantity, images: images || [] } as any)
     .select().single()
 
   if (error) throw error
@@ -156,8 +185,12 @@ export async function createProduct(productData: Omit<Product, 'id' | 'created_a
 }
 
 export async function updateProduct(id: string, updates: Partial<Product>): Promise<Product> {
+  const { authorized } = await verifyAdmin(['admin', 'super_admin'])
+  if (!authorized) throw new Error('Unauthorized')
+
+  const parsed = productMutationSchema.partial().parse(updates)
   const supabase = await createServerClient()
-  const { images: newImages, price, selling_price, bulk_price, bulk_min_quantity, ...rest } = updates
+  const { images: newImages, price, selling_price, bulk_price, bulk_min_quantity, ...rest } = parsed
   
   if (rest.slug) {
     const { data: existing } = await supabase.from('products').select('id').eq('slug', rest.slug).neq('id', id).single()
@@ -174,7 +207,7 @@ export async function updateProduct(id: string, updates: Partial<Product>): Prom
   
   const { data, error } = await supabase
     .from('products')
-    .update({ ...rest, price, selling_price, bulk_price, bulk_min_quantity, images: newImages || [], updated_at: new Date().toISOString() })
+    .update({ ...rest, price, selling_price, bulk_price, bulk_min_quantity, images: newImages || [], updated_at: new Date().toISOString() } as any)
     .eq('id', id).select().single()
 
   if (error) throw error
@@ -183,6 +216,9 @@ export async function updateProduct(id: string, updates: Partial<Product>): Prom
 }
 
 export async function deleteProduct(id: string): Promise<void> {
+  const { authorized } = await verifyAdmin(['super_admin'])
+  if (!authorized) throw new Error('Forbidden. Super Admin access required.')
+
   const supabase = await createServerClient()
   const { data: product } = await supabase.from('products').select('images').eq('id', id).single()
   
@@ -328,9 +364,13 @@ export const getOutOfStockProducts = cache(async (): Promise<Product[]> => {
 })
 
 export async function bulkUpdateProductStatus(productIds: string[], status: 'draft' | 'published' | 'archived'): Promise<void> {
+  const { authorized } = await verifyAdmin(['admin', 'super_admin'])
+  if (!authorized) throw new Error('Unauthorized')
+  
+  const parsedIds = z.array(z.string().min(1)).parse(productIds)
   const supabase = await createServerClient()
   const is_active = status === 'published'
-  const { error } = await supabase.from('products').update({ is_active, updated_at: new Date().toISOString() }).in('id', productIds)
+  const { error } = await supabase.from('products').update({ is_active, updated_at: new Date().toISOString() }).in('id', parsedIds)
   if (error) throw error
   invalidateCache()
 }

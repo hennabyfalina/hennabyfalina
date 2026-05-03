@@ -188,7 +188,7 @@ export default function QuickViewModal() {
             {/* B2B Dynamic Stock Alerts */}
             {isOutOfStock ? (
               <p className="text-red-600 font-bold text-sm">Currently unavailable.</p>
-            ) : (product.stock !== undefined && product.stock > 0 && product.stock <= (retailMin + 150)) ? (
+            ) : (product.stock !== undefined && product.stock <= 50) ? (
               <p className="text-[#B12704] font-bold text-sm">Only {safeStock} left in stock - order soon.</p>
             ) : (
               <p className="text-green-700 font-bold text-sm">In Stock.</p>

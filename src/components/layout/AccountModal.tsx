@@ -2,11 +2,12 @@
 
 'use client'
 
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { X } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { signOut } from '@/services/auth.service'
-import { useState } from 'react'
 
 interface AccountModalProps {
   isOpen: boolean
@@ -17,6 +18,11 @@ export default function AccountModal({ isOpen, onClose }: AccountModalProps) {
   const { user, isAdmin } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   if (!isOpen) return null
 
@@ -158,7 +164,7 @@ export default function AccountModal({ isOpen, onClose }: AccountModalProps) {
       </div>
 
       {/* Logout Confirmation Modal */}
-      {showLogoutConfirm && (
+      {showLogoutConfirm && mounted && createPortal(
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowLogoutConfirm(false)} />
           <div className="relative bg-white rounded-md shadow-2xl p-6 w-full max-w-sm border border-gray-200 animate-in fade-in zoom-in duration-200">
@@ -167,20 +173,21 @@ export default function AccountModal({ isOpen, onClose }: AccountModalProps) {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 py-2 px-4 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-sm text-sm font-medium transition-colors"
+                className="flex-1 py-2 px-4 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-sm text-sm font-medium transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleLogout}
                 disabled={isLoggingOut}
-                className="flex-1 py-2 px-4 bg-red-600 text-white rounded-sm text-sm font-medium hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50 border border-red-700"
+                className="flex-1 py-2 px-4 bg-red-600 text-white rounded-sm text-sm font-medium hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50 border border-red-700 cursor-pointer"
               >
                 {isLoggingOut ? 'Signing out...' : 'Sign out'}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )

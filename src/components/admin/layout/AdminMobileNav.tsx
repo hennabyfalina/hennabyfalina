@@ -5,6 +5,7 @@
 import Link from 'next/link'
 import { Menu, X, Store, LogOut } from 'lucide-react'
 import { ADMIN_NAV_ITEMS } from '@/config/admin'
+import { useAuth } from '@/hooks/useAuth'  // ✅ Added
 
 interface AdminMobileNavProps {
   pathname: string
@@ -23,12 +24,28 @@ export default function AdminMobileNav({
   onLeaveAdmin,
   onSignOut
 }: AdminMobileNavProps) {
+  const { isSuperAdmin } = useAuth()  // ✅ Get role
+
+  // ✅ Filter nav items based on role (hide Settings & Users from regular admins)
+  const filteredNavItems = ADMIN_NAV_ITEMS.filter(item => {
+    if (isSuperAdmin) return true
+    const lowerHref = item.href.toLowerCase()
+    if (lowerHref.includes('settings')) return false
+    if (lowerHref.includes('users')) return false
+    return true
+  })
+
+  // Bottom bar uses first 4 items from filtered list
+  const bottomItems = filteredNavItems.slice(0, 4)
+  // Remaining items go to the drawer
+  const drawerItems = filteredNavItems.slice(4)
+
   return (
     <>
       {/* 🚨 GEMINI FLOATING CURVED NAV 🚨 */}
       <nav className="md:hidden fixed bottom-5 left-4 right-4 z-40 bg-[#1E1F20]/95 backdrop-blur-xl border border-[#333538] rounded-[32px] shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
         <div className="flex items-center justify-around px-2 py-2">
-          {ADMIN_NAV_ITEMS.slice(0, 4).map((item) => {
+          {bottomItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname.includes(item.href)
             return (
@@ -65,7 +82,7 @@ export default function AdminMobileNav({
             </div>
             
             <div className="grid grid-cols-2 gap-3">
-              {ADMIN_NAV_ITEMS.slice(4).map((item) => {
+              {drawerItems.map((item) => {
                 const Icon = item.icon
                 const isActive = pathname.includes(item.href)
                 return (

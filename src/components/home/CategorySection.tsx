@@ -73,8 +73,12 @@ export default function CategorySection({ categories }: CategorySectionProps) {
           </button>
         )}
         
-        {/* Horizontal Scroll Carousel */}
-        <div ref={scrollContainerRef} onScroll={checkScroll} className="flex overflow-x-auto gap-4 sm:gap-6 no-scrollbar pb-2 touch-pan-x overscroll-contain-x snap-carousel scroll-smooth">
+        {/* 🚀 BUTTER-SMOOTH: Added touch-pan-x, snap-carousel, scroll-smooth */}
+        <div 
+          ref={scrollContainerRef} 
+          onScroll={checkScroll} 
+          className="flex overflow-x-auto gap-4 sm:gap-6 no-scrollbar pb-2 touch-pan-x overscroll-contain-x snap-carousel scroll-smooth"
+        >
           {categories.map((category) => {
             let imgUrl = '/placeholder-category.svg'
             if (category.image) {
@@ -87,7 +91,7 @@ export default function CategorySection({ categories }: CategorySectionProps) {
               <Link
                 key={category.id}
                 href={`/products?category=${category.id}`}
-                className="flex flex-col items-center gap-3 group min-w-[100px] sm:min-w-[120px] flex-shrink-0"
+                className="flex flex-col items-center gap-3 group min-w-[100px] sm:min-w-[120px] flex-shrink-0 snap-start"
               >
                 <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full bg-[#F7F8F8] border border-gray-100 overflow-hidden relative flex items-center justify-center transition-all duration-300 group-hover:border-[#FBD18E] group-hover:shadow-md">
                   <div className="relative w-full h-full p-3">

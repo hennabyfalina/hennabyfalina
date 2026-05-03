@@ -1,15 +1,16 @@
 // src/config/admin.ts
 
-import { LayoutDashboard, Package, ShoppingCart, Users, Tags, Boxes } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingCart, Users, Tags, Boxes, IndianRupee } from 'lucide-react'
 
 // 1. Centralized Admin Navigation
 export const ADMIN_NAV_ITEMS = [
-  { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
-  { href: '/admin/products', label: 'Products', icon: Package },
-  { href: '/admin/inventory', label: 'Inventory', icon: Boxes },
-  { href: '/admin/categories', label: 'Categories', icon: Tags },
-  { href: '/admin/customers', label: 'Customers', icon: Users },
+  { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'super_admin'] },
+  { href: '/admin/orders', label: 'Orders', icon: ShoppingCart, roles: ['admin', 'super_admin'] },
+  { href: '/admin/products', label: 'Products', icon: Package, roles: ['admin', 'super_admin'] },
+  { href: '/admin/inventory', label: 'Inventory', icon: Boxes, roles: ['admin', 'super_admin'] },
+  { href: '/admin/categories', label: 'Categories', icon: Tags, roles: ['admin', 'super_admin'] },
+  { href: '/admin/customers', label: 'Customers', icon: Users, roles: ['admin', 'super_admin'] },
+  { href: '/admin/finance', label: 'Finance', icon: IndianRupee, roles: ['admin', 'super_admin'] }, // ✅ Visible to both, but page restricts
 ]
 
 // 2. Strict Gemini UI Color Dictionary

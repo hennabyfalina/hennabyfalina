@@ -8,7 +8,8 @@ import StatsCard from '@/components/admin/StatsCard'
 import AdminLoader from '@/components/admin/AdminLoader'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { showToast } from '@/components/ui/Toast'
-import { Wallet, IndianRupee, TrendingDown, FileText, Download, Search, Filter, ReceiptText } from 'lucide-react'
+import { Wallet, IndianRupee, TrendingDown, FileText, Download, Search, Filter, ReceiptText, Lock } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 
 // 🚨 IMPORTED DRY CONSTANTS 🚨
 import { FINANCE_TRANSACTION_TYPES, FINANCE_SORT_OPTIONS } from '@/lib/constants'
@@ -28,6 +29,7 @@ interface LedgerEntry {
 const GST_RATE = 0.18 // 18% Standard GST for packaging materials
 
 export default function AdminFinance() {
+  const { isSuperAdmin, isLoading: authLoading } = useAuth()
   const [ledger, setLedger] = useState<LedgerEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
@@ -124,6 +126,27 @@ export default function AdminFinance() {
   const totalRefunds = ledger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.total_amount, 0)
   const netIncome = grossInflow - totalRefunds
   const estimatedGST = ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.gst_amount, 0)
+
+  if (authLoading) {
+    return <AdminLoader message="Verifying permissions..." />
+  }
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-in fade-in zoom-in-95 duration-300">
+        <div className="w-20 h-20 bg-[#3C1E0A] border border-[#f90400] rounded-full flex items-center justify-center mb-6 shadow-lg shadow-orange-900/20">
+          <Lock className="w-10 h-10 text-[#f90400]" />
+        </div>
+        <h2 className="text-2xl font-medium text-[#E3E3E3] mb-3 tracking-tight">Restricted Zone</h2>
+        <p className="text-[#8E9196] max-w-md mx-auto leading-relaxed mb-8">
+          Financial auditing and ledger operations are strictly limited to Super Administrators.
+        </p>
+        <button onClick={() => window.history.back()} className="px-6 py-3 bg-[#1E1F20] text-[#E3E3E3] border border-[#333538] hover:border-[#A8C7FA] hover:bg-[#282A2C] rounded-full font-medium transition-colors shadow-sm cursor-pointer">
+          Return to Dashboard
+        </button>
+      </div>
+    )
+  }
 
   if (isLoading) {
     return <AdminLoader message="Reconciling financial ledger..." />

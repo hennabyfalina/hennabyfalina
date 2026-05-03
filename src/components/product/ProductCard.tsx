@@ -164,12 +164,11 @@ export default function ProductCard({ product, priority = false, searchQuery = '
               FREE Delivery by <span className="font-bold">{siteConfig.shortName}</span>
             </div>
 
-            {/* B2B Dynamic Stock Alerts */}
-            {isOutOfStock ? (
-              <span className="text-xs font-bold text-[#B12704] block mt-1">Currently unavailable.</span>
-            ) : (product.stock !== undefined && product.stock > 0 && product.stock <= (retailMin + 150)) ? (
-              <span className="text-xs font-bold text-[#B12704] block mt-1">Only {safeStock} left in stock - order soon.</span>
-            ) : null}
+            {/* Stock Alerts */}
+            {isOutOfStock && (
+            <span className="text-xs font-bold text-[#B12704] block mt-1">Currently unavailable.</span>
+            )}
+
           </div>
         </div>
       </Link>

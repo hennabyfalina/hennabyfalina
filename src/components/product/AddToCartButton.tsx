@@ -70,6 +70,10 @@ export default function AddToCartButton({
   const [isAdding, setIsAdding] = useState(false)
   const addItem = useCartStore((state) => state.addItem)
 
+  const existingItem = useCartStore((state) => 
+    state.findCartItem(product.id, effectivePrintingType)
+  )
+
   useEffect(() => {
     setQuantity(effectiveMinQuantity)
     if (onQuantityChange) onQuantityChange(effectiveMinQuantity)
@@ -80,16 +84,14 @@ export default function AddToCartButton({
     if (onQuantityChange) onQuantityChange(newQuantity)
   }
 
-  // 🚨 VALIDATION FUNCTION
   const validateCustomPrint = (): { valid: boolean; message?: string } => {
     const isCustomPrint = effectivePrintingType.includes('Single Color') || 
                           effectivePrintingType.includes('Multi Color')
     
     if (!isCustomPrint) {
-      return { valid: true } // No validation needed for retail/no-print
+      return { valid: true }
     }
 
-    // 1. Check terms agreement
     if (!effectiveIsAgreementChecked) {
       return { 
         valid: false, 
@@ -97,7 +99,6 @@ export default function AddToCartButton({
       }
     }
 
-    // 2. Check artwork files (required for both Single and Multi Color)
     if (!effectiveArtworkUrls || effectiveArtworkUrls.length === 0) {
       return { 
         valid: false, 
@@ -117,7 +118,6 @@ export default function AddToCartButton({
       return
     }
 
-    // 🚨 RUN VALIDATION
     const validation = validateCustomPrint()
     if (!validation.valid) {
       showToast(validation.message!, product.id)
@@ -207,11 +207,14 @@ export default function AddToCartButton({
           className={`flex items-center justify-center gap-2 transition-all duration-300 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer ${buttonClasses}`}
         >
           {isAdding ? (
-            <><div className="w-4 h-4 border-2 border-gray-800 border-t-transparent rounded-full animate-spin" /><span>Adding...</span></>
+            <><div className="w-4 h-4 border-2 border-gray-800 border-t-transparent rounded-full animate-spin" /><span>{existingItem ? 'Updating...' : 'Adding...'}</span></>
           ) : requireCustomizationChoice ? (
             <span>View Options</span>
           ) : (
-            <span>{isOutOfStock ? 'Currently Unavailable' : 'Add to Cart'}</span>
+            // ✅ Wrap the conditional button text in ClientOnly to prevent hydration mismatch
+            <ClientOnly fallback={<span>Add to Cart</span>}>
+              {existingItem ? <span>Update in Cart</span> : <span>{isOutOfStock ? 'Currently Unavailable' : 'Add to Cart'}</span>}
+            </ClientOnly>
           )}
         </button>
         {!isOutOfStock && showQuantitySelector && (

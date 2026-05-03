@@ -75,6 +75,7 @@ export default function AdminGatePage() {
       const response = await verifyAdminGate(code)
       
       if (response.success) {
+        document.cookie = `admin_gate_passed=true; path=/; max-age=${8 * 60 * 60}; SameSite=Lax; Secure`
         showToast('Access granted. Initializing workspace...', 'success')
         setTimeout(() => {
           router.push('/admin/dashboard')

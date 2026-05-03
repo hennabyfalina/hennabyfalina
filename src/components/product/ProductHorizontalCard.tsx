@@ -106,7 +106,7 @@ export default function ProductHorizontalCard({ product, priority = false, searc
   }
 
   return (
-    <div className="bg-white p-3 border-b border-gray-200 flex flex-row gap-3 overflow-hidden shadow-sm rounded-sm relative">
+    <div className="bg-white p-3 border-b border-gray-200 flex flex-row gap-3 overflow-hidden shadow-sm rounded-sm relative active:scale-[0.99] transition-transform duration-100">
       
       <Link href={`/product/${product.slug}`} className="block shrink-0 relative w-[120px] h-[120px] bg-[#F8F8F8] rounded-sm overflow-hidden p-2 flex items-center justify-center">
         <div className="w-full h-full relative">
@@ -168,12 +168,10 @@ export default function ProductHorizontalCard({ product, priority = false, searc
         </div>
 
         <div className="flex flex-col gap-2 mt-2">
-          {/* 🚨 B2B Dynamic Stock Alerts */}
-          {isOutOfStock ? (
-            <span className="text-xs font-bold text-[#B12704]">Currently unavailable.</span>
-          ) : safeStock < (retailMin + 150) ? (
-            <span className="text-xs font-bold text-[#B12704]">Only {safeStock} left in stock - order soon.</span>
-          ) : null}
+          {/* 🚨 Stock Alerts */}
+          {isOutOfStock && (
+          <span className="text-xs font-bold text-[#B12704] block mt-1">Currently unavailable.</span>
+          )}
           
           <div className="w-full flex items-center gap-2">
             <div className="flex-1 min-w-0">

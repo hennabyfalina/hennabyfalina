@@ -2,32 +2,20 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { verifyAdmin } from '@/lib/admin-auth'
 import Razorpay from 'razorpay'
+import { z } from 'zod'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { authorized, response } = await verifyAdmin(['admin', 'super_admin'])
+    if (!authorized) return response!
+
     const { id } = await params
-
     const supabase = await createClient()
-    
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { data: userData } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .maybeSingle()
-
-    if (userData?.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
 
     const { data: order, error } = await supabase
       .from('orders')
@@ -81,39 +69,57 @@ export async function GET(
   }
 }
 
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { authorized, response } = await verifyAdmin(['super_admin'])
+    if (!authorized) return response!
+
+    const { id } = await params
+    const supabase = await createClient()
+
+    const { error } = await supabase
+      .from('orders')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || 'Failed to delete order' }, { status: 500 })
+  }
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { authorized, response } = await verifyAdmin(['admin', 'super_admin'])
+    if (!authorized) return response!
+
     const { id } = await params
     // 🚨 Extracting Tracking Data from Request 🚨
-    const { status, reason, courier_name, tracking_number, tracking_url } = await request.json()
+    const orderPatchSchema = z.object({
+      status: z.string().min(1),
+      reason: z.string().optional(),
+      courier_name: z.string().optional(),
+      tracking_number: z.string().optional(),
+      tracking_url: z.string().url().optional().or(z.literal('').transform(() => undefined)),
+    })
 
-    if (!status) {
-      return NextResponse.json(
-        { error: 'Status is required' },
-        { status: 400 }
-      )
+    const rawBody = await request.json()
+    const parsed = orderPatchSchema.safeParse(rawBody)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid input', details: parsed.error.format() }, { status: 400 })
     }
+
+    const { status, reason, courier_name, tracking_number, tracking_url } = parsed.data
 
     const supabase = await createClient()
-    
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { data: userData } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .maybeSingle()
-
-    if (userData?.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
 
     // ─── REFUND PROCESSING LOGIC ──────────────
     if (status === 'cancelled' || status === 'returned') {

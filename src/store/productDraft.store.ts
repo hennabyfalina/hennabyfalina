@@ -2,6 +2,8 @@
 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import { B2B_CONSTANTS } from '@/config/b2b-rules'
+import type { CartItem } from '@/store/cart.store'
 
 export interface ArtworkFile {
   path: string
@@ -19,6 +21,7 @@ export interface ProductDraft {
   minQty: number
   days: number
   redirectedForLogin?: boolean  // flag to show friendly message after login
+  hydratedFromCart?: boolean    // flag to track source
 }
 
 interface ProductDraftState {
@@ -27,6 +30,7 @@ interface ProductDraftState {
   setDraft: (productId: string, draft: ProductDraft) => void
   clearDraft: (productId: string) => void
   setRedirectedFlag: (productId: string, value: boolean) => void
+  hydrateFromCart: (productId: string, cartItem: CartItem) => void
 }
 
 export const useProductDraftStore = create<ProductDraftState>()(
@@ -61,6 +65,24 @@ export const useProductDraftStore = create<ProductDraftState>()(
             },
           }
         }),
+
+      hydrateFromCart: (productId, cartItem) => {
+        const draft: ProductDraft = {
+          printingType: cartItem.printing_type || 'Retail (Readymade)',
+          instructions: cartItem.printing_instructions || '',
+          artworkUrls: cartItem.artwork_urls || [],
+          artworks: [], // Cart doesn't store full artwork objects
+          isAgreementChecked: true,
+          minQty: cartItem.quantity >= B2B_CONSTANTS.WHOLESALE_MIN_QTY
+            ? B2B_CONSTANTS.WHOLESALE_MIN_QTY
+            : B2B_CONSTANTS.RETAIL_MIN_QTY,
+          days: B2B_CONSTANTS.STANDARD_DELIVERY_DAYS,
+          hydratedFromCart: true,
+        }
+        set((state) => ({
+          drafts: { ...state.drafts, [productId]: draft },
+        }))
+      },
     }),
     {
       name: 'razack-product-drafts', // localStorage key

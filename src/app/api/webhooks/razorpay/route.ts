@@ -29,8 +29,17 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get('x-razorpay-signature')
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET
 
-    if (!secret || signature !== crypto.createHmac('sha256', secret).update(body).digest('hex')) {
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+    if (!secret || !signature) {
+      return NextResponse.json({ error: 'Missing signature or secret' }, { status: 401 })
+    }
+
+    // Generate expected signature and compare in constant time to prevent timing attacks
+    const expectedSignature = crypto.createHmac('sha256', secret).update(body).digest('hex')
+    const expectedBuffer = Buffer.from(expectedSignature, 'hex')
+    const signatureBuffer = Buffer.from(signature, 'hex')
+
+    if (expectedBuffer.length !== signatureBuffer.length || !crypto.timingSafeEqual(expectedBuffer, signatureBuffer)) {
+      return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 })
     }
 
     const event = JSON.parse(body)

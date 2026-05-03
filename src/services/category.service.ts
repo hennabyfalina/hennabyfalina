@@ -2,6 +2,8 @@
 
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { getPublicUrl, deleteProductImage } from '@/lib/supabase/storage'
+import { z } from 'zod'
+import { verifyAdmin } from '@/lib/admin-auth'
 
 export interface Category {
   meta_title: string
@@ -48,6 +50,15 @@ function addPublicUrlToCategory<T extends Category>(category: T): T {
 function addPublicUrlsToCategories<T extends Category>(categories: T[]): T[] {
   return categories.map(cat => addPublicUrlToCategory(cat))
 }
+
+const categorySchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  slug: z.string().min(1, "Slug is required"),
+  description: z.string().optional().nullable(),
+  image: z.string().optional().nullable(),
+  parent_id: z.string().optional().nullable(),
+  is_active: z.boolean().optional(),
+})
 
 // Fetch all categories with product counts
 export async function getCategoriesWithCounts(useCache: boolean = true): Promise<Category[]> {
@@ -189,17 +200,22 @@ export async function createCategory(data: {
   parent_id?: string | null
   is_active?: boolean
 }): Promise<Category> {
+  const { authorized } = await verifyAdmin(['admin', 'super_admin'])
+  if (!authorized) throw new Error('Unauthorized')
+
+  const parsed = categorySchema.parse(data)
+
   const supabase = await createServerClient()
   
   // Check if slug already exists
   const { data: existing } = await supabase
     .from('categories')
     .select('id')
-    .eq('slug', data.slug)
+    .eq('slug', parsed.slug)
     .single()
   
   if (existing) {
-    throw new Error(`Category with slug "${data.slug}" already exists`)
+    throw new Error(`Category with slug "${parsed.slug}" already exists`)
   }
   
   // Get max display_order for new category
@@ -215,12 +231,12 @@ export async function createCategory(data: {
   const { data: category, error } = await supabase
     .from('categories')
     .insert({
-      name: data.name,
-      slug: data.slug,
-      description: data.description,
-      image: data.image,
-      parent_id: data.parent_id,
-      is_active: data.is_active ?? true,
+      name: parsed.name,
+      slug: parsed.slug,
+      description: parsed.description,
+      image: parsed.image,
+      parent_id: parsed.parent_id,
+      is_active: parsed.is_active ?? true,
       display_order: newDisplayOrder
     })
     .select()
@@ -234,31 +250,44 @@ export async function createCategory(data: {
   return addPublicUrlToCategory(category)
 }
 
+const categoryUpdateSchema = z.object({
+  name: z.string().min(1).optional(),
+  slug: z.string().min(1).optional(),
+  description: z.string().optional().nullable(),
+  image: z.string().optional().nullable(),
+  parent_id: z.string().optional().nullable(),
+  is_active: z.boolean().optional(),
+})
+
 // Update category
 export async function updateCategory(
   id: string,
   updates: Partial<Category>
 ): Promise<Category> {
+  const { authorized } = await verifyAdmin(['admin', 'super_admin'])
+  if (!authorized) throw new Error('Unauthorized')
+
+  const parsed = categoryUpdateSchema.parse(updates)
   const supabase = await createServerClient()
   
   // If updating slug, check uniqueness
-  if (updates.slug) {
+  if (parsed.slug) {
     const { data: existing } = await supabase
       .from('categories')
       .select('id')
-      .eq('slug', updates.slug)
+      .eq('slug', parsed.slug)
       .neq('id', id)
       .single()
     
     if (existing) {
-      throw new Error(`Category with slug "${updates.slug}" already exists`)
+      throw new Error(`Category with slug "${parsed.slug}" already exists`)
     }
   }
   
   const { data, error } = await supabase
     .from('categories')
     .update({
-      ...updates,
+      ...parsed,
       updated_at: new Date().toISOString()
     })
     .eq('id', id)
@@ -275,6 +304,9 @@ export async function updateCategory(
 
 // Delete category
 export async function deleteCategory(id: string): Promise<void> {
+  const { authorized } = await verifyAdmin(['super_admin'])
+  if (!authorized) throw new Error('Forbidden. Super Admin access required.')
+
   const supabase = await createServerClient()
   
   // Check if category has products

@@ -1,7 +1,6 @@
 razack-packaging-centre/
 ├── public/
 │   ├── cat.jpg
-│   ├── fallback-ce627215c0e4a9af.js
 │   ├── file.svg
 │   ├── globe.svg
 │   ├── icon-192x192.png
@@ -13,10 +12,7 @@ razack-packaging-centre/
 │   ├── razorpay-icon.jpg
 │   ├── Roboto-Bold.ttf
 │   ├── Roboto-Regular.ttf
-│   ├── sw.js
-│   ├── swe-worker-5c72df51bb1f6ee0.js
-│   ├── window.svg
-│   └── workbox-f1770938.js
+│   └── window.svg
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/
@@ -114,6 +110,10 @@ razack-packaging-centre/
 │   │   │   ├── admin/
 │   │   │   │   ├── artwork/
 │   │   │   │   │   └── route.ts
+│   │   │   │   ├── customers/
+│   │   │   │   │   ├── [id]/
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   └── route.ts
 │   │   │   │   ├── inventory/
 │   │   │   │   │   └── route.ts
 │   │   │   │   ├── orders/
@@ -200,6 +200,7 @@ razack-packaging-centre/
 │   │   │   ├── MoreMenuModal.tsx
 │   │   │   └── Navbar.tsx
 │   │   ├── order/
+│   │   │   ├── ClearDraftsOnMount.tsx
 │   │   │   ├── InvoiceLink.tsx
 │   │   │   ├── PrintButton.tsx
 │   │   │   ├── RetryPaymentButton.tsx
@@ -235,10 +236,12 @@ razack-packaging-centre/
 │   │   ├── ui/
 │   │   │   ├── AnimatedIcon.tsx
 │   │   │   ├── Avatar.tsx
+│   │   │   ├── ClientOnly.tsx
 │   │   │   ├── Container.tsx
 │   │   │   ├── GeminiToast.tsx
 │   │   │   ├── InstallPrompt.tsx
 │   │   │   ├── Loader.tsx
+│   │   │   ├── ManualUpdateButton.tsx
 │   │   │   ├── Modal.tsx
 │   │   │   ├── OrderStatusBadge.tsx
 │   │   │   ├── PhoneInput.tsx
@@ -247,6 +250,7 @@ razack-packaging-centre/
 │   │   │   ├── PWAUpdater.tsx
 │   │   │   ├── Section.tsx
 │   │   │   ├── SortDropdown.tsx
+│   │   │   ├── SplashScreen.tsx
 │   │   │   └── Toast.tsx
 │   │   └── CartSyncProvider.tsx
 │   ├── config/
@@ -256,7 +260,8 @@ razack-packaging-centre/
 │   │   └── site.ts
 │   ├── hooks/
 │   │   ├── useAuth.ts
-│   │   └── useCart.ts
+│   │   ├── useCart.ts
+│   │   └── useIdleTimeout.ts
 │   ├── lib/
 │   │   ├── supabase/
 │   │   │   ├── admin.ts
@@ -264,7 +269,9 @@ razack-packaging-centre/
 │   │   │   ├── client.ts
 │   │   │   ├── server.ts
 │   │   │   └── storage.ts
+│   │   ├── admin-auth.ts
 │   │   ├── constants.ts
+│   │   ├── idempotency.ts
 │   │   ├── states.ts
 │   │   ├── tax.ts
 │   │   └── utils.ts
@@ -276,10 +283,12 @@ razack-packaging-centre/
 │   │   ├── order.service.ts
 │   │   ├── payment.service.ts
 │   │   ├── product.service.ts
+│   │   ├── route.ts
 │   │   ├── whatsapp.service.ts
 │   │   └── wishlist.service.ts
 │   ├── store/
 │   │   ├── cart.store.ts
+│   │   ├── productDraft.store.ts
 │   │   ├── quickview.store.ts
 │   │   └── wishlist.store.ts
 │   ├── types/
@@ -301,4 +310,5 @@ razack-packaging-centre/
 ├── postcss.config.mjs
 ├── README.md
 ├── tailwind.config.ts
-└── tsconfig.json
+├── tsconfig.json
+└── tsconfig.tsbuildinfo

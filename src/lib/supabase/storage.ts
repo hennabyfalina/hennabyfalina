@@ -1,4 +1,4 @@
-// lib/supabase/storage.ts
+// src/lib/supabase/storage.ts
 
 import { createClient } from './client'
 
@@ -17,6 +17,29 @@ export function getPublicUrl(path: string): string {
     return '/placeholder-product.svg'
   }
   return `${supabaseUrl}/storage/v1/object/public/products/${path}`
+}
+
+/**
+ * 🆕 Get product image URL – handles raw filenames and full paths
+ */
+export function getProductImageUrl(imagePath: string | null | undefined): string {
+  if (!imagePath) return '/placeholder-product.svg'
+  
+  // Already a full URL
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath
+  }
+  
+  // Already starts with / (local path)
+  if (imagePath.startsWith('/')) {
+    return imagePath
+  }
+  
+  // Check if the path already contains 'temp/'
+  const hasTempPrefix = imagePath.includes('temp/')
+  const normalizedPath = hasTempPrefix ? imagePath : `temp/${imagePath}`
+  
+  return getPublicUrl(normalizedPath)
 }
 
 /**
@@ -40,7 +63,6 @@ function validateFile(file: File): void {
  * @returns File path (e.g., "temp/123456_abc.jpg")
  */
 export async function uploadProductImage(file: File): Promise<string> {
-  // Validate file before upload
   validateFile(file)
 
   const supabase = createClient()
@@ -77,7 +99,6 @@ export async function uploadProductImage(file: File): Promise<string> {
  */
 export async function getSignedImageUrl(path: string, expiresIn: number = 3600): Promise<string | null> {
   try {
-    // For public buckets, just return the public URL
     return getPublicUrl(path)
   } catch (error) {
     console.error('Error getting image URL:', error)
@@ -92,7 +113,6 @@ export async function getSignedImageUrl(path: string, expiresIn: number = 3600):
 export async function deleteProductImage(path: string): Promise<void> {
   const supabase = createClient()
 
-  // Validate path to prevent directory traversal attacks
   if (path.includes('..') || path.includes('//')) {
     throw new Error('Invalid file path')
   }
