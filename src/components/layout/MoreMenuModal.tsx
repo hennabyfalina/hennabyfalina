@@ -2,6 +2,8 @@
 
 'use client'
 
+import { createPortal } from 'react-dom'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { X } from 'lucide-react'
 import { EXPLORE_LINKS } from '@/config/navigation'
@@ -12,21 +14,28 @@ interface MoreMenuModalProps {
 }
 
 export default function MoreMenuModal({ isOpen, onClose }: MoreMenuModalProps) {
-  if (!isOpen) return null
+  const [mounted, setMounted] = useState(false)
 
-  return (
-    <div className="fixed inset-0 z-[100] flex flex-col justify-end bg-black/60 backdrop-blur-sm md:hidden animate-fade-in">
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!isOpen || !mounted) return null
+
+  return createPortal(
+    <div className="z-[99999] flex flex-col justify-end bg-black/60 backdrop-blur-sm md:hidden animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh' }}>
       <div
         className="absolute inset-0"
         onClick={onClose}
         aria-hidden="true"
+        style={{ touchAction: 'none' }}
       />
-      <div className="relative bg-white rounded-t-md p-5 animate-slide-up pb-safe shadow-2xl">
+      <div className="relative bg-white rounded-t-md p-5 animate-slide-up pb-safe shadow-2xl z-10">
         <div className="flex justify-between items-center mb-2 border-b border-gray-200 pb-3">
           <h2 className="font-bold text-xl text-gray-900">Explore More</h2>
           <button
             onClick={onClose}
-            className="p-2 text-gray-500 hover:bg-gray-100 rounded-sm transition-colors"
+            className="p-2 text-gray-500 hover:bg-gray-100 rounded-sm transition-colors cursor-pointer"
             aria-label="Close menu"
           >
             <X className="w-5 h-5" />
@@ -49,6 +58,7 @@ export default function MoreMenuModal({ isOpen, onClose }: MoreMenuModalProps) {
           </ul>
         </nav>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

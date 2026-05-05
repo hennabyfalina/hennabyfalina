@@ -27,12 +27,12 @@ export default function ShopLayout({ children }: { children: ReactNode }) {
   const isCheckoutPage = pathname === '/checkout'
 
   return (
-    <div className="flex-1 flex flex-col w-full gpu-accelerated">
+    <div className="flex-1 flex flex-col w-full">
       <CartInitializer />
       <Suspense fallback={null}>
         <Navbar />
       </Suspense>
-      <main className={`flex-1 flex flex-col w-full relative min-h-screen overflow-x-hidden will-change-transform ${isCheckoutPage ? 'pb-0' : 'pb-24 md:pb-0'}`}>
+      <main className={`flex-1 flex flex-col w-full relative min-h-screen overflow-x-hidden ${isCheckoutPage ? 'pb-0' : 'pb-24 md:pb-0'}`}>
         {children}
       </main>
       <MobileBottomNav />

@@ -145,7 +145,7 @@ export default function RootLayout({
         `}} />
       </head>
       <body 
-        className="bg-[#eaeded] text-gray-900 antialiased w-full min-h-[100dvh] flex flex-col touch-pan-y"
+        className="bg-[#eaeded] text-gray-900 antialiased w-full min-h-[100dvh] flex flex-col"
         suppressHydrationWarning
       >
         <SplashScreen />

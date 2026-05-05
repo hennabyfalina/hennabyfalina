@@ -33,8 +33,8 @@
     scrollbar-width: none; /* Firefox */
     
     /* 🚀 BUTTER-SMOOTH ENGINE: Prevent rubber-band bounce at top/bottom */
-    overscroll-behavior-y: none;
-    overscroll-behavior-x: none;
+    overscroll-behavior-y: auto;
+    overscroll-behavior-x: auto;
     -webkit-overflow-scrolling: touch;
     
     /* Hardware acceleration for smoother scrolling */
@@ -360,16 +360,11 @@
   
   /* For horizontal carousels – instant horizontal swipe, vertical scroll always allowed */
   .touch-pan-x {
-    touch-action: pan-y pinch-zoom;
-    scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
-    will-change: transform;
   }
   
   /* For vertical scrolling containers that should NOT bounce at top/bottom */
   .touch-pan-y {
-    touch-action: pan-x pinch-zoom;
-    scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
   }
   

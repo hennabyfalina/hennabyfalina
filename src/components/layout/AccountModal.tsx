@@ -24,7 +24,7 @@ export default function AccountModal({ isOpen, onClose }: AccountModalProps) {
     setMounted(true)
   }, [])
 
-  if (!isOpen) return null
+  if (!isOpen || !mounted) return null
 
   const handleLogoutClick = () => {
     setShowLogoutConfirm(true)
@@ -54,12 +54,12 @@ export default function AccountModal({ isOpen, onClose }: AccountModalProps) {
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'User'
   const displayEmail = isAdmin ? getMaskedEmail(user?.email || '') : user?.email
 
-  return (
+  return createPortal(
     <>
-      <div className="fixed inset-0 z-[100] flex flex-col justify-end bg-black/60 backdrop-blur-sm md:hidden animate-fade-in">
-        <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
+      <div className="z-[99999] flex flex-col justify-end bg-black/60 backdrop-blur-sm md:hidden animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh' }}>
+        <div className="absolute inset-0" onClick={onClose} aria-hidden="true" style={{ touchAction: 'none' }} />
         
-        <div className="relative bg-white rounded-t-md p-5 animate-slide-up pb-safe shadow-2xl">
+        <div className="relative bg-white rounded-t-md p-5 animate-slide-up pb-safe shadow-2xl z-10">
           {/* Header */}
           <div className="flex justify-between items-start mb-4 border-b border-gray-200 pb-3">
             <div>
@@ -189,6 +189,7 @@ export default function AccountModal({ isOpen, onClose }: AccountModalProps) {
         </div>,
         document.body
       )}
-    </>
+    </>,
+    document.body
   )
 }

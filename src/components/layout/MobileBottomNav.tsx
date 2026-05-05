@@ -20,6 +20,8 @@ export default function MobileBottomNav() {
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
   const [isAccountOpen, setIsAccountOpen] = useState(false)
+  const [isVisible, setIsVisible] = useState(true)
+  const [lastScrollY, setLastScrollY] = useState(0)
 
   useEffect(() => {
     setMounted(true)
@@ -30,6 +32,21 @@ export default function MobileBottomNav() {
     setIsCategoriesOpen(false)
     setIsAccountOpen(false)
   }, [pathname])
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY
+      if (currentScrollY > lastScrollY && currentScrollY > 60) {
+        setIsVisible(false) // Hide on scroll down
+      } else if (currentScrollY < lastScrollY) {
+        setIsVisible(true)  // Show on scroll up
+      }
+      setLastScrollY(currentScrollY)
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [lastScrollY])
 
   const cartItemCount = cartItems.reduce((acc, item) => acc + item.quantity, 0)
 
@@ -78,32 +95,35 @@ export default function MobileBottomNav() {
 
   return (
     <>
-      <nav className="fixed bottom-0 left-0 right-0 z-[100] md:hidden flex flex-col shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] print:hidden">
-        <div className="bg-[#131921] border-t border-white/10 px-2 pb-safe-area-inset-bottom">
-          <div className="flex items-center justify-around h-14 sm:h-16">
+      <nav 
+        className={`fixed left-0 right-0 z-[100] md:hidden flex flex-col shadow-[0_-8px_20px_rgba(0,0,0,0.1)] print:hidden transition-transform duration-300 ease-in-out ${isVisible ? 'translate-y-0' : 'translate-y-full'} bg-white rounded-t-[24px] border-t border-gray-200`}
+        style={{ bottom: 0 }}
+      >
+        <div className="px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-1 rounded-t-[24px]">
+          <div className="flex items-center justify-around h-16 sm:h-[72px]">
             {navItems.map((item) => (
               <button
                 key={item.label}
                 onClick={item.onClick}
-                className="relative flex flex-col items-center justify-center flex-1 h-full group outline-none"
+                className="relative flex flex-col items-center justify-center flex-1 h-full group outline-none cursor-pointer"
               >
                 <div className="relative mb-1 z-10">
                   <item.icon 
-                    strokeWidth={item.active ? 2 : 1.5} 
+                    strokeWidth={item.active ? 2.5 : 2} 
                     className={`w-6 h-6 sm:w-7 sm:h-7 transition-colors duration-200 ${
-                      item.active ? 'text-[#00A8E1]' : 'text-white'
+                      item.active ? 'text-[#0B57D0]' : 'text-gray-500'
                     }`}
                   />
                   
-                  {item.badge !== undefined && (
-                    <span className="absolute -top-1.5 -right-2 bg-[#f08804] text-gray-900 text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-[#131921]">
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <span className="absolute -top-1.5 -right-2 bg-[#f08804] text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-white">
                       {item.badge}
                     </span>
                   )}
                 </div>
 
-                <span className={`text-[10px] font-medium transition-colors duration-200 ${
-                  item.active ? 'text-white' : 'text-gray-400'
+                <span className={`text-[10px] font-bold transition-colors duration-200 ${
+                  item.active ? 'text-[#0B57D0]' : 'text-gray-500'
                 }`}>
                   {item.label}
                 </span>

@@ -2,7 +2,8 @@
 
 'use client'
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { X, MapPin, Store } from 'lucide-react'
 import { siteConfig } from '@/config/site'
@@ -42,6 +43,11 @@ export default function ReviewOrderModal({
   finalTotal,
   hasBulkDiscount
 }: ReviewOrderModalProps) {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
   
   // Block background scrolling when modal is open
   useEffect(() => {
@@ -53,11 +59,12 @@ export default function ReviewOrderModal({
     return () => { document.body.style.overflow = 'unset' }
   }, [isOpen])
 
-  if (!isOpen) return null
+  if (!isOpen || !mounted) return null
 
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl bg-[#F0F2F2] rounded-sm shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+  return createPortal(
+    <div className="z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh' }}>
+      <div className="absolute inset-0" onClick={!isProcessing ? onClose : undefined} aria-hidden="true" style={{ touchAction: 'none' }} />
+      <div className="relative z-10 w-full max-w-2xl bg-[#F0F2F2] rounded-sm shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
         
         <div className="flex items-center justify-between p-4 bg-white border-b border-[#D5D9D9] shrink-0">
           <h3 className="text-xl font-bold text-[#0F1111]">Review Your Order</h3>
@@ -255,6 +262,7 @@ export default function ReviewOrderModal({
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

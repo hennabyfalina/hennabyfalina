@@ -39,11 +39,11 @@ export default function Footer() {
   }
 
   return (
-    <footer className="bg-black text-gray-300 w-full mt-auto print:hidden pwa-hide">
+    <footer className="bg-white border-t border-gray-200 text-gray-600 w-full mt-auto print:hidden pwa-hide">
       {/* Amazon-style Back to Top Banner */}
       <button 
         onClick={scrollToTop} 
-        className="w-full bg-white/5 hover:bg-white/10 text-white text-sm font-medium py-4 transition-colors outline-none focus:ring-2 focus:ring-inset focus:ring-gray-900"
+        className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium py-4 transition-colors outline-none focus:ring-2 focus:ring-inset focus:ring-[#007185] cursor-pointer"
       >
         Back to top
       </button>
@@ -54,46 +54,46 @@ export default function Footer() {
           
           {/* Brand Column */}
           <div className="md:col-span-2 lg:col-span-1">
-            <h3 className="text-lg font-extrabold text-white mb-4 tracking-tight">
+            <h3 className="text-lg font-extrabold text-gray-900 mb-4 tracking-tight">
               {siteConfig.name}
             </h3>
-            <p className="text-sm text-gray-400 leading-relaxed">
+            <p className="text-sm text-gray-600 leading-relaxed">
               {siteConfig.description}
             </p>
           </div>
           
           {/* Quick Links Column */}
-          <div className="border-t border-white/10 md:border-none pt-4 md:pt-0 lg:col-start-3">
+          <div className="border-t border-gray-200 md:border-none pt-4 md:pt-0 lg:col-start-3">
             <button 
               onClick={() => toggleSection('links')}
               className="flex items-center justify-between w-full md:w-auto text-left mb-2 md:mb-4 group outline-none"
             >
-              <h3 className="text-sm font-bold text-white tracking-wide">Quick Links</h3>
-              <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 md:hidden ${openSection === 'links' ? 'rotate-180 text-white' : ''}`} />
+              <h3 className="text-sm font-bold text-gray-900 tracking-wide">Quick Links</h3>
+              <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 md:hidden ${openSection === 'links' ? 'rotate-180 text-gray-900' : ''}`} />
             </button>
-            <ul className={`space-y-3 text-sm text-gray-400 ${openSection === 'links' ? 'block pb-2' : 'hidden md:block'}`}>
+            <ul className={`space-y-3 text-sm text-gray-600 ${openSection === 'links' ? 'block pb-2' : 'hidden md:block'}`}>
               <li>
-                <Link href="/products" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors outline-none focus:text-yellow-400">
+                <Link href="/products" target="_blank" rel="noopener noreferrer" className="hover:text-[#C7511F] transition-colors outline-none focus:text-[#007185]">
                   Shop Products
                 </Link>
               </li>
               <li>
-                <Link href="/categories" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors outline-none focus:text-yellow-400">
+                <Link href="/categories" target="_blank" rel="noopener noreferrer" className="hover:text-[#C7511F] transition-colors outline-none focus:text-[#007185]">
                   Browse Categories
                 </Link>
               </li>
               <li>
-                <Link href="/contact" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors outline-none focus:text-yellow-400">
+                <Link href="/contact" target="_blank" rel="noopener noreferrer" className="hover:text-[#C7511F] transition-colors outline-none focus:text-[#007185]">
                   Contact Us
                 </Link>
               </li>
               <li>
-                <Link href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors outline-none focus:text-yellow-400">
+                <Link href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-[#C7511F] transition-colors outline-none focus:text-[#007185]">
                   Terms & Conditions
                 </Link>
               </li>
               <li>
-                <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors outline-none focus:text-yellow-400">
+                <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-[#C7511F] transition-colors outline-none focus:text-[#007185]">
                   Privacy Policy
                 </Link>
               </li>
@@ -101,17 +101,17 @@ export default function Footer() {
           </div>
           
           {/* Contact Column */}
-          <div className="border-t border-white/10 md:border-none pt-4 md:pt-0">
+          <div className="border-t border-gray-200 md:border-none pt-4 md:pt-0">
             <button 
               onClick={() => toggleSection('contact')}
               className="flex items-center justify-between w-full md:w-auto text-left mb-2 md:mb-4 group outline-none"
             >
-              <h3 className="text-sm font-bold text-white tracking-wide">Contact Details</h3>
-              <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 md:hidden ${openSection === 'contact' ? 'rotate-180 text-white' : ''}`} />
+              <h3 className="text-sm font-bold text-gray-900 tracking-wide">Contact Details</h3>
+              <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 md:hidden ${openSection === 'contact' ? 'rotate-180 text-gray-900' : ''}`} />
             </button>
-            <ul className={`space-y-3 text-sm text-gray-400 ${openSection === 'contact' ? 'block pb-2' : 'hidden md:block'}`}>
+            <ul className={`space-y-3 text-sm text-gray-600 ${openSection === 'contact' ? 'block pb-2' : 'hidden md:block'}`}>
               <li className="flex flex-col gap-1">
-                <span className="text-white/60 text-xs uppercase tracking-wider">Email</span>
+                <span className="text-gray-500 text-xs uppercase tracking-wider">Email</span>
                 <a href={`mailto:${siteConfig.contact.email.orders}`} className="text-sm font-medium text-[#007185] hover:text-[#C7511F] transition-colors break-all">
                 {siteConfig.contact.email.orders}
                 </a>
@@ -121,16 +121,16 @@ export default function Footer() {
                 </a>
               </li>
               <li className="flex flex-col gap-1">
-                <span className="text-white/60 text-xs uppercase tracking-wider">Phone</span>
-                <a href={`tel:${siteConfig.contact.phone.primary}`} target="_blank" rel="noopener noreferrer" className="hover:text-orange-400 transition-colors">
+                <span className="text-gray-500 text-xs uppercase tracking-wider">Phone</span>
+                <a href={`tel:${siteConfig.contact.phone.primary}`} target="_blank" rel="noopener noreferrer" className="hover:text-[#C7511F] transition-colors">
                   {siteConfig.contact.phone.primary}
                 </a>
-                <a href={`tel:${siteConfig.contact.phone.secondary}`} target="_blank" rel="noopener noreferrer" className="hover:text-orange-400 transition-colors">
+                <a href={`tel:${siteConfig.contact.phone.secondary}`} target="_blank" rel="noopener noreferrer" className="hover:text-[#C7511F] transition-colors">
                   {siteConfig.contact.phone.secondary}
                 </a>
               </li>
               <li className="flex flex-col gap-1">
-                <span className="text-white/60 text-xs uppercase tracking-wider">Address</span>
+                <span className="text-gray-500 text-xs uppercase tracking-wider">Address</span>
                 <span className="leading-relaxed">
                   {siteConfig.address.line1},<br />
                   {siteConfig.address.line2},<br />
@@ -138,7 +138,7 @@ export default function Footer() {
                 </span>
               </li>
               <li className="flex flex-col gap-1">
-                <span className="text-white/60 text-xs uppercase tracking-wider">GSTIN</span>
+                <span className="text-gray-500 text-xs uppercase tracking-wider">GSTIN</span>
                 <span className="leading-relaxed">{siteConfig.business.gstin}</span>
               </li>
             </ul>
@@ -148,13 +148,13 @@ export default function Footer() {
       </div>
       
       {/* Bottom Legal Section */}
-      <div className="border-t border-white/10 bg-black py-8 pb-32 md:pb-8">
+      <div className="border-t border-gray-200 bg-gray-50 py-8 pb-32 md:pb-8">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-center md:justify-between gap-4 text-xs text-gray-500">
           <div className="flex items-center gap-6">
-            <Link href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors outline-none focus:text-yellow-400">
+            <Link href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-[#C7511F] transition-colors outline-none focus:text-[#007185]">
               Conditions of Use & Sale
             </Link>
-            <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors outline-none focus:text-yellow-400">
+            <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-[#C7511F] transition-colors outline-none focus:text-[#007185]">
               Privacy Notice
             </Link>
           </div>

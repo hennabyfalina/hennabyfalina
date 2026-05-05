@@ -129,7 +129,7 @@ export default function RecentlyBoughtCarousel({ userId }: RecentlyBoughtCarouse
         </button>
       </div>
       
-      <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 touch-pan-x overscroll-contain-x snap-carousel">
+      <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
         {recentlyBought.map((product) => (
           <div key={product.id} className="w-[220px] flex-shrink-0 h-full">
             <ProductCard product={product} priority={false} productList={recentlyBought} />

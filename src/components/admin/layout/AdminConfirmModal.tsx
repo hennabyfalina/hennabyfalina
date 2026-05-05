@@ -76,14 +76,15 @@ export default function AdminConfirmModal({
 
   // 🚀 Render using createPortal
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+    <div className="z-[99999] flex items-center justify-center p-4" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh' }}>
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-in fade-in duration-300" 
         onClick={!isLoading ? onClose : undefined} 
+        style={{ touchAction: 'none' }}
       />
       
-      <div className={`relative ${colors.bg} border ${colors.border} rounded-[24px] shadow-2xl p-6 md:p-8 w-full max-w-[400px] animate-in zoom-in-95 duration-200 overflow-hidden`}>
+      <div className={`relative z-10 ${colors.bg} border ${colors.border} rounded-[24px] shadow-2xl p-6 md:p-8 w-full max-w-[400px] animate-in zoom-in-95 duration-200 overflow-hidden`}>
         {step === 1 && (
           <div className="animate-in fade-in duration-300">
             <div className="flex flex-col items-center text-center">

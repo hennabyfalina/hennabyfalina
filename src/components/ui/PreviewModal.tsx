@@ -45,7 +45,7 @@ export default function PreviewModal({ isOpen, onClose, fileUrl, fileName }: Pre
   const handleZoomOut = () => setScale(prev => Math.max(prev - 0.5, 0.5))
 
   const modalContent = (
-    <div className="fixed inset-0 z-[99999] flex flex-col bg-[#0A0A0A]/95 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="z-[99999] flex flex-col bg-[#0A0A0A]/95 backdrop-blur-md animate-in fade-in duration-200" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh' }}>
       
       {/* 📱 Header Bar - Guaranteed to be visible above everything */}
       <div className="flex items-center justify-between p-4 md:p-6 bg-gradient-to-b from-black/90 to-transparent z-50 shadow-sm">

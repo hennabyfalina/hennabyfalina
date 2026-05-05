@@ -1,12 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
 
 export default function NameModal({ userId, email, onComplete }: { userId: string, email: string, onComplete: () => void }) {
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) return null
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,9 +50,10 @@ export default function NameModal({ userId, email, onComplete }: { userId: strin
     onComplete()
   }
 
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl">
-      <div className="bg-white rounded-sm shadow-2xl p-6 w-full max-w-md border border-gray-200">
+  return createPortal(
+    <div className="z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh' }}>
+      <div className="absolute inset-0" style={{ touchAction: 'none' }} />
+      <div className="relative z-10 bg-white rounded-sm shadow-2xl p-6 w-full max-w-md border border-gray-200">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome!</h2>
         <p className="text-sm text-gray-600 mb-6">Please tell us your name to complete your profile.</p>
         
@@ -71,6 +80,7 @@ export default function NameModal({ userId, email, onComplete }: { userId: strin
           </button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

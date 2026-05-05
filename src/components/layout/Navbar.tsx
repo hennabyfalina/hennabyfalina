@@ -136,12 +136,12 @@ export default function Navbar() {
     <>
       {/* Sticky wrapper for navbar */}
       <div className="sticky top-0 z-50 w-full print:hidden">
-        <header className="w-full bg-[#131921] text-white border-b border-white/10 shadow-md">
-        <div className="max-w-[1400px] mx-auto px-2 sm:px-4 lg:px-6 py-2 sm:py-3">
+        <header className="w-full bg-white text-gray-900 border-b border-gray-200 shadow-none">
+        <div className="max-w-[1400px] mx-auto px-2 sm:px-4 lg:px-6 py-1.5 sm:py-2">
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 xl:gap-6">
             
             <div className="flex items-center justify-between shrink-0 w-full xl:w-auto">
-              <Link href="/" className="block text-lg sm:text-xl lg:text-2xl font-extrabold tracking-tight text-white hover:opacity-90 transition-opacity flex items-center border border-transparent hover:border-white p-1 rounded-sm">
+              <Link href="/" className="block text-lg sm:text-xl lg:text-2xl font-extrabold tracking-tight text-gray-900 hover:text-[#0B57D0] transition-opacity flex items-center p-1 rounded-sm">
                 <span className="hidden sm:inline">{siteConfig.name}</span>
                 <span className="sm:hidden">{siteConfig.shortName}</span>
               </Link>
@@ -150,7 +150,7 @@ export default function Navbar() {
               <div className="flex xl:hidden items-center pr-1">
                 {!isAdmin && (
                   <Link href="/wishlist" className="relative flex items-center p-1.5" aria-label="Your Wishlist">
-                    <Heart className={`w-[22px] h-[22px] ${isExactActive('/wishlist') ? 'fill-red-500 text-red-500' : 'text-white'}`} strokeWidth={2} />
+                    <Heart className={`w-[22px] h-[22px] ${isExactActive('/wishlist') ? 'fill-red-500 text-red-500' : 'text-gray-600 hover:text-red-500 transition-colors'}`} strokeWidth={2} />
                     {mounted && wishlistItems.length > 0 && (
                       <span className="absolute -top-0.5 -right-1 bg-[#f08804] text-[#131921] text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                         {wishlistItems.length}
@@ -162,7 +162,7 @@ export default function Navbar() {
             </div>
 
             <div ref={searchContainerRef} className="flex flex-1 w-full max-w-4xl relative z-40">
-              <form onSubmit={handleSearch} className="flex flex-1 w-full relative shadow-sm rounded-sm overflow-hidden bg-white">
+              <form onSubmit={handleSearch} className="flex flex-1 w-full relative rounded-md overflow-hidden bg-white border border-gray-300 focus-within:border-[#0B57D0] focus-within:ring-1 focus-within:ring-[#0B57D0] transition-all shadow-none">
                 <input
                   type="text"
                   value={searchQuery}
@@ -171,7 +171,7 @@ export default function Navbar() {
                     if (suggestions.length > 0) setShowSuggestions(true)
                   }}
                   placeholder="Search for packaging materials, boxes..."
-                  className="w-full pl-4 pr-[80px] py-2 sm:py-2.5 text-sm text-gray-900 bg-transparent focus:outline-none focus:ring-2 focus:ring-[#febd69] transition-colors placeholder-gray-500"
+                  className="w-full pl-4 pr-14 sm:pr-16 py-2 text-sm text-gray-900 bg-transparent focus:outline-none transition-colors placeholder-gray-500"
                 />
                 {searchQuery && (
                   <button
@@ -182,13 +182,13 @@ export default function Navbar() {
                       setShowSuggestions(false)
                       if (pathname === '/search') router.push('/products')
                     }}
-                    className="absolute right-[50px] top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 focus:outline-none p-1.5"
+                    className="absolute right-12 sm:right-14 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 focus:outline-none p-1.5 cursor-pointer bg-white"
                     aria-label="Clear search"
                   >
                     <X className="w-4 h-4 md:w-5 md:h-5" />
                   </button>
                 )}
-                <button type="submit" className="absolute right-0 top-0 bottom-0 px-4 sm:px-5 bg-[#febd69] hover:bg-[#f3a847] text-gray-900 transition-colors flex items-center justify-center focus:outline-none z-10 border-l border-[#f3a847]" aria-label="Search">
+                <button type="submit" className="absolute right-0 top-0 bottom-0 w-12 sm:w-14 bg-[#febd69] hover:bg-[#f3a847] text-gray-900 transition-colors flex items-center justify-center focus:outline-none z-10 border-l border-[#f3a847] cursor-pointer" aria-label="Search">
                   <Search className="w-5 h-5 stroke-[2.5]" />
                 </button>
               </form>
@@ -223,9 +223,9 @@ export default function Navbar() {
 
                 {/* Categories Dropdown - always visible */}
                 <div className="relative group h-full">
-                  <button className="flex items-center gap-1 px-3 py-2 border border-transparent hover:border-white rounded-sm transition-all outline-none text-white font-bold text-sm">
+                  <button className="flex items-center gap-1 px-3 py-2 border border-transparent hover:border-gray-200 hover:bg-gray-50 rounded-sm transition-all outline-none text-gray-800 font-bold text-sm cursor-pointer">
                     Categories
-                    <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
+                    <ChevronDown className="w-4 h-4 text-gray-500 group-hover:text-gray-900 transition-colors" />
                   </button>
                   <div className="absolute top-full left-0 mt-0.5 w-64 bg-white rounded-sm shadow-xl border border-gray-200 py-3 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150">
                     {CATEGORIES_LIST.map((cat) => (
@@ -244,9 +244,9 @@ export default function Navbar() {
                 {/* Explore Dropdown - hide for admin */}
                 {!isAdmin && (
                   <div className="relative group h-full">
-                    <button className="flex items-center gap-1 px-3 py-2 border border-transparent hover:border-white rounded-sm transition-all outline-none text-white font-bold text-sm">
+                    <button className="flex items-center gap-1 px-3 py-2 border border-transparent hover:border-gray-200 hover:bg-gray-50 rounded-sm transition-all outline-none text-gray-800 font-bold text-sm cursor-pointer">
                       Explore
-                      <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
+                      <ChevronDown className="w-4 h-4 text-gray-500 group-hover:text-gray-900 transition-colors" />
                     </button>
                     <div className="absolute top-full left-0 mt-0.5 w-56 bg-white rounded-sm shadow-xl border border-gray-200 py-3 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150">
                       {EXPLORE_LINKS.map((link) => (
@@ -265,15 +265,15 @@ export default function Navbar() {
 
                 {/* Account Dropdown */}
                 <div className="relative group h-full">
-                  <Link href={user ? (isAdmin ? "/admin-gate" : "/profile") : "/login"} target="_blank" className="flex items-center gap-2 px-3 py-2 border border-transparent hover:border-white rounded-sm transition-all outline-none">
-                    <UserCircle2 className={`w-6 h-6 ${isAccountActive ? 'text-blue-500' : 'text-white'}`} strokeWidth={1.5} />
+                  <Link href={user ? (isAdmin ? "/admin-gate" : "/profile") : "/login"} target="_blank" className="flex items-center gap-2 px-3 py-2 border border-transparent hover:border-gray-200 hover:bg-gray-50 rounded-sm transition-all outline-none">
+                    <UserCircle2 className={`w-6 h-6 ${isAccountActive ? 'text-[#0B57D0]' : 'text-gray-600 group-hover:text-gray-900'}`} strokeWidth={1.5} />
                     <div className="flex flex-col items-start leading-none text-left">
-                      <span className="text-[11px] font-medium text-white">
+                      <span className="text-[11px] font-medium text-gray-500">
                         {isLoading ? 'Loading...' : (user ? 'Hello,' : 'Sign in')}
                       </span>
-                      <span className="text-sm font-bold text-white flex items-center gap-1">
+                      <span className="text-sm font-bold text-gray-900 flex items-center gap-1">
                         {user ? displayName.split(' ')[0] : 'Account & Lists'}
-                        <ChevronDown className="w-3.5 h-3.5 text-gray-400 group-hover:text-white transition-colors" />
+                        <ChevronDown className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-900 transition-colors" />
                       </span>
                     </div>
                   </Link>
@@ -316,9 +316,9 @@ export default function Navbar() {
 
                 {/* Cart Icon - hide for admin */}
                 {!isAdmin && (
-                  <Link href="/cart" className="flex items-end gap-1 px-3 py-2 border border-transparent hover:border-white rounded-sm transition-all ml-1">
+                  <Link href="/cart" className="flex items-end gap-1 px-3 py-2 border border-transparent hover:border-gray-200 hover:bg-gray-50 rounded-sm transition-all ml-1 group">
                     <div className="relative flex items-center">
-                      <ShoppingCart className={`w-8 h-8 ${isExactActive('/cart') ? 'text-blue-500' : 'text-white'}`} strokeWidth={1.5} />
+                      <ShoppingCart className={`w-8 h-8 transition-colors ${isExactActive('/cart') ? 'text-[#0B57D0]' : 'text-gray-600 group-hover:text-gray-900'}`} strokeWidth={1.5} />
                       {mounted && cartItemCount > 0 ? (
                         <span className="absolute -top-1.5 left-3.5 text-[#f08804] text-[15px] font-bold w-5 text-center">
                           {cartItemCount}
@@ -329,7 +329,7 @@ export default function Navbar() {
                         </span>
                       )}
                     </div>
-                    <span className="text-sm font-bold text-white leading-tight">Cart</span>
+                    <span className="text-sm font-bold text-gray-900 leading-tight">Cart</span>
                   </Link>
                 )}
 

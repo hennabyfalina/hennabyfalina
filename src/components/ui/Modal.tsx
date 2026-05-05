@@ -2,7 +2,8 @@
 
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 interface ModalProps {
@@ -13,7 +14,12 @@ interface ModalProps {
 }
 
 export default function Modal({ isOpen, onClose, title, children }: ModalProps) {
+  const [mounted, setMounted] = useState(false)
   const modalRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -31,16 +37,16 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
     }
   }, [isOpen, onClose])
 
-  if (!isOpen) return null
+  if (!isOpen || !mounted) return null
 
-  return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in">
-      <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
+  return createPortal(
+    <div className="z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh' }}>
+      <div className="absolute inset-0" onClick={onClose} aria-hidden="true" style={{ touchAction: 'none' }} />
       
       <div
         ref={modalRef}
         // 🚨 MAGIC: bg-white for Storefront, bg-[#1E1F20] for Admin
-        className="relative bg-white dark:bg-[#1E1F20] rounded-xl dark:rounded-[32px] shadow-2xl w-full max-w-2xl max-h-[90dvh] flex flex-col overflow-hidden border border-transparent dark:border-[#333538] animate-in zoom-in-95 duration-200"
+        className="relative z-10 bg-white dark:bg-[#1E1F20] rounded-xl dark:rounded-[32px] shadow-2xl w-full max-w-2xl max-h-[90dvh] flex flex-col overflow-hidden border border-transparent dark:border-[#333538] animate-in zoom-in-95 duration-200"
       >
         <div className="flex justify-between items-center p-4 md:p-6 border-b border-gray-200 dark:border-[#333538] bg-gray-50/50 dark:bg-[#131314] shrink-0">
           <h2 className="text-lg md:text-xl font-medium text-[#0F1111] dark:text-[#E3E3E3] tracking-tight">{title}</h2>
@@ -57,6 +63,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

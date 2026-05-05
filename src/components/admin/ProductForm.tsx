@@ -550,8 +550,8 @@ export default function ProductForm({
       
       {/* Delete Image Confirm */}
       {deleteConfirmPath && createPortal(
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-[#1E1F20] border border-[#333538] rounded-[32px] p-7 md:p-8 max-w-sm w-full animate-in zoom-in-95 text-center flex flex-col items-center">
+        <div className="z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh' }}>
+          <div className="bg-[#1E1F20] border border-[#333538] rounded-[32px] p-7 md:p-8 max-w-sm w-full animate-in zoom-in-95 text-center flex flex-col items-center z-10">
             <div className="w-14 h-14 bg-[#4D2628] border border-[#8C1D18] text-[#F2B8B5] rounded-full flex items-center justify-center mb-5">
               <AlertTriangle className="w-6 h-6" />
             </div>
@@ -567,9 +567,9 @@ export default function ProductForm({
       )}
 
       {/* Save Product Confirm */}
-      {showSaveConfirm && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-[#1E1F20] border border-[#333538] rounded-[32px] p-7 md:p-8 max-w-sm w-full animate-in zoom-in-95 text-center flex flex-col items-center">
+      {showSaveConfirm && createPortal(
+        <div className="z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh' }}>
+          <div className="bg-[#1E1F20] border border-[#333538] rounded-[32px] p-7 md:p-8 max-w-sm w-full animate-in zoom-in-95 text-center flex flex-col items-center z-10">
             <div className="w-14 h-14 bg-[#0B57D0]/20 border border-[#0B57D0]/40 text-[#A8C7FA] rounded-full flex items-center justify-center mb-5">
               <CheckCircle2 className="w-6 h-6" />
             </div>
@@ -580,7 +580,8 @@ export default function ProductForm({
               <button onClick={() => setShowSaveConfirm(false)} className="w-full py-3.5 border border-[#333538] text-[#E3E3E3] hover:bg-[#282A2C] font-medium rounded-full transition-colors cursor-pointer">Review Again</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )
