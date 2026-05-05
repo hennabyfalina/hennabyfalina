@@ -71,7 +71,7 @@ export async function verifyAdminGate(code: string): Promise<{ success: boolean;
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 8 * 60 * 60, // 8 hours
+    maxAge: 1 * 60 * 60, // 1 hour
     path: '/',
     // Add priority for better cookie handling
     priority: 'high',

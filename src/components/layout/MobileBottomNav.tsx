@@ -111,7 +111,7 @@ export default function MobileBottomNav() {
                   <item.icon 
                     strokeWidth={item.active ? 2.5 : 2} 
                     className={`w-6 h-6 sm:w-7 sm:h-7 transition-colors duration-200 ${
-                      item.active ? 'text-[#0B57D0]' : 'text-gray-500'
+                      item.active ? 'text-[#007185]' : 'text-gray-500'
                     }`}
                   />
                   
@@ -123,7 +123,7 @@ export default function MobileBottomNav() {
                 </div>
 
                 <span className={`text-[10px] font-bold transition-colors duration-200 ${
-                  item.active ? 'text-[#0B57D0]' : 'text-gray-500'
+                  item.active ? 'text-[#007185]' : 'text-gray-500'
                 }`}>
                   {item.label}
                 </span>

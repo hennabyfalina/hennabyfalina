@@ -149,10 +149,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       
       {/* 🚨 ALERT BANNER FOR REGULAR ADMINS (visible in both desktop & mobile) 🚨 */}
       {isAdmin && !isSuperAdmin && (
-        <div className="fixed top-0 left-0 right-0 z-[9999] bg-[#3C1E0A] border-b border-[#4E270D] text-[#F9AB00] text-center py-2.5 px-4 text-xs font-medium flex flex-wrap items-center justify-center gap-2 shadow-lg backdrop-blur-sm">
+        <div className="fixed top-0 left-0 right-0 z-[9999] bg-[#3C1E0A] border-b border-[#4E270D] text-[#F9AB00] text-center py-2.5 px-4 text-xs font-medium flex items-center justify-center gap-2 shadow-lg backdrop-blur-sm whitespace-nowrap overflow-x-auto no-scrollbar">
           <AlertTriangle className="w-4 h-4 text-[#F9AB00]" />
           <span>You are viewing with limited permissions.</span>
-          <span className="hidden sm:inline">Contact super admin to request full access.</span>
+          <span className="hidden md:inline">Contact super admin to request full access.</span>
           <button 
             onClick={() => window.open('mailto:admin@razackpackagingcentre.com')}
             className="ml-2 px-3 py-1 bg-[#4E270D] hover:bg-[#6B3A12] rounded-full text-[11px] font-bold transition-colors cursor-pointer"

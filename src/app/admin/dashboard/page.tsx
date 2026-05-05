@@ -177,11 +177,11 @@ export default async function AdminDashboard() {
         </div>
 
         {/* Top Products Table */}
-        <div className="relative bg-[#1E1F20] rounded-[32px] border border-[#333538] overflow-hidden p-2">
+        <div className="relative bg-[#1E1F20] rounded-[32px] border border-[#333538] overflow-hidden p-2 min-h-[320px] md:min-h-0">
           {!isSuperAdmin && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#131314]/60 backdrop-blur-md">
               <Lock className="w-6 h-6 text-[#F9AB00] mb-2" />
-              <p className="text-[#E3E3E3] font-medium">Restricted Access</p>
+              <p className="text-[#E3E3E3] font-medium text-center px-4">Restricted Access</p>
               <p className="text-[#8E9196] text-sm mt-1">Top selling products viewing is restricted.</p>
             </div>
           )}

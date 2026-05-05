@@ -341,9 +341,9 @@ export default function Navbar() {
       </div>
 
       {showLogoutConfirm && mounted && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowLogoutConfirm(false)} />
-          <div className="relative bg-white rounded-md shadow-2xl p-6 w-full max-w-sm border border-gray-200 animate-in fade-in zoom-in duration-200">
+        <div className="z-[999999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh' }}>
+          <div className="absolute inset-0" onClick={() => setShowLogoutConfirm(false)} style={{ touchAction: 'none' }} />
+          <div className="relative z-10 bg-white rounded-md shadow-2xl p-6 w-full max-w-sm border border-gray-200 animate-in fade-in zoom-in duration-200">
             <h2 className="text-xl font-bold text-gray-900 mb-2">Sign out</h2>
             <p className="text-sm text-gray-600 mb-6">Are you sure you want to sign out of your account?</p>
             <div className="flex gap-3">
