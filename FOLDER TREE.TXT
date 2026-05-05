@@ -1,6 +1,7 @@
 razack-packaging-centre/
 ├── public/
 │   ├── cat.jpg
+│   ├── fallback-ce627215c0e4a9af.js
 │   ├── file.svg
 │   ├── globe.svg
 │   ├── icon-192x192.png
@@ -12,7 +13,10 @@ razack-packaging-centre/
 │   ├── razorpay-icon.jpg
 │   ├── Roboto-Bold.ttf
 │   ├── Roboto-Regular.ttf
-│   └── window.svg
+│   ├── sw.js
+│   ├── swe-worker-5c72df51bb1f6ee0.js
+│   ├── window.svg
+│   └── workbox-f1770938.js
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/
@@ -124,6 +128,8 @@ razack-packaging-centre/
 │   │   │   │       ├── [id]/
 │   │   │   │       │   └── route.ts
 │   │   │   │       └── route.ts
+│   │   │   ├── artwork/
+│   │   │   │   └── route.ts
 │   │   │   ├── clear-admin-cookie/
 │   │   │   │   └── route.ts
 │   │   │   ├── invoice/
@@ -198,7 +204,8 @@ razack-packaging-centre/
 │   │   │   ├── Footer.tsx
 │   │   │   ├── MobileBottomNav.tsx
 │   │   │   ├── MoreMenuModal.tsx
-│   │   │   └── Navbar.tsx
+│   │   │   ├── Navbar.tsx
+│   │   │   └── route.ts
 │   │   ├── order/
 │   │   │   ├── ClearDraftsOnMount.tsx
 │   │   │   ├── InvoiceLink.tsx
@@ -211,6 +218,7 @@ razack-packaging-centre/
 │   │   ├── product/
 │   │   │   ├── AddToCartButton.tsx
 │   │   │   ├── BuyNowButton.tsx
+│   │   │   ├── EditCartConfirmModal.tsx
 │   │   │   ├── FilterDrawer.tsx
 │   │   │   ├── FilterSidebar.tsx
 │   │   │   ├── FrequentlyBoughtTogether.tsx

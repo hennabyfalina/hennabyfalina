@@ -8,6 +8,7 @@ import { SHIPPING_THRESHOLD, SHIPPING_COST } from '@/lib/constants'
 import { moveAllTempToFinal, deleteB2BArtwork } from '@/lib/supabase/b2b-storage'
 import { headers } from 'next/headers'
 import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
 import { z } from 'zod'
 
 export interface CreateOrderInput {
@@ -52,6 +53,13 @@ const createOrderSchema = z.object({
   sessionId: z.string().optional(),
 })
 
+const ratelimit = process.env.UPSTASH_REDIS_REST_URL
+  ? new Ratelimit({
+      redis: Redis.fromEnv(),
+      limiter: Ratelimit.slidingWindow(10, '1 m'),
+    })
+  : null
+
 /**
  * Validate artwork limits for an order item
  */
@@ -77,7 +85,7 @@ export async function createOrder(rawOrderData: CreateOrderInput) {
   const orderData = parsed.data
 
   const ip = (await headers()).get('x-forwarded-for') || 'unknown'
-  const { success } = Ratelimit ? await (Ratelimit as any).limit(`create_order_${ip}`) : { success: true }
+  const { success } = ratelimit ? await ratelimit.limit(`create_order_${ip}`) : { success: true }
   if (!success) throw new Error('Too many attempts. Please try again later.')
 
   const supabase = await createClient()

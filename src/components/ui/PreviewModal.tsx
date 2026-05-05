@@ -38,7 +38,7 @@ export default function PreviewModal({ isOpen, onClose, fileUrl, fileName }: Pre
   // Do not render anything until client-side hydration is complete
   if (!isOpen || !fileUrl || !mounted) return null
 
-  const isPdf = fileUrl.split('?')[0].toLowerCase().endsWith('.pdf')
+  const isPdf = fileName?.toLowerCase().endsWith('.pdf') || fileUrl.toLowerCase().includes('.pdf')
 
   // Zoom Controllers
   const handleZoomIn = () => setScale(prev => Math.min(prev + 0.5, 4))
