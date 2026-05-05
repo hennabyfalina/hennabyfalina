@@ -133,6 +133,7 @@ export async function POST(request: NextRequest) {
       orderId: razorpayOrder.id,
       amount: razorpayOrder.amount,
       currency: razorpayOrder.currency,
+      keyId: process.env.RAZORPAY_KEY_ID
     })
     
   } catch (error: any) {

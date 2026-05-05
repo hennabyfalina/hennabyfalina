@@ -30,6 +30,7 @@ export default function ProcessingPage() {
   const orderId = searchParams.get('order_id')
   const amount = searchParams.get('amount')
   const razorpayOrderId = searchParams.get('rzp_order')
+  const razorpayKey = searchParams.get('key')
 
   // Warn on tab close
   useEffect(() => {
@@ -67,7 +68,7 @@ export default function ProcessingPage() {
     let isSuccess = false
 
     const options = {
-      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      key: razorpayKey || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
       amount: amount,
       currency: 'INR',
       name: siteConfig.name,

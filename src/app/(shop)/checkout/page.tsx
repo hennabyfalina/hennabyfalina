@@ -23,6 +23,7 @@ import { Lock, ChevronLeft, X, AlertTriangle, Package, MapPin, Store, ShieldChec
 import { siteConfig } from '@/config/site'
 import Image from 'next/image'
 import { getPublicUrl } from '@/lib/supabase/storage'
+import { useProductDraftStore } from '@/store/productDraft.store'
 
 // 🚨 B2B & Tax Imports
 import { B2B_CONSTANTS, PRINTING_TIERS } from '@/config/b2b-rules'
@@ -291,7 +292,12 @@ export default function CheckoutPage() {
       localStorage.removeItem(`checkout_shipping_method_${userId}`)
     }
 
-    router.push(`/checkout/processing?order_id=${encodeURIComponent(order.id)}&amount=${encodeURIComponent(razorpayData.amount)}&rzp_order=${encodeURIComponent(razorpayData.orderId)}`)
+    // 🚨 CRITICAL FIX: Clear the product drafts so returning to product pages gives a fresh slate!
+    items.forEach((item: any) => {
+      useProductDraftStore.getState().clearDraft(item.product_id)
+    })
+
+    router.push(`/checkout/processing?order_id=${encodeURIComponent(order.id)}&amount=${encodeURIComponent(razorpayData.amount)}&rzp_order=${encodeURIComponent(razorpayData.orderId)}&key=${encodeURIComponent(razorpayData.keyId)}`)
   } catch (err: any) {
     console.error(err)
     alert(err.message || 'Failed to initialize payment')
