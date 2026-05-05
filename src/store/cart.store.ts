@@ -27,48 +27,12 @@ export interface CartItem {
   printing_instructions?: string | null
 }
 
-// Helper to calculate total artwork size
-function getTotalArtworkSize(item: CartItem): number {
-  return (item.artwork_sizes || []).reduce((sum, size) => sum + size, 0)
-}
-
-// Helper to check if merging would exceed limits
-function wouldExceedLimits(
-  existingItem: CartItem,
-  newItem: Omit<CartItem, 'id'>
-): { exceeds: boolean; message?: string } {
-  const existingCount = existingItem.artwork_urls?.length || 0
-  const newCount = newItem.artwork_urls?.length || 0
-  const totalCount = existingCount + newCount
-
-  const existingSize = getTotalArtworkSize(existingItem)
-  const newSize = (newItem.artwork_sizes || []).reduce((sum, s) => sum + s, 0)
-  const totalSize = existingSize + newSize
-
-  if (totalCount > 3) {
-    return {
-      exceeds: true,
-      message: `You can only upload up to 3 files for this product. Current: ${existingCount}, Adding: ${newCount}`
-    }
-  }
-
-  const MAX_SIZE = 15 * 1024 * 1024 // 15MB
-  if (totalSize > MAX_SIZE) {
-    return {
-      exceeds: true,
-      message: `Total artwork size cannot exceed 15MB. Current: ${(existingSize / 1024 / 1024).toFixed(2)}MB, Adding: ${(newSize / 1024 / 1024).toFixed(2)}MB`
-    }
-  }
-
-  return { exceeds: false }
-}
-
 interface CartState {
   items: CartItem[]
   isLoading: boolean
   addItem: (item: Omit<CartItem, 'id'>) => Promise<void>
-  removeItem: (productId: string, printingType?: string) => Promise<void>
-  updateQuantity: (productId: string, quantity: number, printingType?: string) => Promise<void>
+  removeItem: (id: string) => Promise<void>
+  updateQuantity: (id: string, quantity: number) => Promise<void>
   clearCart: () => Promise<void>
   syncWithDatabase: (userId: string) => Promise<void>
   _syncAfterUpdate: () => Promise<void>
@@ -118,39 +82,48 @@ export const useCartStore = create<CartState>()(
         set({ isLoading: true })
         const currentItems = get().items
         
-        const existingItem = currentItems.find(
-          (item) => item.product_id === newItem.product_id && 
-                    (item.printing_type || 'None') === (newItem.printing_type || 'None')
-        )
+        const isCustomPrint = (newItem.printing_type || '').includes('Color')
+
+        const existingItem = currentItems.find((item) => {
+          const isSameProduct = item.product_id === newItem.product_id;
+          const isSamePrintType = (item.printing_type || 'None') === (newItem.printing_type || 'None');
+          
+          if (!isSameProduct || !isSamePrintType) return false;
+          
+          if (isCustomPrint) {
+            // 🚀 SMART MERGE: Only merge custom prints if ALL details match exactly
+            const sameInstructions = (item.printing_instructions || null) === (newItem.printing_instructions || null);
+            
+            const aUrls = item.artwork_urls || [];
+            const bUrls = newItem.artwork_urls || [];
+            const sameUrls = aUrls.length === bUrls.length && aUrls.every((val, index) => val === bUrls[index]);
+            
+            const aSizes = item.artwork_sizes || [];
+            const bSizes = newItem.artwork_sizes || [];
+            const sameSizes = aSizes.length === bSizes.length && aSizes.every((val, index) => val === bSizes[index]);
+            
+            return sameInstructions && sameUrls && sameSizes;
+          }
+          
+          return true; // Safe to merge retail/wholesale (no custom artwork)
+        })
 
         let updatedItems: CartItem[]
 
         if (existingItem) {
-          // 🆕 Check if merging would exceed file limits
-          const limitCheck = wouldExceedLimits(existingItem, newItem)
-          if (limitCheck.exceeds) {
-            set({ isLoading: false })
-            throw new Error(limitCheck.message)
-          }
-
           const newQuantity = existingItem.quantity + newItem.quantity
           if (newQuantity > newItem.stock) {
             set({ isLoading: false })
             throw new Error(`Only ${newItem.stock} items available`)
           }
 
-          // Merge artwork arrays
-          const mergedUrls = [...(existingItem.artwork_urls || []), ...(newItem.artwork_urls || [])]
-          const mergedSizes = [...(existingItem.artwork_sizes || []), ...(newItem.artwork_sizes || [])]
-
           const basePrice = existingItem.selling_price ?? existingItem.original_price ?? existingItem.price
           updatedItems = currentItems.map((item) =>
-            item.product_id === newItem.product_id && (item.printing_type || 'None') === (newItem.printing_type || 'None')
+            item.id === existingItem.id
               ? { 
                   ...item, 
                   quantity: newQuantity,
-                  artwork_urls: mergedUrls,
-                  artwork_sizes: mergedSizes,
+                  // 🚀 Artwork arrays are identical, so we keep the existing ones without duplicating
                   price: calculateItemPrice(basePrice, item.bulk_price, item.bulk_min_quantity, newQuantity) 
                 }
               : item
@@ -181,30 +154,28 @@ export const useCartStore = create<CartState>()(
         await get()._syncAfterUpdate()
       },
 
-      removeItem: async (productId: string, printingType: string = 'None') => {
+      removeItem: async (id: string) => {
         set({ isLoading: true })
-        const updatedItems = get().items.filter(
-          (item) => !(item.product_id === productId && (item.printing_type || 'None') === printingType)
-        )
+        const updatedItems = get().items.filter((item) => item.id !== id)
         set({ items: updatedItems, isLoading: false })
         await get()._syncAfterUpdate()
       },
 
-      updateQuantity: async (productId: string, quantity: number, printingType: string = 'None') => {
+      updateQuantity: async (id: string, quantity: number) => {
         set({ isLoading: true })
         if (quantity <= 0) {
-          await get().removeItem(productId, printingType)
+          await get().removeItem(id)
           return
         }
 
-        const item = get().items.find((i) => i.product_id === productId && (i.printing_type || 'None') === printingType)
+        const item = get().items.find((i) => i.id === id)
         if (item && quantity > item.stock) {
           set({ isLoading: false })
           throw new Error(`Only ${item.stock} items available`)
         }
 
         const updatedItems = get().items.map((item) => {
-          if (item.product_id === productId && (item.printing_type || 'None') === printingType) {
+          if (item.id === id) {
             const basePrice = item.selling_price ?? item.original_price ?? item.price
             return {
               ...item,

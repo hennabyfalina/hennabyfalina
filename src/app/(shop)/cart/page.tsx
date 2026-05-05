@@ -67,8 +67,7 @@ export default function CartPage() {
   const handleViewArtwork = async (internalPath: string) => {
     setIsFetchingPreview(internalPath)
     try {
-      const signedUrl = await getSignedB2BUrl(internalPath)
-      if (!signedUrl) throw new Error('Link expired or invalid')
+      const signedUrl = `/api/artwork?path=${encodeURIComponent(internalPath)}`
       setPreviewModalState({
         isOpen: true,
         url: signedUrl,
@@ -182,6 +181,7 @@ export default function CartPage() {
                         fill 
                         sizes="(max-width: 768px) 96px, 128px" 
                         className="object-cover mix-blend-multiply"
+                      unoptimized={imageSrc.startsWith('http') || imageSrc.includes('supabase')}
                         onError={(e) => {
                           const target = e.target as HTMLImageElement
                           target.src = '/placeholder-product.svg'
@@ -293,7 +293,7 @@ export default function CartPage() {
                       <div className="mt-auto pt-3 sm:pt-4 flex flex-wrap items-center gap-3 sm:gap-6">
                         <QuantitySelector
                           quantity={item.quantity}
-                          onQuantityChange={(q) => updateQuantity(item.product_id, q, item.printing_type)}
+                          onQuantityChange={(q) => updateQuantity(item.id, q)}
                           min={minQuantity} 
                           max={item.stock > 0 ? item.stock : 99999}
                         />
@@ -317,10 +317,19 @@ export default function CartPage() {
 
                           <span className="text-gray-300">|</span>
 
+                          <Link
+                            href={`/product/${item.slug}?edit_item=${item.id}`}
+                            className="text-xs sm:text-sm font-medium text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer"
+                          >
+                            Edit
+                          </Link>
+
+                          <span className="text-gray-300">|</span>
+
                           <button
                             type="button"
                             onClick={() => {
-                              removeItem(item.product_id, item.printing_type)
+                              removeItem(item.id)
                               showToast('Item removed')
                             }}
                             className="text-xs sm:text-sm font-medium text-[#f60101] hover:text-[#ff4d00] hover:underline cursor-pointer"

@@ -19,7 +19,7 @@ import Loader from '@/components/ui/Loader'
 import { SHIPPING_THRESHOLD, SHIPPING_COST } from '@/lib/constants'
 import { formatCurrency, numberToIndianWords } from '@/lib/utils'
 import { AddressFormData } from '@/components/checkout/AddressForm'
-import { Lock, ChevronLeft, X, AlertTriangle, Package, MapPin, Store, ShieldCheck, ExternalLink } from 'lucide-react'
+import { Lock, ChevronLeft, X, AlertTriangle, Package, MapPin, Store, ShieldCheck, ExternalLink, RefreshCw, Truck } from 'lucide-react'
 import { siteConfig } from '@/config/site'
 import Image from 'next/image'
 import { getPublicUrl } from '@/lib/supabase/storage'
@@ -246,15 +246,21 @@ export default function CheckoutPage() {
 
     const savedAddress = await saveAddress(addressToSave)
 
-    const orderItems = items.map((item: any) => ({
-      product_id: item.product_id,
-      quantity: item.quantity,
-      price: item.price,
-      printing_type: item.printing_type || 'None',
-      artwork_urls: item.artwork_urls || [],
-      artwork_sizes: item.artwork_sizes || [],
-      printing_instructions: item.printing_instructions || null
-    }))
+    const orderItems = items.map((item: any) => {
+      // 🚨 CRITICAL FIX: Detect if files are still in the temp_uploads folder
+      const hasTempFiles = item.artwork_urls?.some((url: string) => url.includes('temp_uploads'))
+      
+      return {
+        product_id: item.product_id,
+        quantity: item.quantity,
+        price: item.price,
+        printing_type: item.printing_type || 'None',
+        artwork_urls: item.artwork_urls || [],
+        artwork_sizes: item.artwork_sizes || [],
+        printing_instructions: item.printing_instructions || null,
+        is_temp: hasTempFiles || false
+      }
+    })
 
     const { order, orderNumber } = await createOrder({
       addressId: savedAddress.id,
@@ -432,15 +438,15 @@ export default function CheckoutPage() {
             <div className="bg-white border border-[#D5D9D9] rounded-sm p-3">
               <div className="flex justify-between items-start py-1">
                 <div className="flex flex-col items-center text-center gap-1 w-1/3 px-1">
-                  <img src="https://m.media-amazon.com/images/G/31/A2I-Convert/mobile/IconFarm/icon-returns._CB484059092_.png" alt="Returns" className="w-7 h-7 object-contain" />
+                  <RefreshCw className="w-6 h-6 text-[#007185] mb-1" strokeWidth={1.5} />
                   <span className="text-[11px] text-[#007185] leading-tight">7 days Replacement</span>
                 </div>
                 <div className="flex flex-col items-center text-center gap-1 w-1/3 px-1">
-                  <img src="https://m.media-amazon.com/images/G/31/A2I-Convert/mobile/IconFarm/icon-amazon-delivered._CB485933725_.png" alt="Delivery" className="w-7 h-7 object-contain" />
+                  <Truck className="w-6 h-6 text-[#007185] mb-1" strokeWidth={1.5} />
                   <span className="text-[11px] text-[#007185] leading-tight">Secure Delivery</span>
                 </div>
                 <div className="flex flex-col items-center text-center gap-1 w-1/3 px-1">
-                  <img src="https://m.media-amazon.com/images/G/31/A2I-Convert/mobile/IconFarm/Secure-payment._CB650126890_.png" alt="Secure" className="w-7 h-7 object-contain" />
+                  <ShieldCheck className="w-6 h-6 text-[#007185] mb-1" strokeWidth={1.5} />
                   <span className="text-[11px] text-[#007185] leading-tight">Secure Transaction</span>
                 </div>
               </div>

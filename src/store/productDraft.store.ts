@@ -16,6 +16,7 @@ export interface ProductDraft {
   printingType: string
   instructions: string
   artworkUrls: string[]      // array of paths (for storing in cart/order)
+  artworkSizes?: number[]    // size tracking for 15MB limit
   artworks: ArtworkFile[]    // full metadata (for UI preview)
   isAgreementChecked: boolean
   minQty: number
@@ -67,11 +68,20 @@ export const useProductDraftStore = create<ProductDraftState>()(
         }),
 
       hydrateFromCart: (productId, cartItem) => {
+        // 🚀 Reconstruct the artworks array for UI preview
+        const reconstructedArtworks = (cartItem.artwork_urls || []).map((path, idx) => ({
+          path: path,
+          url: `/api/artwork?path=${encodeURIComponent(path)}`,
+          name: path.split('/').pop() || `File ${idx + 1}`,
+          size: cartItem.artwork_sizes?.[idx] || 0
+        }))
+
         const draft: ProductDraft = {
           printingType: cartItem.printing_type || 'Retail (Readymade)',
           instructions: cartItem.printing_instructions || '',
           artworkUrls: cartItem.artwork_urls || [],
-          artworks: [], // Cart doesn't store full artwork objects
+          artworkSizes: cartItem.artwork_sizes || [],
+          artworks: reconstructedArtworks,
           isAgreementChecked: true,
           minQty: cartItem.quantity >= B2B_CONSTANTS.WHOLESALE_MIN_QTY
             ? B2B_CONSTANTS.WHOLESALE_MIN_QTY

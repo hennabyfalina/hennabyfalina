@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { X } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { signOut } from '@/services/auth.service'
@@ -16,9 +17,16 @@ interface AccountModalProps {
 
 export default function AccountModal({ isOpen, onClose }: AccountModalProps) {
   const { user, isAdmin } = useAuth()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [mounted, setMounted] = useState(false)
+
+  // 🚀 Capture the exact URL the user is currently on
+  let currentPath = pathname
+  if (searchParams?.toString()) currentPath += `?${searchParams.toString()}`
+  const encodedCurrentUrl = encodeURIComponent(currentPath)
 
   useEffect(() => {
     setMounted(true)
@@ -141,7 +149,7 @@ export default function AccountModal({ isOpen, onClose }: AccountModalProps) {
                     Sign in to view your orders, track shipping, and manage your account.
                   </p>
                   <Link
-                    href="/login"
+                    href={`/login?next=${encodedCurrentUrl}`}
                     target="_blank"
                     onClick={onClose}
                     className="block w-full py-3 bg-[#FFD814] text-gray-900 text-center font-bold text-sm rounded-sm border border-[#FCD200] shadow-sm hover:bg-[#F7CA00]"
@@ -152,7 +160,7 @@ export default function AccountModal({ isOpen, onClose }: AccountModalProps) {
                 <div className="text-center pt-4 border-t border-gray-200">
                   <p className="text-sm text-gray-600">
                     New customer?{' '}
-                    <Link href="/login" target="_blank" onClick={onClose} className="text-[#007185] font-medium hover:underline hover:text-orange-600">
+                    <Link href={`/login?next=${encodedCurrentUrl}`} target="_blank" onClick={onClose} className="text-[#007185] font-medium hover:underline hover:text-orange-600">
                       Start here.
                     </Link>
                   </p>

@@ -6,6 +6,8 @@ import { getPublicUrl } from '@/lib/supabase/storage'
 import { formatCurrency, numberToIndianWords } from '@/lib/utils'
 import { calculateTaxBreakdown } from '@/lib/tax'
 import StarRating from '@/components/product/StarRating'
+import { PRINTING_TIERS } from '@/config/b2b-rules'
+import { CheckCircle2 } from 'lucide-react'
 
 interface OrderSummaryProps {
   items: Array<{
@@ -55,6 +57,8 @@ function OrderSummary({
               ? item.image 
               : getPublicUrl(item.image)
           }
+
+          const tier = PRINTING_TIERS.find(t => t.id === item.printing_type)
           
           return (
             <div key={index} className="flex gap-4 items-start border-b border-[#E7E7E7] pb-4 last:border-0 last:pb-0">
@@ -65,6 +69,7 @@ function OrderSummary({
                   fill 
                   sizes="64px"
                   className="object-cover p-1 mix-blend-multiply" 
+                  unoptimized={imageUrl.startsWith('http') || imageUrl.includes('supabase')}
                 />
               </div>
               <div className="flex-1 min-w-0">
@@ -81,7 +86,7 @@ function OrderSummary({
                 
                 {item.printing_type && item.printing_type !== 'None' && item.printing_type !== 'Retail (Readymade)' && (
                   <div className="mt-2 text-xs text-gray-700 bg-blue-50/50 p-2 rounded-md border border-blue-100/50 space-y-1">
-                    <p><span className="font-bold text-gray-900">Customization:</span> {item.printing_type}</p>
+                    <p><span className="font-bold text-gray-900">Customization:</span> {tier?.title || item.printing_type}</p>
                     {/* 🚨 UPGRADED: Display File Count 🚨 */}
                     {item.artwork_urls && item.artwork_urls.length > 0 && (
                       <p className="text-[#007185] font-medium">({item.artwork_urls.length} file{item.artwork_urls.length > 1 ? 's' : ''} included)</p>
@@ -97,9 +102,10 @@ function OrderSummary({
                 <div className="flex items-center justify-start gap-2 mt-1 flex-wrap">
                   <p className="text-sm text-gray-700 font-medium">Qty: {item.quantity}</p>
                   {item.bulk_price && item.bulk_min_quantity && item.quantity >= item.bulk_min_quantity && (
-                    <span className="text-[11px] font-bold bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded-sm">
-                      Bulk Price Applied
-                    </span>
+                    <div className="inline-flex items-center gap-1 text-[10px] bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-sm whitespace-nowrap">
+                      <CheckCircle2 className="w-3 h-3 text-green-600" />
+                      <span className="font-bold text-green-700">Bulk Price Applied</span>
+                    </div>
                   )}
                 </div>
               </div>

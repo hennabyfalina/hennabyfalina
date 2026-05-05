@@ -4,10 +4,11 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { MapPin, Lock, RefreshCw, Truck, ShieldCheck } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { siteConfig } from '@/config/site'
-import { B2B_CONSTANTS } from '@/config/b2b-rules'
+import { B2B_CONSTANTS, PRINTING_TIERS } from '@/config/b2b-rules'
 import ProductWishlistButton from './ProductWishlistButton'
 import ShareButton from './ShareButton'
 import StarRating from './StarRating'
@@ -29,6 +30,7 @@ const getDefaultDraft = (product: any): ProductDraft => ({
   printingType: 'Retail (Readymade)',
   instructions: '',
   artworkUrls: [],
+  artworkSizes: [],
   artworks: [],
   isAgreementChecked: true,
   minQty: B2B_CONSTANTS.RETAIL_MIN_QTY,
@@ -42,74 +44,63 @@ export default function ProductInteractiveSection({
   regularPrice,
   discountPercentage,
 }: ProductInteractiveSectionProps) {
+  const searchParams = useSearchParams()
+  const editItemId = searchParams ? searchParams.get('edit_item') : null
+
   const getDraft = useProductDraftStore((state) => state.getDraft)
   const setDraft = useProductDraftStore((state) => state.setDraft)
-  const hydrateFromCart = useProductDraftStore((state) => state.hydrateFromCart)
   const cartItems = useCartStore((state) => state.items)
   const findCartItem = useCartStore((state) => state.findCartItem)
 
+  // Verify the ID actually exists in the cart to prevent broken edits
+  const isValidEditItemId = editItemId && cartItems.some(i => i.id === editItemId) ? editItemId : null
+
   const [b2bState, setB2bState] = useState<ProductDraft>(() => {
-    // 1. First check: saved draft (highest priority)
+    // 1. Saved Draft (Memory Template)
     const savedDraft = getDraft(product.id)
     if (savedDraft) return savedDraft
 
-    // 2. Second check: cart item
-    // We need to decide which printing type to show if multiple exist
-    // Default to the first one found, or the most common
-    const cartItem = findCartItem(product.id, 'Retail (Readymade)') ||
-                     findCartItem(product.id, 'Wholesale (No Print)') ||
-                     findCartItem(product.id, 'Wholesale (Single Color)') ||
-                     findCartItem(product.id, 'Wholesale (Multi Color)')
-    
-    if (cartItem) {
-      return {
-        printingType: cartItem.printing_type || 'Retail (Readymade)',
-        instructions: cartItem.printing_instructions || '',
-        artworkUrls: cartItem.artwork_urls || [],
-        artworks: [],
-        isAgreementChecked: true,
-        minQty: cartItem.quantity >= B2B_CONSTANTS.WHOLESALE_MIN_QTY
-          ? B2B_CONSTANTS.WHOLESALE_MIN_QTY
-          : B2B_CONSTANTS.RETAIL_MIN_QTY,
-        days: B2B_CONSTANTS.STANDARD_DELIVERY_DAYS,
-        hydratedFromCart: true,
-      }
-    }
-
-    // 3. Default
+    // 2. Fresh Slate Default
     return getDefaultDraft(product)
   })
   
   const [isClient, setIsClient] = useState(false)
+  const [hydratedEditId, setHydratedEditId] = useState<string | null>(null)
 
   useEffect(() => {
     setIsClient(true)
   }, [])
 
   useEffect(() => {
-    const saved = getDraft(product.id)
-    if (saved) {
-      setB2bState(saved)
-    } else {
-      // If no saved draft, try to hydrate from cart
-      const cartItem = findCartItem(product.id, b2bState.printingType)
-      if (cartItem && !b2bState.hydratedFromCart) {
-        hydrateFromCart(product.id, cartItem)
+    // 🚀 EXPLICIT EDIT MODE HYDRATION (Overrides everything else)
+    if (isValidEditItemId && cartItems.length > 0 && hydratedEditId !== isValidEditItemId) {
+      const editItem = cartItems.find((item) => item.id === isValidEditItemId)
+      if (editItem) {
+        const tier = PRINTING_TIERS.find(t => t.id === editItem.printing_type)
+
+        // 🚀 CRITICAL FIX: Reconstruct the full Artwork objects so previews & sizes work in Edit Mode
+        const reconstructedArtworks = (editItem.artwork_urls || []).map((path, idx) => ({
+          path: path,
+          url: `/api/artwork?path=${encodeURIComponent(path)}`,
+          name: path.split('/').pop() || `File ${idx + 1}`,
+          size: editItem.artwork_sizes?.[idx] || 0
+        }))
+
         setB2bState({
-          printingType: cartItem.printing_type || 'Retail (Readymade)',
-          instructions: cartItem.printing_instructions || '',
-          artworkUrls: cartItem.artwork_urls || [],
-          artworks: [],
+          printingType: editItem.printing_type || 'Retail (Readymade)',
+          instructions: editItem.printing_instructions || '',
+          artworkUrls: editItem.artwork_urls || [],
+          artworkSizes: editItem.artwork_sizes || [],
+          artworks: reconstructedArtworks, 
           isAgreementChecked: true,
-          minQty: cartItem.quantity >= B2B_CONSTANTS.WHOLESALE_MIN_QTY
-            ? B2B_CONSTANTS.WHOLESALE_MIN_QTY
-            : B2B_CONSTANTS.RETAIL_MIN_QTY,
-          days: B2B_CONSTANTS.STANDARD_DELIVERY_DAYS,
+          minQty: tier ? tier.minQty : B2B_CONSTANTS.RETAIL_MIN_QTY,
+          days: tier ? tier.days : B2B_CONSTANTS.STANDARD_DELIVERY_DAYS,
           hydratedFromCart: true,
         })
+        setHydratedEditId(isValidEditItemId)
       }
     }
-  }, [product.id, cartItems, findCartItem])
+  }, [isValidEditItemId, cartItems, hydratedEditId])
 
   // Persist every change
   useEffect(() => {
@@ -141,6 +132,7 @@ export default function ProductInteractiveSection({
     days: b2bState.days,
     instructions: b2bState.instructions,
     artworkUrls: b2bState.artworkUrls,
+    artworkSizes: b2bState.artworkSizes,
     artworks: b2bState.artworks,
     isAgreementChecked: b2bState.isAgreementChecked,
   }
@@ -153,9 +145,10 @@ export default function ProductInteractiveSection({
       days: newState.days,
       instructions: newState.instructions,
       artworkUrls: newState.artworkUrls,
+      artworkSizes: newState.artworkSizes,
       artworks: newState.artworks,
       isAgreementChecked: newState.isAgreementChecked,
-      hydratedFromCart: false, // User changed something, so it's no longer from cart
+      hydratedFromCart: true, // 🚀 Keep true to prevent URL override loops while editing
     })
   }
 
@@ -303,9 +296,14 @@ export default function ProductInteractiveSection({
 
           {/* 🆕 Show indicator if product is already in cart – wrapped in ClientOnly */}
           <ClientOnly>
-            {findCartItem(product.id, b2bState.printingType) && (
+            {findCartItem(product.id, b2bState.printingType) && !isValidEditItemId && (
               <div className="text-xs text-green-700 bg-green-50 p-2 rounded-md mb-1 border border-green-200">
-                ✓ Already in cart. Updating will modify your existing item.
+                Already in cart. Updating will modify your existing item.
+              </div>
+            )}
+            {isValidEditItemId && (
+              <div className="text-xs text-[#007185] bg-[#F0F8FF] p-2 rounded-md mb-1 border border-[#007185]/20 font-medium">
+                You are modifying an item currently in your cart.
               </div>
             )}
           </ClientOnly>
@@ -347,8 +345,10 @@ export default function ProductInteractiveSection({
                 minQuantity={b2bState.minQty}
                 printingType={b2bState.printingType}
                 artworkUrls={b2bState.artworkUrls}
+                artworkSizes={b2bState.artworkSizes}
                 printingInstructions={b2bState.instructions}
                 isAgreementChecked={b2bState.isAgreementChecked}
+                editItemId={isValidEditItemId}
               />
             </div>
           )}

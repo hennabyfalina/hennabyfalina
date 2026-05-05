@@ -164,7 +164,7 @@ export default function ReviewOrderModal({
                   <div key={idx} className="p-4 flex justify-between items-start gap-4 text-sm border-b border-[#E7E7E7] last:border-0">
                     <div className="flex items-start gap-3">
                       <div className="relative w-12 h-12 rounded-sm bg-gray-50 border border-gray-100 overflow-hidden shrink-0">
-                        <Image src={imageUrl} alt={item.name || 'Product'} fill sizes="48px" className="object-cover p-1 mix-blend-multiply" />
+                      <Image src={imageUrl} alt={item.name || 'Product'} fill sizes="48px" className="object-cover p-1 mix-blend-multiply" unoptimized={imageUrl.startsWith('http') || imageUrl.includes('supabase')} />
                       </div>
                       <div className="flex flex-col">
                         <span className="font-medium text-[#0F1111] line-clamp-2">{item.name || 'Product'}</span>

@@ -2,7 +2,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuickViewStore } from '@/store/quickview.store'
 import { useCartStore } from '@/store/cart.store'
@@ -11,7 +11,9 @@ import { showToast } from '@/components/ui/Toast'
 import BuyNowButton from '@/components/product/BuyNowButton'
 import QuantitySelector from '@/components/product/QuantitySelector'
 import { B2B_CONSTANTS } from '@/config/b2b-rules'
+import { deleteB2BArtwork } from '@/lib/supabase/b2b-storage'
 import { ClientOnly } from '@/components/ui/ClientOnly'
+import EditCartConfirmModal from './EditCartConfirmModal'
 
 interface AddToCartButtonProps {
   product: {
@@ -32,13 +34,15 @@ interface AddToCartButtonProps {
   quantity?: number
   minQuantity?: number
   printingType?: string
-  artworkUrls?: string[]
+  artworkUrls?: string[] | null
+  artworkSizes?: number[] | null
   printingInstructions?: string | null
   isAgreementChecked?: boolean
   showQuantitySelector?: boolean
   className?: string
   onQuantityChange?: (qty: number) => void
   requireCustomizationChoice?: boolean
+  editItemId?: string | null
 }
 
 export default function AddToCartButton({
@@ -46,38 +50,82 @@ export default function AddToCartButton({
   quantity: initialQuantity = 1,
   minQuantity = 1,
   printingType: propPrintingType,
-  artworkUrls: propArtworkUrls = [],
+  artworkUrls: propArtworkUrls,
+  artworkSizes: propArtworkSizes,
   printingInstructions: propPrintingInstructions = null,
   isAgreementChecked: propIsAgreementChecked = true,
   showQuantitySelector = false,
   className = '',
   onQuantityChange,
-  requireCustomizationChoice = false
+  requireCustomizationChoice = false,
+  editItemId = null
 }: AddToCartButtonProps) {
   const router = useRouter()
   const closeQuickView = useQuickViewStore((state) => state.closeQuickView)
 
-  const getDraft = useProductDraftStore((state) => state.getDraft)
-  const draft = getDraft(product.id)
+  const draft = useProductDraftStore((state) => state.drafts[product.id])
 
-  const effectivePrintingType = draft?.printingType ?? propPrintingType ?? 'Retail (Readymade)'
-  const effectiveArtworkUrls = draft?.artworkUrls ?? propArtworkUrls
-  const effectivePrintingInstructions = draft?.instructions ?? propPrintingInstructions
+  const effectivePrintingType = propPrintingType ?? draft?.printingType ?? 'Retail (Readymade)'
+  const effectiveArtworkUrls = propArtworkUrls !== undefined && propArtworkUrls !== null ? propArtworkUrls : (draft?.artworkUrls ?? [])
+  const effectiveArtworkSizes = propArtworkSizes !== undefined && propArtworkSizes !== null ? propArtworkSizes : (draft?.artworkSizes ?? [])
+  const effectivePrintingInstructions = propPrintingInstructions !== null ? propPrintingInstructions : (draft?.instructions ?? null)
   const effectiveIsAgreementChecked = draft?.isAgreementChecked ?? propIsAgreementChecked
-  const effectiveMinQuantity = draft?.minQty ?? minQuantity
+  const effectiveMinQuantity = minQuantity !== 1 ? minQuantity : (draft?.minQty ?? 1)
+
+  const existingItem = useCartStore((state) =>
+    editItemId ? state.items.find(i => i.id === editItemId) : state.findCartItem(product.id, effectivePrintingType)
+  )
+
+  // 🚨 SANITIZE INPUTS & DETECT GHOST FILES
+  const isCustomPrint = effectivePrintingType.includes('Single Color') || effectivePrintingType.includes('Multi Color')
+  const finalArtworkUrls = isCustomPrint ? effectiveArtworkUrls : []
+  const finalArtworkSizes = isCustomPrint ? effectiveArtworkSizes : []
+  const finalPrintingInstructions = isCustomPrint ? effectivePrintingInstructions : null
+
+  const orphanedFiles = existingItem?.artwork_urls?.filter(url => !finalArtworkUrls.includes(url)) || []
+  const filesWillBeDeleted = orphanedFiles.length > 0
 
   const [quantity, setQuantity] = useState(Math.max(initialQuantity, effectiveMinQuantity))
   const [isAdding, setIsAdding] = useState(false)
+  const [showEditConfirm, setShowEditConfirm] = useState(false)
   const addItem = useCartStore((state) => state.addItem)
+  const removeItem = useCartStore((state) => state.removeItem)
 
-  const existingItem = useCartStore((state) => 
-    state.findCartItem(product.id, effectivePrintingType)
-  )
+  // 🚨 Pre-calculate prices to feed to the Confirmation Modal
+  const sellingPrice = product.selling_price ?? product.price ?? 0
+  const finalPrice = product.bulk_price && (quantity >= (product.bulk_min_quantity || B2B_CONSTANTS.WHOLESALE_MIN_QTY))
+    ? product.bulk_price
+    : sellingPrice
+  const newTotal = finalPrice * quantity
+  const oldTotal = existingItem ? existingItem.price * existingItem.quantity : 0
+
+  // Track if we've initialized from existing item in edit mode
+  const [initializedFromEdit, setInitializedFromEdit] = useState(false)
+  const prevMinQtyRef = useRef(effectiveMinQuantity)
 
   useEffect(() => {
-    setQuantity(effectiveMinQuantity)
-    if (onQuantityChange) onQuantityChange(effectiveMinQuantity)
-  }, [effectiveMinQuantity, onQuantityChange])
+    if (editItemId && existingItem && !initializedFromEdit) {
+      const newQty = Math.max(existingItem.quantity, effectiveMinQuantity)
+      setQuantity(newQty)
+      if (onQuantityChange) onQuantityChange(newQty)
+      setInitializedFromEdit(true)
+      prevMinQtyRef.current = effectiveMinQuantity
+    }
+  }, [editItemId, existingItem, effectiveMinQuantity, initializedFromEdit, onQuantityChange])
+
+  useEffect(() => {
+    let newQty = quantity
+    if (quantity < effectiveMinQuantity) {
+      newQty = effectiveMinQuantity
+    } else if (quantity === prevMinQtyRef.current && effectiveMinQuantity < prevMinQtyRef.current) {
+      newQty = effectiveMinQuantity
+    }
+    if (newQty !== quantity) {
+      setQuantity(newQty)
+      if (onQuantityChange) onQuantityChange(newQty)
+    }
+    prevMinQtyRef.current = effectiveMinQuantity
+  }, [effectiveMinQuantity, quantity, onQuantityChange])
 
   const handleQuantityChange = (newQuantity: number) => {
     setQuantity(newQuantity)
@@ -136,14 +184,29 @@ export default function AddToCartButton({
       return
     }
 
+    // 🚀 INTERCEPT EDIT CLICKS TO SHOW THE SUMMARY MODAL
+    if (editItemId && existingItem) {
+      setShowEditConfirm(true)
+      return
+    }
+
+    await executeAddToCart()
+  }
+
+  const executeAddToCart = async () => {
     setIsAdding(true)
-
-    const sellingPrice = product.selling_price ?? product.price ?? 0
-    const finalPrice = product.bulk_price && (quantity >= (product.bulk_min_quantity || B2B_CONSTANTS.WHOLESALE_MIN_QTY))
-      ? product.bulk_price
-      : sellingPrice
-
     try {
+      // 🚨 SCRUB THE GHOST FILES FROM THE SUPABASE BUCKET
+      if (orphanedFiles.length > 0) {
+        // Fire and forget asynchronous deletion
+        Promise.all(orphanedFiles.map(path => deleteB2BArtwork(path).catch(console.error)))
+      }
+
+      // 🚀 If we are explicitly editing a line item, remove the old one before injecting the new config!
+      if (editItemId) {
+        await removeItem(editItemId)
+      }
+
       await Promise.all([
         addItem({
           product_id: product.id,
@@ -162,15 +225,22 @@ export default function AddToCartButton({
           review_count: product.review_count || null,
           selling_price: sellingPrice,
           printing_type: effectivePrintingType,
-          artwork_urls: effectiveArtworkUrls,
-          printing_instructions: effectivePrintingInstructions,
+          artwork_urls: finalArtworkUrls,
+          artwork_sizes: finalArtworkSizes,
+          printing_instructions: finalPrintingInstructions,
         }),
         new Promise((resolve) => setTimeout(resolve, 400))
       ])
 
-      showToast('Added to Cart', product.id)
+      if (editItemId) {
+        showToast('Cart updated successfully', 'success')
+        setShowEditConfirm(false)
+        router.push('/cart')
+      } else {
+        showToast('Added to Cart', product.id)
+      }
     } catch (err: any) {
-      showToast('Failed to add to cart', product.id)
+      showToast('Failed to update cart', 'error')
     } finally {
       setIsAdding(false)
     }
@@ -213,7 +283,7 @@ export default function AddToCartButton({
           ) : (
             // ✅ Wrap the conditional button text in ClientOnly to prevent hydration mismatch
             <ClientOnly fallback={<span>Add to Cart</span>}>
-              {existingItem ? <span>Update in Cart</span> : <span>{isOutOfStock ? 'Currently Unavailable' : 'Add to Cart'}</span>}
+              {editItemId ? <span>Save Changes</span> : existingItem ? <span>Add More to Cart</span> : <span>{isOutOfStock ? 'Currently Unavailable' : 'Add to Cart'}</span>}
             </ClientOnly>
           )}
         </button>
@@ -227,6 +297,24 @@ export default function AddToCartButton({
           />
         )}
       </div>
+
+      {/* 🚨 THE NEW VISUAL CONFIRMATION MODAL 🚨 */}
+      {existingItem && editItemId && (
+        <EditCartConfirmModal
+          isOpen={showEditConfirm}
+          onClose={() => setShowEditConfirm(false)}
+          onConfirm={executeAddToCart}
+          isLoading={isAdding}
+          oldQty={existingItem.quantity}
+          newQty={quantity}
+          oldPrint={existingItem.printing_type || 'Retail (Readymade)'}
+          newPrint={effectivePrintingType}
+          oldTotal={oldTotal}
+          newTotal={newTotal}
+          filesWillBeDeleted={filesWillBeDeleted}
+          productName={product.name}
+        />
+      )}
     </div>
   )
 }

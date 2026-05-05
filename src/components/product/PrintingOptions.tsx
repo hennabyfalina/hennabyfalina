@@ -11,6 +11,7 @@ import { showToast } from '@/components/ui/Toast'
 import PreviewModal from '@/components/ui/PreviewModal'
 import { useEffect } from 'react'
 import { useProductDraftStore } from '@/store/productDraft.store'
+import { useCartStore } from '@/store/cart.store'
 
 interface ArtworkFile {
   path: string
@@ -52,6 +53,16 @@ export default function PrintingOptions({ b2bState, onChange }: PrintingOptionsP
 
   const activeTierConfig = PRINTING_TIERS.find((o) => o.id === selectedType)
   const isCustomPrint = selectedType.includes('Color')
+
+  // Helper to dynamically assign semantic colors to tags
+  const getTagColor = (tag: string) => {
+    switch (tag) {
+      case 'Best Value': return 'bg-[#007600] text-white' // Green for Savings
+      case 'Fastest': return 'bg-[#007185] text-white'    // Blue for Speed/Trust
+      case 'Popular': return 'bg-[#C7511F] text-white'    // Orange for Attention
+      default: return 'bg-[#C7511F] text-white'
+    }
+  }
 
   // Generate a session ID for anonymous uploads
   const getSessionId = () => {
@@ -115,7 +126,7 @@ export default function PrintingOptions({ b2bState, onChange }: PrintingOptionsP
 
       for (const { file, size } of validFiles) {
         // Upload to temp folder if not logged in
-        const internalPath = await uploadB2BArtwork(file, user || null, getSessionId())
+        const internalPath = await uploadB2BArtwork(file, user?.id || null, getSessionId())
         const signed = await getSignedB2BUrl(internalPath)
         
         newArtworks.push({
@@ -157,10 +168,16 @@ export default function PrintingOptions({ b2bState, onChange }: PrintingOptionsP
 
     showToast('Artwork removed', 'info')
 
-    try {
-      await deleteB2BArtwork(artworkToRemove.path)
-    } catch (err) {
-      console.warn('Failed to delete artwork:', err)
+    // 🚨 FIX: Prevent deleting artwork if it is currently actively used by a Cart Item!
+    const cartItems = useCartStore.getState().items
+    const isInUseByCart = cartItems.some(item => item.artwork_urls?.includes(artworkToRemove.path))
+
+    if (!isInUseByCart) {
+      try {
+        await deleteB2BArtwork(artworkToRemove.path)
+      } catch (err) {
+        console.warn('Failed to delete artwork:', err)
+      }
     }
   }
 
@@ -210,7 +227,7 @@ export default function PrintingOptions({ b2bState, onChange }: PrintingOptionsP
                 }`}
               >
                 {opt.tag && (
-                  <span className="absolute -top-2.5 right-2 bg-[#C7511F] text-white text-[10px] font-bold px-2 py-0.5 rounded-sm shadow-sm">
+                  <span className={`absolute -top-2.5 right-2 text-[10px] font-bold px-2 py-0.5 rounded-sm shadow-sm tracking-wide ${getTagColor(opt.tag)}`}>
                     {opt.tag}
                   </span>
                 )}

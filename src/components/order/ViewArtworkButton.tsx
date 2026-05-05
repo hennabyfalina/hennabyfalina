@@ -14,8 +14,8 @@ export default function ViewArtworkButton({ path }: { path: string }) {
   const handleAction = async () => {
     setLoading(true)
     try {
-      const signedUrl = await getSignedB2BUrl(path)
-      if (signedUrl) setModal({ isOpen: true, url: signedUrl })
+      const signedUrl = `/api/artwork?path=${encodeURIComponent(path)}`
+      setModal({ isOpen: true, url: signedUrl })
     } catch {
       alert('Failed to load file.')
     } finally {

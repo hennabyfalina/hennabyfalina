@@ -127,6 +127,11 @@ export default function Navbar() {
   const isPartiallyActive = (path: string) => pathname.startsWith(path)
   const isExactActive = (path: string) => pathname === path
 
+  // 🚀 Capture the exact URL the user is currently on
+  let currentPath = pathname
+  if (searchParams.toString()) currentPath += `?${searchParams.toString()}`
+  const encodedCurrentUrl = encodeURIComponent(currentPath)
+
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'User'
   const displayEmail = isAdmin ? getMaskedEmail(user?.email || '') : user?.email
 
@@ -265,7 +270,7 @@ export default function Navbar() {
 
                 {/* Account Dropdown */}
                 <div className="relative group h-full">
-                  <Link href={user ? (isAdmin ? "/admin-gate" : "/profile") : "/login"} target="_blank" className="flex items-center gap-2 px-3 py-2 border border-transparent hover:border-gray-200 hover:bg-gray-50 rounded-sm transition-all outline-none">
+                  <Link href={user ? (isAdmin ? "/admin-gate" : "/profile") : `/login?next=${encodedCurrentUrl}`} target="_blank" className="flex items-center gap-2 px-3 py-2 border border-transparent hover:border-gray-200 hover:bg-gray-50 rounded-sm transition-all outline-none">
                     <UserCircle2 className={`w-6 h-6 ${isAccountActive ? 'text-[#0B57D0]' : 'text-gray-600 group-hover:text-gray-900'}`} strokeWidth={1.5} />
                     <div className="flex flex-col items-start leading-none text-left">
                       <span className="text-[11px] font-medium text-gray-500">
@@ -303,11 +308,11 @@ export default function Navbar() {
                       </div>
                     ) : (
                       <div className="px-6 py-2 text-center flex flex-col items-center">
-                        <Link href="/login" target="_blank" className="w-full py-2 bg-[#FFD814] hover:bg-[#FFD814] text-gray-900 text-sm font-medium rounded-sm border border-[#FFD814] shadow-sm transition-colors">
+                        <Link href={`/login?next=${encodedCurrentUrl}`} target="_blank" className="w-full py-2 bg-[#FFD814] hover:bg-[#FFD814] text-gray-900 text-sm font-medium rounded-sm border border-[#FFD814] shadow-sm transition-colors">
                           Sign in
                         </Link>
                         <p className="text-xs mt-3 text-gray-600">
-                          New customer? <Link href="/login" target="_blank" className="text-[#007185] hover:underline hover:text-orange-600">Start here.</Link>
+                          New customer? <Link href={`/login?next=${encodedCurrentUrl}`} target="_blank" className="text-[#007185] hover:underline hover:text-orange-600">Start here.</Link>
                         </p>
                       </div>
                     )}

@@ -14,7 +14,8 @@ interface BuyNowButtonProps {
   product: any
   quantity?: number
   printingType?: string
-  artworkUrls?: string[]
+  artworkUrls?: string[] | null
+  artworkSizes?: number[] | null
   printingInstructions?: string | null
   className?: string
   requireCustomizationChoice?: boolean
@@ -24,7 +25,8 @@ export default function BuyNowButton({
   product,
   quantity = 1,
   printingType: propPrintingType,
-  artworkUrls: propArtworkUrls = [],
+  artworkUrls: propArtworkUrls,
+  artworkSizes: propArtworkSizes,
   printingInstructions: propPrintingInstructions = null,
   className = '',
   requireCustomizationChoice = false
@@ -34,14 +36,20 @@ export default function BuyNowButton({
   const closeQuickView = useQuickViewStore((state) => state.closeQuickView)
   const router = useRouter()
 
-  const getDraft = useProductDraftStore((state) => state.getDraft)
-  const draft = getDraft(product.id)
+  const draft = useProductDraftStore((state) => state.drafts[product.id])
 
-  const effectivePrintingType = draft?.printingType ?? propPrintingType ?? 'Retail (Readymade)'
-  const effectiveArtworkUrls = draft?.artworkUrls ?? propArtworkUrls
-  const effectivePrintingInstructions = draft?.instructions ?? propPrintingInstructions
+  const effectivePrintingType = propPrintingType ?? draft?.printingType ?? 'Retail (Readymade)'
+  const effectiveArtworkUrls = propArtworkUrls !== undefined && propArtworkUrls !== null ? propArtworkUrls : (draft?.artworkUrls ?? [])
+  const effectiveArtworkSizes = propArtworkSizes !== undefined && propArtworkSizes !== null ? propArtworkSizes : (draft?.artworkSizes ?? [])
+  const effectivePrintingInstructions = propPrintingInstructions !== null ? propPrintingInstructions : (draft?.instructions ?? null)
   const effectiveIsAgreementChecked = draft?.isAgreementChecked ?? true
   const effectiveMinQuantity = draft?.minQty ?? B2B_CONSTANTS.RETAIL_MIN_QTY
+
+  // 🚨 SANITIZE INPUTS
+  const isCustomPrint = effectivePrintingType.includes('Single Color') || effectivePrintingType.includes('Multi Color')
+  const finalArtworkUrls = isCustomPrint ? effectiveArtworkUrls : []
+  const finalArtworkSizes = isCustomPrint ? effectiveArtworkSizes : []
+  const finalPrintingInstructions = isCustomPrint ? effectivePrintingInstructions : null
 
   // 🚨 VALIDATION FUNCTION (same as AddToCartButton)
   const validateCustomPrint = (): { valid: boolean; message?: string } => {
@@ -118,8 +126,9 @@ export default function BuyNowButton({
         review_count: product.review_count || null,
         selling_price: sellingPrice,
         printing_type: effectivePrintingType,
-        artwork_urls: effectiveArtworkUrls,
-        printing_instructions: effectivePrintingInstructions,
+        artwork_urls: finalArtworkUrls,
+        artwork_sizes: finalArtworkSizes,
+        printing_instructions: finalPrintingInstructions,
       })
 
       router.push('/checkout')
