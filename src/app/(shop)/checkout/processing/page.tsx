@@ -197,9 +197,10 @@ export default function ProcessingPage() {
           <div className="flex justify-center mb-8">
             <div className="w-10 h-10 border-4 border-[#007185]/30 border-t-[#007185] rounded-full animate-spin"></div>
           </div>
-          <div className="bg-gray-50 rounded-md p-4 flex items-center justify-center gap-2 text-sm text-gray-700 border border-gray-200 w-full">
-            
-            <span className="font-medium text-center leading-tight whitespace-nowrap">Please do not refresh, go back, or close this window.</span>
+          <div className="bg-gray-50 rounded-md p-4 flex items-center justify-center border border-gray-200 w-full">
+            <p className="text-xs md:text-sm font-bold text-gray-700 leading-relaxed text-center">
+              Please do not refresh, go back, or close this window.
+            </p>
           </div>
         </div>
       )}
