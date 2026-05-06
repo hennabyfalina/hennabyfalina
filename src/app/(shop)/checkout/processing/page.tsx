@@ -29,27 +29,54 @@ export default function ProcessingPage() {
   const orderId = searchParams.get('order_id')
   const amount = searchParams.get('amount')
   const razorpayOrderId = searchParams.get('rzp_order')
-  const rawKey = searchParams.get('key')
-  const razorpayKey = rawKey && rawKey !== 'undefined' && rawKey !== 'null' ? rawKey : null
+  
 
-  // 🚨 CRITICAL FIX: Next.js Script tags sometimes don't re-fire onReady during client-side navigation!
+  // 🚨 CRITICAL FIX: Robust Script Loader to prevent infinite loops and handle AdBlockers
   useEffect(() => {
+    let checkInterval: NodeJS.Timeout
+    let isMounted = true
+    
     if (typeof window !== 'undefined') {
-      if (window.Razorpay) {
-        setIsScriptLoaded(true)
-      } else {
-        const existingScript = document.getElementById('razorpay-checkout-js') as HTMLScriptElement
-        if (existingScript) {
-          existingScript.onload = () => setIsScriptLoaded(true)
-        } else {
-          const script = document.createElement('script')
-          script.id = 'razorpay-checkout-js'
-          script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-          script.async = true
-          script.onload = () => setIsScriptLoaded(true)
-          document.body.appendChild(script)
+      const scriptId = 'razorpay-checkout-js'
+      let script = document.getElementById(scriptId) as HTMLScriptElement
+
+      if (!script) {
+        script = document.createElement('script')
+        script.id = scriptId
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+        script.async = true
+        
+        script.onerror = () => {
+          if (isMounted) {
+            setPaymentState('failed')
+            setStatusMessage('Payment gateway blocked. Please disable adblockers and try again.')
+            setTimeout(() => router.replace('/checkout'), 3000)
+          }
         }
+        
+        document.body.appendChild(script)
       }
+
+      let attempts = 0
+      checkInterval = setInterval(() => {
+        attempts++
+        if (window.Razorpay) {
+          if (isMounted) setIsScriptLoaded(true)
+          clearInterval(checkInterval)
+        } else if (attempts > 150) { // 15 seconds timeout
+          clearInterval(checkInterval)
+          if (isMounted) {
+            setPaymentState('failed')
+            setStatusMessage('Payment gateway took too long to load. Please check your internet connection.')
+            setTimeout(() => router.replace('/checkout'), 3000)
+          }
+        }
+      }, 100)
+    }
+
+    return () => {
+      isMounted = false
+      if (checkInterval) clearInterval(checkInterval)
     }
   }, [])
 
@@ -75,7 +102,7 @@ export default function ProcessingPage() {
       hasTriggeredPayment.current = true
       setTimeout(() => {
         triggerRazorpay()
-      }, 2500)
+      }, 500) // 🚨 Reduced wait time for snappier experience
     }
   }, [isScriptLoaded, orderId, amount, razorpayOrderId, router])
 
@@ -88,7 +115,7 @@ export default function ProcessingPage() {
 
     let isSuccess = false
 
-    const finalKey = razorpayKey || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
+    const finalKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
     if (!finalKey) {
       setPaymentState('failed')
       setStatusMessage('Configuration error: Payment key missing. Redirecting...')

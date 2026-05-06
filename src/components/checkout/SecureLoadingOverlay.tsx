@@ -34,7 +34,7 @@ export default function SecureLoadingOverlay({ isProcessing }: SecureLoadingOver
           <div className="w-10 h-10 border-4 border-[#007185]/30 border-t-[#007185] rounded-full animate-spin"></div>
         </div>
         <div className="bg-gray-50 rounded-md p-4 flex items-center justify-center gap-2 text-sm text-gray-700 border border-gray-200 w-full">
-          <ShieldCheck className="w-5 h-5 text-green-600 shrink-0" />
+          
           <span className="font-medium text-left leading-tight">Please do not refresh, go back, or close this window.</span>
         </div>
       </div>

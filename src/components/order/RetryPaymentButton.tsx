@@ -39,7 +39,7 @@ export default function RetryPaymentButton({ orderId, orderNumber, amount }: Ret
       if (razorpayData.error) throw new Error(razorpayData.error)
 
       // Instantly push to the new Processing Page
-      router.push(`/checkout/processing?order_id=${orderId}&amount=${razorpayData.amount}&rzp_order=${razorpayData.orderId}&key=${razorpayData.keyId || ''}`)
+      router.push(`/checkout/processing?order_id=${orderId}&amount=${razorpayData.amount}&rzp_order=${razorpayData.orderId}`)
     } catch (error: any) {
       showToast(error.message || 'Failed to initialize payment')
       setIsLoading(false)
