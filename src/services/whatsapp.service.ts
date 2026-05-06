@@ -7,28 +7,25 @@ const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID;
 const META_ADMIN_PHONE = process.env.META_ADMIN_PHONE;
 
-// 🛡️ THE ULTIMATE SANITIZER FOR META API
-// Absolutely NO newlines (\n), carriage returns (\r), or tabs (\t) allowed.
+// 🛡️ RUTHLESS SANITIZER FOR META API
+// Meta STRICTLY forbids \n, \r, \t and >= 4 consecutive spaces inside template parameters.
 const sanitizeForMeta = (value: any): string => {
   if (!value) return 'N/A';
   let str = String(value);
   
-  // 1. Nuke ALL newlines, carriage returns, and tabs, turning them into a single space
+  // Replace ALL newlines, carriage returns, and tabs with a single space
   str = str.replace(/[\n\r\t]+/g, ' ');
   
-  // 2. Collapse ANY run of 2 or more spaces into exactly 1 space
-  str = str.replace(/ {2,}/g, ' ');
+  // Collapse any run of 4 or more spaces into exactly 3 spaces
+  str = str.replace(/ {4,}/g, '   ');
   
-  // 3. Trim edges
-  str = str.trim();
-  
-  if (str.length === 0) return 'N/A';
-  return str.substring(0, 950);
-};
+  // Trim leading/trailing whitespace
+  return str.trim();
+}
 
 /**
- * Formats order items into a 100% HORIZONTAL string for WhatsApp Meta Templates.
- * Uses brackets and separators instead of newlines.
+ * Formats order items into a clean, SINGLE-LINE string for WhatsApp Meta Templates.
+ * Uses brackets and pipes to separate B2B data since newlines are banned.
  */
 function formatOrderSummaryForWhatsApp(orderItems: any[]): string {
   if (!orderItems || orderItems.length === 0) return 'No items found.'
@@ -40,34 +37,35 @@ function formatOrderSummaryForWhatsApp(orderItems: any[]): string {
     // 1. Base Item
     let itemString = `${orderItems.length > 1 ? index + 1 + '. ' : ''}${productName} (Qty: ${qty})`
 
-    // 2. B2B Customization Details (Horizontal)
+    // 2. B2B Customization Details (Inline format: [Print: Single Color | Files: 2 | Note: ...])
     const printType = item.printing_type
     if (printType && printType !== 'None' && printType !== 'Retail (Readymade)') {
-      itemString += ` [Print: ${printType}]`
+      let customDetails = `Print: ${printType}`
       
-      // 3. File Count
       const fileCount = item.artwork_urls?.length || 0
       if (fileCount > 0) {
-        itemString += ` [Files: ${fileCount}]`
+        customDetails += ` | Files: ${fileCount}`
       }
 
-      // 4. Custom Notes (Safely truncated)
       if (item.printing_instructions) {
-        const safeNotes = item.printing_instructions.length > 50 
-          ? item.printing_instructions.substring(0, 50) + '...'
+        const safeNotes = item.printing_instructions.length > 40 
+          ? item.printing_instructions.substring(0, 40) + '...'
           : item.printing_instructions
-        itemString += ` [Note: ${safeNotes}]`
+        customDetails += ` | Note: ${safeNotes}`
       }
+      
+      itemString += ` [${customDetails}]`
     }
 
     return itemString
   })
 
-  // Join all products with a horizontal separator instead of \n
-  let finalSummary = summaryParts.join(' ━ ')
+  // Join all products with a distinct inline separator (||) since newlines are banned
+  let finalSummary = summaryParts.join(' || ')
 
+  // 🚨 Emergency Meta Safeguard: Strict limit enforcement (1024 chars max)
   if (finalSummary.length > 950) {
-    finalSummary = finalSummary.substring(0, 950) + '... (View web for full details)'
+    finalSummary = finalSummary.substring(0, 950) + '... (View web dashboard for full details)'
   }
 
   return finalSummary
@@ -86,6 +84,7 @@ export async function sendWhatsAppTemplate(
   }
 
   try {
+    // 1. Map the text variables for the body (sanitized)
     const components: any[] = [
       {
         type: 'body',
@@ -96,6 +95,7 @@ export async function sendWhatsAppTemplate(
       }
     ];
 
+    // 2. Map the dynamic URL variable for the button (if it exists) – also sanitized
     if (buttonParam) {
       components.push({
         type: 'button',
@@ -153,15 +153,19 @@ export async function notifyOrderConfirmed(order: any) {
   const addressObj = order.addresses || order.shipping_address || {};
   const isPickup = order.shipping_method === 'pickup' || addressObj.delivery_method === 'pickup';
 
+  // 📞 PHONE FORMATTER: Fixes multiple numbers, '0' prefixes, and formats for WhatsApp
   const formatWhatsAppNumber = (phone: string) => {
     if (!phone) return null;
     let cleaned = phone.replace(/\D/g, '');
+    // Handle "0" prefix common in India (e.g. 09444233768)
     if (cleaned.length === 11 && cleaned.startsWith('0')) {
       cleaned = cleaned.substring(1);
     }
+    // Handle standard 10-digit numbers by prepending India code
     if (cleaned.length === 10) {
       cleaned = `91${cleaned}`;
     }
+    // WhatsApp requires a valid country code + number length (typically 11-15 digits)
     if (cleaned.length < 11 || cleaned.length > 15) {
       return null;
     }
@@ -169,11 +173,12 @@ export async function notifyOrderConfirmed(order: any) {
   };
 
   const itemsArray = order.order_items || order.items || [];
+
   const formattedItemsSummary = formatOrderSummaryForWhatsApp(itemsArray);
+
   const delMethod = isPickup ? 'Store Pickup' : 'Home Delivery';
   const totalAmount = formatCurrency(order.total_amount);
 
-  // Address formatted horizontally
   let adminAddressRaw = 'Store Pickup';
   if (!isPickup) {
     adminAddressRaw = `${addressObj.address_line1 || addressObj.address || ''}`;
@@ -196,7 +201,7 @@ export async function notifyOrderConfirmed(order: any) {
           sanitizeForMeta(formattedItemsSummary),    // {{3}}
           sanitizeForMeta(totalAmount)               // {{4}}
         ],
-        buttonParam
+        buttonParam // Will be sanitized inside sendWhatsAppTemplate
       );
       if (sent) successCount++;
     } else {
@@ -206,6 +211,7 @@ export async function notifyOrderConfirmed(order: any) {
 
   // --- 2. SEND TO ADMIN (UNCLE ISMATH) ---
   if (META_ADMIN_PHONE) {
+    // Split by comma to support multiple admin numbers in the .env file
     const adminPhones = META_ADMIN_PHONE.split(',').map(p => p.trim()).filter(Boolean);
 
     for (const phone of adminPhones) {

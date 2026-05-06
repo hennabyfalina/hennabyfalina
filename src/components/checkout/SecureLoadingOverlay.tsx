@@ -35,7 +35,7 @@ export default function SecureLoadingOverlay({ isProcessing }: SecureLoadingOver
         </div>
         <div className="bg-gray-50 rounded-md p-4 flex items-center justify-center gap-2 text-sm text-gray-700 border border-gray-200 w-full">
           
-          <span className="font-medium text-left leading-tight">Please do not refresh, go back, or close this window.</span>
+          <span className="font-medium text-center leading-tight whitespace-nowrap">Please do not refresh, go back, or close this window.</span>
         </div>
       </div>
     </div>
