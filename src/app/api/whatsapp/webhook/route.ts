@@ -14,7 +14,6 @@ export async function GET(request: Request) {
 
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
     console.log('Webhook verified successfully!');
-    // Meta requires us to return ONLY the challenge string to prove we are real
     return new NextResponse(challenge, { status: 200 });
   } else {
     console.error('Webhook verification failed.');
@@ -28,12 +27,11 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // Verify this is an actual WhatsApp event
     if (body.object === 'whatsapp_business_account') {
       for (const entry of body.entry) {
         for (const change of entry.changes) {
           
-          // --- NEW: LISTEN FOR DELIVERY STATUS REPORTS ---
+          // --- LISTEN FOR DELIVERY STATUS REPORTS ---
           if (change.value && change.value.statuses && change.value.statuses[0]) {
             const statusObj = change.value.statuses[0];
             console.log(`[WhatsApp Status] Phone ${statusObj.recipient_id} is now: ${statusObj.status}`);
@@ -42,24 +40,42 @@ export async function POST(request: Request) {
               console.error(`[WhatsApp Delivery Failure Reason]:`, JSON.stringify(statusObj.errors, null, 2));
             }
           }
-
           
-          // Check if it's an incoming message from a customer
+          // --- THE AUTO-DEFLECTOR (FREE INBOUND REPLIES) ---
           if (change.value && change.value.messages && change.value.messages[0]) {
             const message = change.value.messages[0];
             const customerPhone = message.from; 
-            const messageText = message.text?.body; 
-            const customerName = change.value.contacts?.[0]?.profile?.name || 'Unknown';
+            const customerName = change.value.contacts?.[0]?.profile?.name || 'Customer';
 
-            console.log(`New WhatsApp Message!`);
-            console.log(`From: ${customerName} (${customerPhone})`);
-            console.log(`Message: ${messageText}`);
+            console.log(`[WhatsApp Inbound] Message received from ${customerName}`);
             
-            // Next Step: We will write the code to save this to Supabase here!
+            const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
+            const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID;
+
+            if (META_ACCESS_TOKEN && META_PHONE_NUMBER_ID) {
+              // We reply with a standard 'text' type. This is 100% FREE in a user-initiated 24h window.
+              await fetch(`https://graph.facebook.com/v19.0/${META_PHONE_NUMBER_ID}/messages`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${META_ACCESS_TOKEN}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  messaging_product: 'whatsapp',
+                  recipient_type: 'individual',
+                  to: customerPhone,
+                  type: 'text',
+                  text: {
+                    preview_url: true,
+                    // 🚨 CHANGE THE WA.ME LINK BELOW TO UNCLE ISMATH'S REAL NUMBER 🚨
+                    body: `Hi ${customerName}! \n\nThis is the automated dispatch system for Razack Packaging Centre.\n\nTo chat directly with our support team regarding your order or custom printing, please click the link below:\n\n https://wa.me/916383151922`
+                  }
+                }),
+              });
+            }
           }
         }
       }
-      // You must always return a 200 OK to Meta, or they will keep resending the message
       return NextResponse.json({ status: 'success' }, { status: 200 });
     }
     

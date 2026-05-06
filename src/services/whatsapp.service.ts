@@ -8,14 +8,16 @@ const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID;
 const META_ADMIN_PHONE = process.env.META_ADMIN_PHONE;
 
 // 🛡️ RUTHLESS SANITIZER FOR META API
-// Removes \n, \r, \t and collapses multiple spaces (Meta forbids >4 consecutive spaces)
+// Removes \r, \t, collapses multiple spaces, and limits consecutive newlines
 const sanitizeForMeta = (value: any): string => {
   if (!value) return 'N/A';
   let str = String(value);
-  // Replace all newline, carriage return, tab with a single space
-  str = str.replace(/[\n\r\t]+/g, ' ');
+  // Replace carriage return and tab with a single space (preserve \n)
+  str = str.replace(/[\r\t]+/g, ' ');
   // Collapse any run of 5 or more spaces into exactly 1 space
   str = str.replace(/ {5,}/g, ' ');
+  // Collapse more than 2 consecutive newlines into exactly 2
+  str = str.replace(/\n{3,}/g, '\n\n');
   // Trim leading/trailing whitespace
   str = str.trim();
   // If after cleaning it's empty, return 'N/A'
@@ -23,6 +25,54 @@ const sanitizeForMeta = (value: any): string => {
   // Safely truncate (Meta limit ~1024, we keep 950 to be safe)
   return str.substring(0, 950);
 };
+
+/**
+ * Formats order items into a clean, multi-line string for WhatsApp Meta Templates.
+ * Ensures B2B customization details are clearly visible while respecting Meta's limits.
+ */
+function formatOrderSummaryForWhatsApp(orderItems: any[]): string {
+  if (!orderItems || orderItems.length === 0) return 'No items found.'
+
+  const summaryParts = orderItems.map((item, index) => {
+    const productName = item.products?.name || item.name || 'Product'
+    const qty = item.quantity || 1
+    
+    // 1. Base Item
+    let itemString = `${orderItems.length > 1 ? index + 1 + '. ' : ''}${productName} (Qty: ${qty})`
+
+    // 2. B2B Customization Details
+    const printType = item.printing_type
+    if (printType && printType !== 'None' && printType !== 'Retail (Readymade)') {
+      itemString += `\n  ↳ Customization: ${printType}`
+      
+      // 3. File Count
+      const fileCount = item.artwork_urls?.length || 0
+      if (fileCount > 0) {
+        itemString += `\n  ↳ Files: ${fileCount} attached`
+      }
+
+      // 4. Custom Notes (Safely truncated to 50 chars)
+      if (item.printing_instructions) {
+        const safeNotes = item.printing_instructions.length > 50 
+          ? item.printing_instructions.substring(0, 50) + '...'
+          : item.printing_instructions
+        itemString += `\n  ↳ Notes: ${safeNotes}`
+      }
+    }
+
+    return itemString
+  })
+
+  // Join all products with a double line-break for visual separation
+  let finalSummary = summaryParts.join('\n\n')
+
+  // 🚨 Emergency Meta Safeguard: Strict limit enforcement
+  if (finalSummary.length > 950) {
+    finalSummary = finalSummary.substring(0, 950) + '\n\n... (View web dashboard for full details)'
+  }
+
+  return finalSummary
+}
 
 // 🚨 CORE TEMPLATE SENDER ENGINE
 export async function sendWhatsAppTemplate(
@@ -127,20 +177,7 @@ export async function notifyOrderConfirmed(order: any) {
 
   const itemsArray = order.order_items || order.items || [];
 
-  const customerItemsRaw = itemsArray.map((item: any, index: number) => {
-    const name = item.products?.name || item.name || 'Product';
-    const itemStr = `${item.quantity}x ${name}`;
-    return itemsArray.length > 1 ? `${index + 1}. ${itemStr}` : itemStr;
-  }).join('\n'); // Newlines are allowed here, they will be sanitized later
-
-  const adminItemsRaw = itemsArray.map((item: any, index: number) => {
-    const name = item.products?.name || item.name || 'Product';
-    const print = item.printing_type && item.printing_type !== 'None' ? ` | Print: ${item.printing_type}` : '';
-    const files = item.artwork_urls?.length ? ` | Files: ${item.artwork_urls.length} Attached` : '';
-    const note = item.printing_instructions ? ` | Note: ${item.printing_instructions}` : '';
-    const itemStr = `${item.quantity}x ${name}${print}${files}${note}`;
-    return itemsArray.length > 1 ? `${index + 1}. ${itemStr}` : itemStr;
-  }).join('\n');
+  const formattedItemsSummary = formatOrderSummaryForWhatsApp(itemsArray);
 
   const delMethod = isPickup ? 'Store Pickup' : 'Home Delivery';
   const totalAmount = formatCurrency(order.total_amount);
@@ -164,7 +201,7 @@ export async function notifyOrderConfirmed(order: any) {
         [
           sanitizeForMeta(order.order_number),       // {{1}}
           sanitizeForMeta(delMethod),                // {{2}}
-          sanitizeForMeta(customerItemsRaw),         // {{3}}
+          sanitizeForMeta(formattedItemsSummary),    // {{3}}
           sanitizeForMeta(totalAmount)               // {{4}}
         ],
         buttonParam // Will be sanitized inside sendWhatsAppTemplate
@@ -191,7 +228,7 @@ export async function notifyOrderConfirmed(order: any) {
             sanitizeForMeta(addressObj.name || order.customer_name),    // {{2}}
             sanitizeForMeta(addressObj.phone),                          // {{3}}
             sanitizeForMeta(adminAddressRaw),                           // {{4}}
-            sanitizeForMeta(adminItemsRaw),                             // {{5}}
+            sanitizeForMeta(formattedItemsSummary),                     // {{5}}
             sanitizeForMeta(totalAmount)                                // {{6}}
           ]
         );
