@@ -4,7 +4,6 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Script from 'next/script'
 import { Lock, ShieldCheck, Check, X } from 'lucide-react'
 import { siteConfig } from '@/config/site'
 // ❌ REMOVED: import { createClient } from '@/lib/supabase/client'
@@ -31,13 +30,26 @@ export default function ProcessingPage() {
   const amount = searchParams.get('amount')
   const razorpayOrderId = searchParams.get('rzp_order')
   const rawKey = searchParams.get('key')
-  const razorpayKey = rawKey && rawKey !== 'undefined' ? rawKey : null
+  const razorpayKey = rawKey && rawKey !== 'undefined' && rawKey !== 'null' ? rawKey : null
 
   // 🚨 CRITICAL FIX: Next.js Script tags sometimes don't re-fire onReady during client-side navigation!
-  // If Razorpay is already in the window from a previous render, mark it as loaded immediately.
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.Razorpay) {
-      setIsScriptLoaded(true)
+    if (typeof window !== 'undefined') {
+      if (window.Razorpay) {
+        setIsScriptLoaded(true)
+      } else {
+        const existingScript = document.getElementById('razorpay-checkout-js') as HTMLScriptElement
+        if (existingScript) {
+          existingScript.onload = () => setIsScriptLoaded(true)
+        } else {
+          const script = document.createElement('script')
+          script.id = 'razorpay-checkout-js'
+          script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+          script.async = true
+          script.onload = () => setIsScriptLoaded(true)
+          document.body.appendChild(script)
+        }
+      }
     }
   }, [])
 
@@ -142,11 +154,6 @@ export default function ProcessingPage() {
 
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white p-4 animate-in fade-in duration-300">
-      <Script
-        src="https://checkout.razorpay.com/v1/checkout.js"
-        onReady={() => setIsScriptLoaded(true)}
-        strategy="afterInteractive"
-      />
       
       {(paymentState === 'initializing' || paymentState === 'processing') && (
         <div className="bg-white p-8 md:p-12 max-w-md w-full text-center flex flex-col items-center animate-in zoom-in-95 duration-300">

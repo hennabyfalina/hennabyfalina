@@ -154,19 +154,18 @@ export async function moveAllTempToFinal(
   userId: string,
   supabaseClient?: any
 ): Promise<string[]> {
-  const finalPaths: string[] = []
+  const finalPaths = await Promise.all(
+    tempPaths.map(async (tempPath) => {
+      try {
+        return await moveTempToFinal(tempPath, userId, supabaseClient)
+      } catch (error) {
+        console.error(`Failed to move ${tempPath}:`, error)
+        return null
+      }
+    })
+  )
   
-  for (const tempPath of tempPaths) {
-    try {
-      const finalPath = await moveTempToFinal(tempPath, userId, supabaseClient)
-      finalPaths.push(finalPath)
-    } catch (error) {
-      console.error(`Failed to move ${tempPath}:`, error)
-      // Don't throw – try to move remaining files
-    }
-  }
-  
-  return finalPaths
+  return finalPaths.filter(Boolean) as string[]
 }
 
 /**

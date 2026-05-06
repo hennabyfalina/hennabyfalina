@@ -287,6 +287,23 @@ export async function saveAddress(addressData: {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('User not authenticated')
 
+  // 🚨 CRITICAL FIX: Ensure user exists in public.users to prevent FK constraint errors
+  const { data: userRecord } = await supabase
+    .from('users')
+    .select('id')
+    .eq('id', user.id)
+    .single()
+
+  if (!userRecord) {
+    const adminSupabase = createAdminClient()
+    await adminSupabase.from('users').insert({
+      id: user.id,
+      email: user.email || '',
+      name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+      role: 'customer'
+    })
+  }
+
   const { data: existingAddresses } = await supabase
     .from('addresses')
     .select('*')
