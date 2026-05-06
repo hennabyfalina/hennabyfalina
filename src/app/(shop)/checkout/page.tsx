@@ -219,6 +219,8 @@ export default function CheckoutPage() {
 
   const handleProceedToPaymentGateway = async () => {
   setIsProcessing(true)
+  // 🚨 INSTANTLY hide the modal so the user never sees the cart empty out recalculations
+  setShowConfirmModal(false)
   try {
     let addressToSave;
     if (shippingMethod === 'pickup') {
@@ -297,7 +299,8 @@ export default function CheckoutPage() {
       useProductDraftStore.getState().clearDraft(item.product_id)
     })
 
-    router.push(`/checkout/processing?order_id=${encodeURIComponent(order.id)}&amount=${encodeURIComponent(razorpayData.amount)}&rzp_order=${encodeURIComponent(razorpayData.orderId)}`)
+    // 🚨 Replace instead of push, completely erasing the checkout page from browser history
+    router.replace(`/checkout/processing?order_id=${encodeURIComponent(order.id)}&amount=${encodeURIComponent(razorpayData.amount)}&rzp_order=${encodeURIComponent(razorpayData.orderId)}`)
   } catch (err: any) {
     console.error(err)
     alert(err.message || 'Failed to initialize payment')

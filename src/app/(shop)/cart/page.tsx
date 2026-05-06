@@ -17,7 +17,7 @@ import CartRecommendations from '@/components/cart/CartRecommendations'
 import Loader from '@/components/ui/Loader'
 import { formatCurrency, numberToIndianWords } from '@/lib/utils'
 import { getProductImageUrl } from '@/lib/supabase/storage'
-import { Trash2, ShoppingBag, XCircle, Package, Box, ShieldCheck, Truck, CheckCircle2, ExternalLink } from 'lucide-react'
+import { Trash2, ShoppingBag, XCircle, Package, Box, ShieldCheck, Truck, CheckCircle2, ExternalLink, AlertTriangle } from 'lucide-react'
 import { SHIPPING_THRESHOLD, SHIPPING_COST } from '@/lib/constants'
 import { showToast } from '@/components/ui/Toast'
 
@@ -41,12 +41,19 @@ export default function CartPage() {
   const [mounted, setMounted] = useState(false)
   const [showConfirmClear, setShowConfirmClear] = useState(false)
   const [isCheckingOut, setIsCheckingOut] = useState(false)
+  const [paymentFailed, setPaymentFailed] = useState(false)
 
   // Preview Modal State
   const [previewModalState, setPreviewModalState] = useState({ isOpen: false, url: '', name: '' })
   const [isFetchingPreview, setIsFetchingPreview] = useState<string | null>(null)
   
-  useEffect(() => setMounted(true), [])
+  useEffect(() => {
+    setMounted(true)
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      setPaymentFailed(params.get('payment_failed') === 'true')
+    }
+  }, [])
 
   if (!mounted) {
     return (
@@ -98,20 +105,33 @@ export default function CartPage() {
                 <Box className="w-16 h-16 text-gray-400 absolute -rotate-12 translate-x-[-20%] translate-y-[-10%]" />
                 <Package className="w-12 h-12 text-gray-300 absolute rotate-12 translate-x-[25%] translate-y-[15%] border-2 border-white rounded-md bg-white" />
                 <div className="absolute bottom-2 right-2 bg-white p-1.5 rounded-sm shadow-sm border border-gray-100">
-                  <ShoppingBag className="w-5 h-5 text-gray-500" />
+                  {paymentFailed ? (
+                    <AlertTriangle className="w-5 h-5 text-red-500" />
+                  ) : (
+                    <ShoppingBag className="w-5 h-5 text-gray-500" />
+                  )}
                 </div>
               </div>
             </div>
 
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Your Cart is empty</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {paymentFailed ? 'Payment Not Completed' : 'Your Cart is empty'}
+            </h2>
             <p className="text-sm text-gray-600 mb-8 max-w-md mx-auto">
-              Check your saved for later items below or continue shopping.
+              {paymentFailed 
+                ? 'Your checkout process was interrupted. You can view your pending order in your profile to retry payment, or continue shopping to start a new order.' 
+                : 'Check your saved for later items below or continue shopping.'}
             </p>
             
             <div className="flex flex-row gap-3 w-full max-w-md justify-center">
               {!user && !isLoading && (
                 <Link href="/login?next=/cart" className="flex-1 py-2 px-4 bg-gray-900 text-white rounded-sm font-bold hover:bg-gray-800 transition-colors text-center text-sm whitespace-nowrap">
                   Sign in
+                </Link>
+              )}
+              {paymentFailed && user && (
+                <Link href="/profile/orders" className="flex-1 py-2 px-4 bg-white text-gray-900 border border-gray-300 rounded-sm font-bold hover:bg-gray-50 transition-colors text-center text-sm shadow-sm whitespace-nowrap">
+                  View Orders
                 </Link>
               )}
               <Link href="/products" className="flex-1 py-2 px-4 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-sm font-bold transition-colors text-center text-sm shadow-sm whitespace-nowrap">

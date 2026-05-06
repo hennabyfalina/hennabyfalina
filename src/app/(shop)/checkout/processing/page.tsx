@@ -30,6 +30,10 @@ export default function ProcessingPage() {
   const amount = searchParams.get('amount')
   const razorpayOrderId = searchParams.get('rzp_order')
   
+  // 🚨 SMART ROUTING: If they are retrying a payment, send them back to the order page on failure instead of the cart
+  const isRetry = searchParams.get('retry') === 'true'
+  const fallbackUrl = isRetry && orderId ? `/order/${encodeURIComponent(orderId)}` : '/cart?payment_failed=true'
+
 
   // 🚨 CRITICAL FIX: Robust Script Loader to prevent infinite loops and handle AdBlockers
   useEffect(() => {
@@ -50,7 +54,7 @@ export default function ProcessingPage() {
           if (isMounted) {
             setPaymentState('failed')
             setStatusMessage('Payment gateway blocked. Please disable adblockers and try again.')
-            setTimeout(() => router.replace('/checkout'), 3000)
+            setTimeout(() => router.replace(fallbackUrl), 3000)
           }
         }
         
@@ -68,7 +72,7 @@ export default function ProcessingPage() {
           if (isMounted) {
             setPaymentState('failed')
             setStatusMessage('Payment gateway took too long to load. Please check your internet connection.')
-            setTimeout(() => router.replace('/checkout'), 3000)
+            setTimeout(() => router.replace(fallbackUrl), 3000)
           }
         }
       }, 100)
@@ -119,7 +123,7 @@ export default function ProcessingPage() {
     if (!finalKey) {
       setPaymentState('failed')
       setStatusMessage('Configuration error: Payment key missing. Redirecting...')
-      setTimeout(() => router.replace('/checkout'), 3000)
+      setTimeout(() => router.replace(fallbackUrl), 3000)
       return
     }
 
@@ -156,9 +160,10 @@ export default function ProcessingPage() {
           
           // ❌ REMOVED: Optimistic DB update – webhook will handle failure
           
+          // 🚨 Push to appropriate fallback page securely
           setTimeout(() => {
-            router.replace('/profile/orders?filter=failed')
-          }, 2000)
+            router.replace(fallbackUrl)
+          }, 1500)
         },
       },
     }
@@ -174,8 +179,8 @@ export default function ProcessingPage() {
       setPaymentState('failed')
       setStatusMessage('Failed to load payment gateway. Redirecting...')
       setTimeout(() => {
-        router.replace('/checkout')
-      }, 2000)
+        router.replace(fallbackUrl)
+      }, 1500)
     }
   }
 
