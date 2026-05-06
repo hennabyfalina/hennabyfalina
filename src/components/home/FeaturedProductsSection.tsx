@@ -59,8 +59,8 @@ export default function FeaturedProductsSection({ products, title }: FeaturedPro
   if (!products.length) return null
 
   return (
-    <div className="bg-white p-4 sm:p-5 rounded-sm shadow-[0_1px_4px_rgba(0,0,0,0.1)]">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white p-4 sm:p-5 rounded-sm shadow-[0_1px_4px_rgba(0,0,0,0.1)]" suppressHydrationWarning>
+      <div className="flex items-center justify-between mb-4" suppressHydrationWarning>
         <h2 className="text-lg sm:text-2xl font-bold text-gray-900">{title}</h2>
         <Link href="/products" target="_blank" rel="noopener noreferrer" 
         className="text-sm font-semibold text-[#007185] hover:text-[#C7511F] hover:underline transition-colors">
@@ -68,7 +68,7 @@ export default function FeaturedProductsSection({ products, title }: FeaturedPro
         </Link>
       </div>
 
-      <div className="relative group">
+      <div className="relative group" suppressHydrationWarning>
         {canScrollLeft && (
           <button 
             onClick={() => scroll('left')}
@@ -79,9 +79,9 @@ export default function FeaturedProductsSection({ products, title }: FeaturedPro
           </button>
         )}
         
-          <div ref={scrollContainerRef} onScroll={checkScroll} className="flex gap-4 overflow-x-auto no-scrollbar pb-6 scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <div ref={scrollContainerRef} onScroll={checkScroll} className="flex gap-4 overflow-x-auto no-scrollbar pb-6 scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }} suppressHydrationWarning>
           {products.map((product) => (
-            <div key={product.id} className="w-[220px] flex-shrink-0 h-full">
+            <div key={product.id} className="w-[220px] flex-shrink-0 h-full" suppressHydrationWarning>
               <ProductCard product={product} priority={false} productList={products} />
             </div>
           ))}

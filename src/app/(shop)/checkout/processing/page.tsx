@@ -30,7 +30,16 @@ export default function ProcessingPage() {
   const orderId = searchParams.get('order_id')
   const amount = searchParams.get('amount')
   const razorpayOrderId = searchParams.get('rzp_order')
-  const razorpayKey = searchParams.get('key')
+  const rawKey = searchParams.get('key')
+  const razorpayKey = rawKey && rawKey !== 'undefined' ? rawKey : null
+
+  // 🚨 CRITICAL FIX: Next.js Script tags sometimes don't re-fire onReady during client-side navigation!
+  // If Razorpay is already in the window from a previous render, mark it as loaded immediately.
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.Razorpay) {
+      setIsScriptLoaded(true)
+    }
+  }, [])
 
   // Warn on tab close
   useEffect(() => {
@@ -67,8 +76,16 @@ export default function ProcessingPage() {
 
     let isSuccess = false
 
+    const finalKey = razorpayKey || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
+    if (!finalKey) {
+      setPaymentState('failed')
+      setStatusMessage('Configuration error: Payment key missing. Redirecting...')
+      setTimeout(() => router.replace('/checkout'), 3000)
+      return
+    }
+
     const options = {
-      key: razorpayKey || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      key: finalKey,
       amount: amount,
       currency: 'INR',
       name: siteConfig.name,

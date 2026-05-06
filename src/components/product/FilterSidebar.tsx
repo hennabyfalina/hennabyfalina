@@ -47,8 +47,8 @@ export default function FilterSidebar({
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between pb-2 border-b border-gray-200">
+    <div className="space-y-5" suppressHydrationWarning>
+      <div className="flex items-center justify-between pb-2 border-b border-gray-200" suppressHydrationWarning>
         <h2 className="text-base font-bold text-gray-900">Filters</h2>
         {hasActiveFilters && (
           <button onClick={clearFilters} className="text-xs text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer">
@@ -57,9 +57,9 @@ export default function FilterSidebar({
         )}
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-2" suppressHydrationWarning>
         <h3 className="text-sm font-bold text-gray-900">Category</h3>
-        <div className="space-y-1.5 max-h-60 overflow-y-auto overscroll-contain no-scrollbar">
+        <div className="space-y-1.5 max-h-60 overflow-y-auto overscroll-contain no-scrollbar" suppressHydrationWarning>
           <label className="flex items-center gap-2 cursor-pointer group">
             <input 
               type="checkbox"
@@ -94,7 +94,7 @@ export default function FilterSidebar({
       </div>
 
       {/* Availability Filter */}
-      <div className="space-y-2 pt-4 border-t border-gray-200">
+      <div className="space-y-2 pt-4 border-t border-gray-200" suppressHydrationWarning>
         <h3 className="text-sm font-bold text-gray-900">Availability</h3>
         <label className="flex items-center gap-2 cursor-pointer group mb-1">
           <input
@@ -110,16 +110,16 @@ export default function FilterSidebar({
       </div>
 
       {/* Customer Reviews Filter */}
-      <div className="space-y-2 pt-4 border-t border-gray-200">
+      <div className="space-y-2 pt-4 border-t border-gray-200" suppressHydrationWarning>
         <h3 className="text-sm font-bold text-gray-900">Customer Reviews</h3>
-        <div className="space-y-1.5">
+        <div className="space-y-1.5" suppressHydrationWarning>
           {[5, 4, 3, 2, 1].map((stars) => (
             <button
               key={stars}
               onClick={() => updateFilters({ rating: activeRating === stars.toString() ? null : stars.toString() })}
               className="flex items-center gap-1.5 group w-full text-left focus:outline-none cursor-pointer"
             >
-              <div className="flex text-[#FFA41C]">
+              <div className="flex text-[#FFA41C]" suppressHydrationWarning>
                 {[...Array(5)].map((_, i) => (
                   <Star key={i} className={`w-4 h-4 ${i < stars ? 'fill-current' : 'text-gray-300'} ${activeRating === stars.toString() ? 'drop-shadow-sm' : ''}`} />
                 ))}
@@ -131,9 +131,9 @@ export default function FilterSidebar({
       </div>
 
       {/* Price Filter with Lag Fix */}
-      <div className="space-y-2 pt-4 border-t border-gray-200">
+      <div className="space-y-2 pt-4 border-t border-gray-200" suppressHydrationWarning>
         <h3 className="text-sm font-bold text-gray-900">Price</h3>
-        <div className="space-y-2 mb-3">
+        <div className="space-y-2 mb-3" suppressHydrationWarning>
           {[
             { label: 'Under ₹500', min: null, max: '500' },
             { label: '₹500 - ₹1,000', min: '500', max: '1000' },
@@ -157,7 +157,7 @@ export default function FilterSidebar({
           })}
         </div>
         <form onSubmit={handlePriceSubmit} className="flex items-center gap-2 mt-2">
-          <div className="flex items-center gap-1 bg-white border border-gray-300 rounded-sm px-2 focus-within:border-[#e77600] focus-within:ring-1 focus-within:ring-[#e77600] shadow-sm flex-1">
+          <div className="flex items-center gap-1 bg-white border border-gray-300 rounded-sm px-2 focus-within:border-[#e77600] focus-within:ring-1 focus-within:ring-[#e77600] shadow-sm flex-1" suppressHydrationWarning>
             <span className="text-gray-500 text-sm">₹</span>
             <input
               type="number"
@@ -168,7 +168,7 @@ export default function FilterSidebar({
             />
           </div>
           <span className="text-gray-400">-</span>
-          <div className="flex items-center gap-1 bg-white border border-gray-300 rounded-sm px-2 focus-within:border-[#e77600] focus-within:ring-1 focus-within:ring-[#e77600] shadow-sm flex-1">
+          <div className="flex items-center gap-1 bg-white border border-gray-300 rounded-sm px-2 focus-within:border-[#e77600] focus-within:ring-1 focus-within:ring-[#e77600] shadow-sm flex-1" suppressHydrationWarning>
             <span className="text-gray-500 text-sm">₹</span>
             <input
               type="number"

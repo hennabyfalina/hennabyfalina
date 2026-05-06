@@ -39,7 +39,7 @@ export default function AdminLoader({
 
   if (fullScreen) {
     return (
-      <div className="min-h-screen bg-[#131314] flex flex-col items-center justify-center">
+      <div className="min-h-screen bg-[#131314] flex flex-col items-center justify-center" suppressHydrationWarning>
         {loaderContent}
       </div>
     )

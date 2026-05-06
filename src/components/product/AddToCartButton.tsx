@@ -250,7 +250,7 @@ export default function AddToCartButton({
   const buttonClasses = className || "w-full h-11 text-[15px] bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-full shadow-sm font-medium"
 
   return (
-    <div className={`w-full flex flex-col gap-3 ${showQuantitySelector ? 'mt-2' : ''}`} onClick={(e) => e.stopPropagation()}>
+    <div className={`w-full flex flex-col gap-3 ${showQuantitySelector ? 'mt-2' : ''}`} onClick={(e) => e.stopPropagation()} suppressHydrationWarning>
       {showQuantitySelector && !isOutOfStock && (
         <ClientOnly fallback={
           <div className="flex items-center justify-between mb-1">
@@ -269,7 +269,7 @@ export default function AddToCartButton({
           </div>
         </ClientOnly>
       )}
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2" suppressHydrationWarning>
         <button
           type="button"
           onClick={handleAddToCart}

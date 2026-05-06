@@ -96,7 +96,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
   return (
     <div className="bg-white min-h-screen pb-12 relative z-0">
       <script
+        id="schema-product"
         type="application/ld+json"
+        suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
       />
       

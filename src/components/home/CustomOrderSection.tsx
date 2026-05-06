@@ -7,8 +7,8 @@ import { Package, Settings } from 'lucide-react'
 
 export default function CustomOrderSection() {
   return (
-    <div className="bg-white p-5 sm:p-6 rounded-sm shadow-[0_1px_4px_rgba(0,0,0,0.1)] flex flex-col h-full">
-      <div className="flex items-center gap-3 mb-3">
+    <div className="bg-white p-5 sm:p-6 rounded-sm shadow-[0_1px_4px_rgba(0,0,0,0.1)] flex flex-col h-full" suppressHydrationWarning>
+      <div className="flex items-center gap-3 mb-3" suppressHydrationWarning>
         <Settings className="w-6 h-6 text-[#e77600]" />
         <h2 className="text-lg sm:text-2xl font-bold text-gray-900">Custom Orders</h2>
       </div>

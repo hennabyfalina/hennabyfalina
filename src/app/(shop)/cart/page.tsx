@@ -50,7 +50,7 @@ export default function CartPage() {
 
   if (!mounted) {
     return (
-      <div className="flex-1 min-h-[60vh] bg-[#ffffff] flex items-center justify-center">
+      <div className="flex-1 min-h-[60vh] bg-[#ffffff] flex items-center justify-center" suppressHydrationWarning>
         <Loader />
       </div>
     )
@@ -181,6 +181,7 @@ export default function CartPage() {
                         fill 
                         sizes="(max-width: 768px) 96px, 128px" 
                         className="object-cover mix-blend-multiply"
+                        priority={index < 3}
                       unoptimized={imageSrc.startsWith('http') || imageSrc.includes('supabase')}
                         onError={(e) => {
                           const target = e.target as HTMLImageElement

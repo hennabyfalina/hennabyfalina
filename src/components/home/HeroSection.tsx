@@ -7,18 +7,18 @@ import Link from 'next/link'
 
 export default function HeroSection() {
   return (
-    <section className="relative w-full bg-white text-gray-900 pt-8 pb-20 sm:pt-16 sm:pb-40 px-4 sm:px-8 flex flex-col items-center text-center overflow-hidden border-b border-gray-200">
+    <section className="relative w-full bg-white text-gray-900 pt-8 pb-20 sm:pt-16 sm:pb-40 px-4 sm:px-8 flex flex-col items-center text-center overflow-hidden border-b border-gray-200" suppressHydrationWarning>
       {/* Full width background with no gaps */}
-      <div className="absolute inset-0 w-full h-full bg-gradient-to-b from-gray-50 to-white"></div>
+      <div className="absolute inset-0 w-full h-full bg-gradient-to-b from-gray-50 to-white" suppressHydrationWarning></div>
       
-      <div className="relative z-10 max-w-4xl mx-auto w-full">
+      <div className="relative z-10 max-w-4xl mx-auto w-full" suppressHydrationWarning>
         <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.15] mb-4">
           Premium Packaging <br className="hidden sm:block" /> Solutions for Business
         </h1>
         <p className="text-sm md:text-lg text-gray-600 max-w-2xl mx-auto mb-8">
           Specialists in Sweet Boxes, Cake Boxes, Gift Boxes, Fancy Boxes & Custom Printing Solutions.
         </p>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4" suppressHydrationWarning>
           <Link
             href="/products"
             target="_blank"

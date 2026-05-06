@@ -8,15 +8,15 @@ import { siteConfig } from '@/config/site'
 
 export default function ContactSection() {
   return (
-    <div className="bg-white p-5 sm:p-6 rounded-sm shadow-[0_1px_4px_rgba(0,0,0,0.1)] mb-8">
+    <div className="bg-white p-5 sm:p-6 rounded-sm shadow-[0_1px_4px_rgba(0,0,0,0.1)] mb-8" suppressHydrationWarning>
       <h2 className="text-lg sm:text-2xl font-bold text-gray-900 mb-6">Need help with an order?</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-        <div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start" suppressHydrationWarning>
+        <div suppressHydrationWarning>
           <p className="text-md text-gray-600 mb-6">
             Our customer service team is here to assist you with tracking, bulk orders, and custom packaging queries.
           </p>
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 text-md text-gray-700">
+          <div className="space-y-4" suppressHydrationWarning>
+            <div className="flex items-center gap-3 text-md text-gray-700" suppressHydrationWarning>
               <Phone className="w-5 h-5 text-gray-400" />
               <a 
                 href={`https://wa.me/${siteConfig.contact.phone.primary.replace(/[^0-9]/g, '')}`} 
@@ -36,19 +36,19 @@ export default function ContactSection() {
                 {siteConfig.contact.phone.secondary}
               </a>
             </div>
-            <div className="flex items-center gap-3 text-md text-gray-700">
+            <div className="flex items-center gap-3 text-md text-gray-700" suppressHydrationWarning>
               <Mail className="w-5 h-5 text-gray-400" />
               <a href={`mailto:${siteConfig.contact.email.orders}`} className="hover:text-[#C7511F] hover:underline">
                 {siteConfig.contact.email.orders}
               </a>
             </div>
-            <div className="flex items-center gap-3 text-md text-gray-700">
+            <div className="flex items-center gap-3 text-md text-gray-700" suppressHydrationWarning>
               <MapPin className="w-5 h-5 text-gray-400" />
               <span>{siteConfig.address.city}, {siteConfig.address.state}, {siteConfig.address.country}</span>
             </div>
           </div>
         </div>
-        <div className="bg-gray-50 border border-gray-200 p-5 rounded-sm">
+        <div className="bg-gray-50 border border-gray-200 p-5 rounded-sm" suppressHydrationWarning>
           <h3 className="text-lg font-bold text-gray-900 mb-4">Send us a message</h3>
           <form className="space-y-3" onSubmit={(e) => e.preventDefault()}>
             <input 

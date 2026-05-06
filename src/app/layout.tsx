@@ -1,7 +1,7 @@
 // src/app/layout.tsx
 
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import localFont from 'next/font/local'
 import './globals.css'
 import CartSyncProvider from '@/components/CartSyncProvider'
 import InstallPrompt from '@/components/ui/InstallPrompt'
@@ -12,8 +12,9 @@ import { siteConfig } from '@/config/site'
 import { Analytics } from '@vercel/analytics/next'
 import SplashScreen from '@/components/ui/SplashScreen'
 
-const inter = Inter({ 
-  subsets: ['latin'],
+const inter = localFont({
+  // Download 'Inter-VariableFont.ttf' and place it in your 'public/fonts' directory
+  src: '../../public/fonts/Inter-VariableFont.ttf',
   display: 'swap',
   variable: '--font-inter',
 })
@@ -112,37 +113,11 @@ export default function RootLayout({
           </>
         )}
         <script
+          id="schema-local-business"
           type="application/ld+json"
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{ __html: JSON.stringify(globalJsonLd).replace(/</g, '\\u003c') }}
         />
-        {/* iOS Native App Feel: Tap Highlights, Selection, and Safe Areas */}
-        <style dangerouslySetInnerHTML={{ __html: `
-          :root {
-            -webkit-tap-highlight-color: transparent;
-          }
-          
-          /* Clean minimal text selection matching brand */
-          ::selection {
-            background-color: #004B91;
-            color: #FFFFFF;
-          }
-          ::-moz-selection {
-            background-color: #004B91;
-            color: #FFFFFF;
-          }
-
-          /* Prevent text selection on interactive elements */
-          a, button, [role="button"] {
-            -webkit-user-select: none;
-            user-select: none;
-            touch-action: manipulation;
-          }
-          
-          /* Handle iOS Safe Areas for fixed bottom navigation */
-          .fixed.bottom-0 {
-            padding-bottom: env(safe-area-inset-bottom);
-          }
-        `}} />
       </head>
       <body 
         className="bg-[#eaeded] text-gray-900 antialiased w-full min-h-[100dvh] flex flex-col"

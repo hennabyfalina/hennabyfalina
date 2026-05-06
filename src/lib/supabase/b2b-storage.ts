@@ -113,9 +113,10 @@ export async function deleteB2BArtwork(path: string): Promise<void> {
  */
 export async function moveTempToFinal(
   tempPath: string,
-  userId: string
+  userId: string,
+  supabaseClient?: any
 ): Promise<string> {
-  const supabase = createClient()
+  const supabase = supabaseClient || createClient()
   
   // Extract filename from temp path
   const fileName = tempPath.split('/').pop()
@@ -136,7 +137,11 @@ export async function moveTempToFinal(
   }
 
   // Delete temp file
-  await deleteB2BArtwork(tempPath)
+  if (supabaseClient) {
+    await supabaseClient.storage.from('artworks').remove([tempPath])
+  } else {
+    await deleteB2BArtwork(tempPath)
+  }
 
   return finalPath
 }
@@ -146,13 +151,14 @@ export async function moveTempToFinal(
  */
 export async function moveAllTempToFinal(
   tempPaths: string[],
-  userId: string
+  userId: string,
+  supabaseClient?: any
 ): Promise<string[]> {
   const finalPaths: string[] = []
   
   for (const tempPath of tempPaths) {
     try {
-      const finalPath = await moveTempToFinal(tempPath, userId)
+      const finalPath = await moveTempToFinal(tempPath, userId, supabaseClient)
       finalPaths.push(finalPath)
     } catch (error) {
       console.error(`Failed to move ${tempPath}:`, error)

@@ -44,16 +44,16 @@ export default function RecentlyBoughtCarousel({ userId }: RecentlyBoughtCarouse
 
   if (loading) {
     return (
-      <div className="bg-white p-4 sm:p-5 rounded-sm shadow-[0_1px_4px_rgba(0,0,0,0.1)] overflow-hidden w-full">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="h-6 bg-gray-200 rounded w-48 animate-pulse" />
+      <div className="bg-white p-4 sm:p-5 rounded-sm shadow-[0_1px_4px_rgba(0,0,0,0.1)] overflow-hidden w-full" suppressHydrationWarning>
+        <div className="flex items-center gap-2 mb-4" suppressHydrationWarning>
+          <div className="h-6 bg-gray-200 rounded w-48 animate-pulse" suppressHydrationWarning />
         </div>
-        <div className="flex gap-4 pb-6 overflow-hidden">
+        <div className="flex gap-4 pb-6 overflow-hidden" suppressHydrationWarning>
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="w-[220px] flex-shrink-0 animate-pulse">
-              <div className="aspect-square bg-gray-100 rounded-sm mb-3"></div>
-              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div key={i} className="w-[220px] flex-shrink-0 animate-pulse" suppressHydrationWarning>
+              <div className="aspect-square bg-gray-100 rounded-sm mb-3" suppressHydrationWarning />
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" suppressHydrationWarning />
+              <div className="h-4 bg-gray-200 rounded w-1/2" suppressHydrationWarning />
             </div>
           ))}
         </div>

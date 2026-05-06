@@ -3,6 +3,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { generateOrderNumber } from '@/lib/utils'
 import { SHIPPING_THRESHOLD, SHIPPING_COST } from '@/lib/constants'
 import { moveAllTempToFinal, deleteB2BArtwork } from '@/lib/supabase/b2b-storage'
@@ -122,7 +123,8 @@ export async function createOrder(rawOrderData: CreateOrderInput) {
     // 🆕 Move temp files to final folder if marked as temp
     let finalArtworkUrls = item.artwork_urls || []
     if (item.is_temp && item.artwork_urls && item.artwork_urls.length > 0) {
-      finalArtworkUrls = await moveAllTempToFinal(item.artwork_urls, user.id)
+      const adminSupabase = createAdminClient()
+      finalArtworkUrls = await moveAllTempToFinal(item.artwork_urls, user.id, adminSupabase)
     }
 
     // Inventory check (warn but allow - manufacturing will handle)
@@ -361,9 +363,10 @@ export async function getProductIdsForOrder(orderId: string): Promise<string[]> 
 
 // 🆕 Clean up temp files after failed order
 export async function cleanupTempFiles(tempPaths: string[]): Promise<void> {
+  const adminSupabase = createAdminClient()
   for (const path of tempPaths) {
     try {
-      await deleteB2BArtwork(path)
+      await adminSupabase.storage.from('artworks').remove([path])
     } catch (error) {
       console.warn(`Failed to delete temp file ${path}:`, error)
     }

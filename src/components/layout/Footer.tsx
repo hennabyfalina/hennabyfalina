@@ -39,7 +39,7 @@ export default function Footer() {
   }
 
   return (
-    <footer className="bg-white border-t border-gray-200 text-gray-600 w-full mt-auto print:hidden pwa-hide">
+    <footer className="bg-white border-t border-gray-200 text-gray-600 w-full mt-auto print:hidden pwa-hide" suppressHydrationWarning>
       {/* Amazon-style Back to Top Banner */}
       <button 
         onClick={scrollToTop} 
@@ -49,11 +49,11 @@ export default function Footer() {
       </button>
 
       {/* Main Footer Content */}
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-12 pb-32 md:pb-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-12 pb-32 md:pb-12" suppressHydrationWarning>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12" suppressHydrationWarning>
           
           {/* Brand Column */}
-          <div className="md:col-span-2 lg:col-span-1">
+          <div className="md:col-span-2 lg:col-span-1" suppressHydrationWarning>
             <h3 className="text-lg font-extrabold text-gray-900 mb-4 tracking-tight">
               {siteConfig.name}
             </h3>
@@ -63,7 +63,7 @@ export default function Footer() {
           </div>
           
           {/* Quick Links Column */}
-          <div className="border-t border-gray-200 md:border-none pt-4 md:pt-0 lg:col-start-3">
+          <div className="border-t border-gray-200 md:border-none pt-4 md:pt-0 lg:col-start-3" suppressHydrationWarning>
             <button 
               onClick={() => toggleSection('links')}
               className="flex items-center justify-between w-full md:w-auto text-left mb-2 md:mb-4 group outline-none"
@@ -101,7 +101,7 @@ export default function Footer() {
           </div>
           
           {/* Contact Column */}
-          <div className="border-t border-gray-200 md:border-none pt-4 md:pt-0">
+          <div className="border-t border-gray-200 md:border-none pt-4 md:pt-0" suppressHydrationWarning>
             <button 
               onClick={() => toggleSection('contact')}
               className="flex items-center justify-between w-full md:w-auto text-left mb-2 md:mb-4 group outline-none"
@@ -115,7 +115,7 @@ export default function Footer() {
                 <a href={`mailto:${siteConfig.contact.email.orders}`} className="text-sm font-medium text-[#007185] hover:text-[#C7511F] transition-colors break-all">
                 {siteConfig.contact.email.orders}
                 </a>
-                <div className="h-1" />
+                <div className="h-1" suppressHydrationWarning />
                 <a href={`mailto:${siteConfig.contact.email.support}`} className="text-sm font-medium text-[#007185] hover:text-[#C7511F] transition-colors break-all">
                 {siteConfig.contact.email.support}
                 </a>
@@ -148,9 +148,9 @@ export default function Footer() {
       </div>
       
       {/* Bottom Legal Section */}
-      <div className="border-t border-gray-200 bg-gray-50 py-8 pb-32 md:pb-8">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-center md:justify-between gap-4 text-xs text-gray-500">
-          <div className="flex items-center gap-6">
+      <div className="border-t border-gray-200 bg-gray-50 py-8 pb-32 md:pb-8" suppressHydrationWarning>
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-center md:justify-between gap-4 text-xs text-gray-500" suppressHydrationWarning>
+          <div className="flex items-center gap-6" suppressHydrationWarning>
             <Link href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-[#C7511F] transition-colors outline-none focus:text-[#007185]">
               Conditions of Use & Sale
             </Link>

@@ -27,7 +27,7 @@ export default function ShopLayout({ children }: { children: ReactNode }) {
   const isCheckoutPage = pathname === '/checkout'
 
   return (
-    <div className="flex-1 flex flex-col w-full">
+    <div className="flex-1 flex flex-col w-full" suppressHydrationWarning>
       <CartInitializer />
       <Suspense fallback={null}>
         <Navbar />

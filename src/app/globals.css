@@ -40,6 +40,11 @@
     /* Hardware acceleration for smoother scrolling */
     will-change: scroll-position;
   }
+
+  /* iOS Native App Feel: Tap Highlights */
+  :root {
+    -webkit-tap-highlight-color: transparent;
+  }
   
   /* Focus styles */
   :focus-visible {
@@ -47,10 +52,14 @@
     outline-offset: 2px;
   }
   
-  /* Selection */
+  /* Clean minimal text selection matching brand */
   ::selection {
-    background-color: var(--color-gray-200);
-    color: var(--color-gray-900);
+    background-color: #004B91;
+    color: #FFFFFF;
+  }
+  ::-moz-selection {
+    background-color: #004B91;
+    color: #FFFFFF;
   }
   
   /* Scrollbar */
@@ -64,6 +73,13 @@
   input[type="password"]::-ms-reveal,
   input[type="password"]::-ms-clear {
     display: none;
+  }
+
+  /* Prevent text selection on interactive elements */
+  a, button, [role="button"] {
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
   }
 }
 
@@ -400,6 +416,11 @@
   .no-page-drag {
     overscroll-behavior: contain;
     touch-action: pan-y pinch-zoom;
+  }
+
+  /* Handle iOS Safe Areas for fixed bottom navigation */
+  .fixed.bottom-0 {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
 

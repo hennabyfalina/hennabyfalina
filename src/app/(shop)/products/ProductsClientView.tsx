@@ -141,10 +141,10 @@ export default function ProductsClientView({ initialProducts, categories }: Prod
   }
 
   return (
-    <div className="flex flex-col md:flex-row gap-4 lg:gap-6 relative items-start">
-      <div className="w-full md:hidden flex gap-2">
+    <div className="flex flex-col md:flex-row gap-4 lg:gap-6 relative items-start" suppressHydrationWarning>
+      <div className="w-full md:hidden flex gap-2" suppressHydrationWarning>
         <button onClick={() => setIsMobileFilterOpen(true)} className="flex-1 py-2.5 bg-white border border-gray-300 rounded-sm text-sm font-bold text-gray-900 shadow-sm flex items-center justify-center gap-2">Filters</button>
-        <div className="flex-1 relative">
+        <div className="flex-1 relative" suppressHydrationWarning>
            <select value={sort} title="Sort products" onChange={(e) => updateFilters({ sort: e.target.value })} className="w-full py-2.5 pl-3 pr-8 bg-white border border-gray-300 rounded-sm text-sm font-bold text-gray-900 shadow-sm appearance-none focus:outline-none">
              <option value="newest">Featured</option>
              <option value="price_asc">Price: Low to High</option>
@@ -154,14 +154,14 @@ export default function ProductsClientView({ initialProducts, categories }: Prod
         </div>
       </div>
 
-      <div className="hidden md:block w-[240px] shrink-0 sticky top-20 bg-white border border-gray-200 rounded-sm p-4 shadow-sm">
+      <div className="hidden md:block w-[240px] shrink-0 sticky top-20 bg-white border border-gray-200 rounded-sm p-4 shadow-sm" suppressHydrationWarning>
         <FilterSidebar {...filterProps} />
       </div>
 
       <FilterDrawer isOpen={isMobileFilterOpen} onClose={() => setIsMobileFilterOpen(false)} {...filterProps} />
 
-      <div className="flex-1 w-full flex flex-col gap-4">
-        <div className="hidden md:flex justify-between items-center bg-white p-3 border border-gray-200 shadow-sm rounded-sm">
+      <div className="flex-1 w-full flex flex-col gap-4" suppressHydrationWarning>
+        <div className="hidden md:flex justify-between items-center bg-white p-3 border border-gray-200 shadow-sm rounded-sm" suppressHydrationWarning>
           <span className="text-sm text-gray-700">
             Showing <span className="font-bold text-gray-900">{filteredProducts.length}</span> results
             {search && <span> for <span className="text-[#C7511F] font-bold">"{search}"</span></span>}

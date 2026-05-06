@@ -48,7 +48,7 @@ export default async function ProductsPage({
   }))
 
   return (
-    <div className="min-h-screen bg-[#F0F2F2]">
+    <div className="min-h-screen bg-[#F0F2F2]" suppressHydrationWarning>
       <Container className="py-4 md:py-6 max-w-[1500px]">
         <Suspense fallback={<div className="py-20 text-center"></div>}>
           <ProductsClientView 

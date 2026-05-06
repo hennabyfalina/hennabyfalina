@@ -140,19 +140,19 @@ export default function Navbar() {
   return (
     <>
       {/* Sticky wrapper for navbar */}
-      <div className="sticky top-0 z-50 w-full print:hidden">
-        <header className="w-full bg-white text-gray-900 border-b border-gray-200 shadow-none">
-        <div className="max-w-[1400px] mx-auto px-2 sm:px-4 lg:px-6 py-1.5 sm:py-2">
-          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 xl:gap-6">
+      <div className="sticky top-0 z-50 w-full print:hidden" suppressHydrationWarning>
+        <header className="w-full bg-white text-gray-900 border-b border-gray-200 shadow-none" suppressHydrationWarning>
+        <div className="max-w-[1400px] mx-auto px-2 sm:px-4 lg:px-6 py-1.5 sm:py-2" suppressHydrationWarning>
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 xl:gap-6" suppressHydrationWarning>
             
-            <div className="flex items-center justify-between shrink-0 w-full xl:w-auto">
+            <div className="flex items-center justify-between shrink-0 w-full xl:w-auto" suppressHydrationWarning>
               <Link href="/" className="block text-lg sm:text-xl lg:text-2xl font-extrabold tracking-tight text-gray-900 hover:text-[#0B57D0] transition-opacity flex items-center p-1 rounded-sm">
                 <span className="hidden sm:inline">{siteConfig.name}</span>
                 <span className="sm:hidden">{siteConfig.shortName}</span>
               </Link>
 
               {/* 🚨 NEW: Mobile Top-Right - Clean Standalone Wishlist */}
-              <div className="flex xl:hidden items-center pr-1">
+              <div className="flex xl:hidden items-center pr-1" suppressHydrationWarning>
                 {!isAdmin && (
                   <Link href="/wishlist" className="relative flex items-center p-1.5" aria-label="Your Wishlist">
                     <Heart className={`w-[22px] h-[22px] ${isExactActive('/wishlist') ? 'fill-red-500 text-red-500' : 'text-gray-600 hover:text-red-500 transition-colors'}`} strokeWidth={2} />
@@ -166,7 +166,7 @@ export default function Navbar() {
               </div>
             </div>
 
-            <div ref={searchContainerRef} className="flex flex-1 w-full max-w-4xl relative z-40">
+            <div ref={searchContainerRef} className="flex flex-1 w-full max-w-4xl relative z-40" suppressHydrationWarning>
               <form onSubmit={handleSearch} className="flex flex-1 w-full relative rounded-md overflow-hidden bg-white border border-gray-300 focus-within:border-[#0B57D0] focus-within:ring-1 focus-within:ring-[#0B57D0] transition-all shadow-none">
                 <input
                   type="text"
@@ -200,7 +200,7 @@ export default function Navbar() {
 
               {/* Autocomplete Suggestions Dropdown */}
               {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-gray-200 shadow-2xl rounded-sm z-50 overflow-hidden">
+                <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-gray-200 shadow-2xl rounded-sm z-50 overflow-hidden" suppressHydrationWarning>
                   <ul className="py-1">
                     {suggestions.map((product) => (
                       <li key={product.id}>
@@ -223,16 +223,16 @@ export default function Navbar() {
               )}
             </div>
 
-            <div className="hidden xl:flex items-center gap-1 shrink-0">
+            <div className="hidden xl:flex items-center gap-1 shrink-0" suppressHydrationWarning>
               <nav className="flex items-center gap-1">
 
                 {/* Categories Dropdown - always visible */}
-                <div className="relative group h-full">
+                <div className="relative group h-full" suppressHydrationWarning>
                   <button className="flex items-center gap-1 px-3 py-2 border border-transparent hover:border-gray-200 hover:bg-gray-50 rounded-sm transition-all outline-none text-gray-800 font-bold text-sm cursor-pointer">
                     Categories
                     <ChevronDown className="w-4 h-4 text-gray-500 group-hover:text-gray-900 transition-colors" />
                   </button>
-                  <div className="absolute top-full left-0 mt-0.5 w-64 bg-white rounded-sm shadow-xl border border-gray-200 py-3 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150">
+                  <div className="absolute top-full left-0 mt-0.5 w-64 bg-white rounded-sm shadow-xl border border-gray-200 py-3 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150" suppressHydrationWarning>
                     {CATEGORIES_LIST.map((cat) => (
                       <Link
                         key={cat.id}
@@ -248,12 +248,12 @@ export default function Navbar() {
 
                 {/* Explore Dropdown - hide for admin */}
                 {!isAdmin && (
-                  <div className="relative group h-full">
+                  <div className="relative group h-full" suppressHydrationWarning>
                     <button className="flex items-center gap-1 px-3 py-2 border border-transparent hover:border-gray-200 hover:bg-gray-50 rounded-sm transition-all outline-none text-gray-800 font-bold text-sm cursor-pointer">
                       Explore
                       <ChevronDown className="w-4 h-4 text-gray-500 group-hover:text-gray-900 transition-colors" />
                     </button>
-                    <div className="absolute top-full left-0 mt-0.5 w-56 bg-white rounded-sm shadow-xl border border-gray-200 py-3 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150">
+                    <div className="absolute top-full left-0 mt-0.5 w-56 bg-white rounded-sm shadow-xl border border-gray-200 py-3 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150" suppressHydrationWarning>
                       {EXPLORE_LINKS.map((link) => (
                         <Link
                           key={link.href}
@@ -269,10 +269,10 @@ export default function Navbar() {
                 )}
 
                 {/* Account Dropdown */}
-                <div className="relative group h-full">
+                <div className="relative group h-full" suppressHydrationWarning>
                   <Link href={user ? (isAdmin ? "/admin-gate" : "/profile") : `/login?next=${encodedCurrentUrl}`} target="_blank" className="flex items-center gap-2 px-3 py-2 border border-transparent hover:border-gray-200 hover:bg-gray-50 rounded-sm transition-all outline-none">
                     <UserCircle2 className={`w-6 h-6 ${isAccountActive ? 'text-[#0B57D0]' : 'text-gray-600 group-hover:text-gray-900'}`} strokeWidth={1.5} />
-                    <div className="flex flex-col items-start leading-none text-left">
+                    <div className="flex flex-col items-start leading-none text-left" suppressHydrationWarning>
                       <span className="text-[11px] font-medium text-gray-500">
                         {isLoading ? 'Loading...' : (user ? 'Hello,' : 'Sign in')}
                       </span>
@@ -283,7 +283,7 @@ export default function Navbar() {
                     </div>
                   </Link>
 
-                  <div className="absolute top-full right-0 mt-0.5 w-72 bg-white rounded-sm shadow-2xl border border-gray-200 py-4 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150">
+                  <div className="absolute top-full right-0 mt-0.5 w-72 bg-white rounded-sm shadow-2xl border border-gray-200 py-4 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150" suppressHydrationWarning>
                     {user ? (
                       <div className="px-4">
                         <div className="bg-gray-50 p-3 rounded-sm border border-gray-200 mb-3">
@@ -307,7 +307,7 @@ export default function Navbar() {
                         </div>
                       </div>
                     ) : (
-                      <div className="px-6 py-2 text-center flex flex-col items-center">
+                      <div className="px-6 py-2 text-center flex flex-col items-center" suppressHydrationWarning>
                         <Link href={`/login?next=${encodedCurrentUrl}`} target="_blank" className="w-full py-2 bg-[#FFD814] hover:bg-[#FFD814] text-gray-900 text-sm font-medium rounded-sm border border-[#FFD814] shadow-sm transition-colors">
                           Sign in
                         </Link>
@@ -321,8 +321,8 @@ export default function Navbar() {
 
                 {/* Cart Icon - hide for admin */}
                 {!isAdmin && (
-                  <Link href="/cart" className="flex items-end gap-1 px-3 py-2 border border-transparent hover:border-gray-200 hover:bg-gray-50 rounded-sm transition-all ml-1 group">
-                    <div className="relative flex items-center">
+                  <Link href="/cart" className="flex items-end gap-1 px-3 py-2 border border-transparent hover:border-gray-200 hover:bg-gray-50 rounded-sm transition-all ml-1 group" suppressHydrationWarning>
+                    <div className="relative flex items-center" suppressHydrationWarning>
                       <ShoppingCart className={`w-8 h-8 transition-colors ${isExactActive('/cart') ? 'text-[#0B57D0]' : 'text-gray-600 group-hover:text-gray-900'}`} strokeWidth={1.5} />
                       {mounted && cartItemCount > 0 ? (
                         <span className="absolute -top-1.5 left-3.5 text-[#f08804] text-[15px] font-bold w-5 text-center">

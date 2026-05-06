@@ -106,7 +106,7 @@ export default function ProductCard({ product, priority = false, searchQuery = '
   }
 
   return (
-    <div className="relative bg-white rounded-sm p-4 border border-gray-200 hover:border-gray-300 flex flex-col h-full shadow-sm group/card">
+    <div className="relative bg-white rounded-sm p-4 border border-gray-200 hover:border-gray-300 flex flex-col h-full shadow-sm group/card" suppressHydrationWarning>
       
       <button 
         onClick={handleWishlist}
@@ -118,8 +118,8 @@ export default function ProductCard({ product, priority = false, searchQuery = '
 
       <Link href={`/product/${product.slug}`} target="_blank" className="block flex-1 flex flex-col group">
         
-        <div className="relative aspect-square bg-[#F8F8F8] rounded-sm overflow-hidden mb-3 p-4 flex items-center justify-center group/image">
-          <div className="w-full h-full relative">
+        <div className="relative aspect-square bg-[#F8F8F8] rounded-sm overflow-hidden mb-3 p-4 flex items-center justify-center group/image" suppressHydrationWarning>
+          <div className="w-full h-full relative" suppressHydrationWarning>
             <Image
               src={imageUrl}
               alt={product.name}
@@ -133,34 +133,34 @@ export default function ProductCard({ product, priority = false, searchQuery = '
           </div>
         </div>
         
-        <div className="flex flex-col flex-1">
+        <div className="flex flex-col flex-1" suppressHydrationWarning>
           <h3 className="text-[15px] font-medium text-gray-900 group-hover:text-[#C7511F] line-clamp-2 leading-snug mb-1">
             <HighlightMatch text={product.name} query={searchQuery} />
           </h3>
 
-          <div className="mb-2">
+          <div className="mb-2" suppressHydrationWarning>
             <StarRating rating={rating} reviewCount={reviewCount} size="sm" />
           </div>
 
         {/* 🚨 B2B Transparency Badge 🚨 */}
-        <div className="mb-2">
+        <div className="mb-2" suppressHydrationWarning>
           <span className="inline-flex text-[10px] font-bold text-[#007185] bg-[#F0F8FF] border border-[#007185]/20 px-1.5 py-0.5 rounded-sm">
             Min. Order: {retailMin}
           </span>
         </div>
 
-          <div className="mt-auto pt-1">
-            <div className="flex items-baseline gap-1.5 mb-0.5">
+          <div className="mt-auto pt-1" suppressHydrationWarning>
+            <div className="flex items-baseline gap-1.5 mb-0.5" suppressHydrationWarning>
               <span className="text-xl font-bold text-gray-900">{formatCurrency(sellingPrice)}</span>
             </div>
             {hasDiscount && (
-              <div className="text-xs text-gray-500 mb-1">
+              <div className="text-xs text-gray-500 mb-1" suppressHydrationWarning>
                 M.R.P: <span className="line-through">{formatCurrency(regularPrice)}</span>
                 <span className="text-gray-900 ml-1">({Math.round(((regularPrice - sellingPrice) / regularPrice) * 100)}% off)</span>
               </div>
             )}
             
-            <div className="text-xs text-gray-900 mt-1">
+            <div className="text-xs text-gray-900 mt-1" suppressHydrationWarning>
               FREE Delivery by <span className="font-bold">{siteConfig.shortName}</span>
             </div>
 
@@ -173,8 +173,8 @@ export default function ProductCard({ product, priority = false, searchQuery = '
         </div>
       </Link>
 
-      <div className="mt-3 flex items-center gap-2">
-        <div className="flex-1 min-w-0">
+      <div className="mt-3 flex items-center gap-2" suppressHydrationWarning>
+        <div className="flex-1 min-w-0" suppressHydrationWarning>
           {/* B2B Quantity Forcing */}
           <AddToCartButton 
             product={product as any} 

@@ -50,8 +50,8 @@ export default function CategorySection({ categories }: CategorySectionProps) {
   }
 
   return (
-    <section className="bg-white p-4 sm:p-6 rounded-sm shadow-[0_1px_4px_rgba(0,0,0,0.1)]">
-      <div className="flex items-center justify-between mb-6">
+    <section className="bg-white p-4 sm:p-6 rounded-sm shadow-[0_1px_4px_rgba(0,0,0,0.1)]" suppressHydrationWarning>
+      <div className="flex items-center justify-between mb-6" suppressHydrationWarning>
         <h2 className="text-lg sm:text-2xl font-bold text-gray-900 tracking-tight">
           Shop by Category
         </h2>
@@ -62,7 +62,7 @@ export default function CategorySection({ categories }: CategorySectionProps) {
         </Link>
       </div>
 
-      <div className="relative group">
+      <div className="relative group" suppressHydrationWarning>
         {canScrollLeft && (
           <button 
             onClick={() => scroll('left')}
@@ -79,6 +79,7 @@ export default function CategorySection({ categories }: CategorySectionProps) {
           onScroll={checkScroll} 
           className="flex overflow-x-auto gap-4 sm:gap-6 no-scrollbar pb-2 scroll-smooth"
           style={{ WebkitOverflowScrolling: 'touch' }}
+          suppressHydrationWarning
         >
           {categories.map((category) => {
             let imgUrl = '/placeholder-category.svg'
@@ -94,8 +95,8 @@ export default function CategorySection({ categories }: CategorySectionProps) {
                 href={`/products?category=${category.id}`}
                 className="flex flex-col items-center gap-3 group min-w-[100px] sm:min-w-[120px] flex-shrink-0"
               >
-                <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full bg-[#F7F8F8] border border-gray-100 overflow-hidden relative flex items-center justify-center transition-all duration-300 group-hover:border-[#FBD18E] group-hover:shadow-md">
-                  <div className="relative w-full h-full p-3">
+                <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full bg-[#F7F8F8] border border-gray-100 overflow-hidden relative flex items-center justify-center transition-all duration-300 group-hover:border-[#FBD18E] group-hover:shadow-md" suppressHydrationWarning>
+                  <div className="relative w-full h-full p-3" suppressHydrationWarning>
                     <Image
                       src={imgUrl}
                       alt={category.name}

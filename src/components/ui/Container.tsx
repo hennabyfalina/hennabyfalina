@@ -9,7 +9,7 @@ interface ContainerProps {
 
 export default function Container({ children, className = '' }: ContainerProps) {
   return (
-    <div className={`w-full px-4 sm:px-6 lg:max-w-[1500px] lg:mx-auto lg:px-8 ${className}`}>
+    <div className={`w-full px-4 sm:px-6 lg:max-w-[1500px] lg:mx-auto lg:px-8 ${className}`} suppressHydrationWarning>
       {children}
     </div>
   )
