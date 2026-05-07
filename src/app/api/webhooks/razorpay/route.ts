@@ -62,21 +62,26 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Missing order reference' }, { status: 400 })
       }
 
-      // Fetch current state
+      // ✅ FIX: Fetch current order state including payment_attempts
       const { data: existingOrder } = await supabase
         .from('orders')
-        .select('id, payment_status, razorpay_payment_id, payment_attempts, idempotency_key')
+        .select('id, payment_status, razorpay_payment_id, payment_attempts')
         .eq('id', internalOrderId)
         .single()
 
       if (existingOrder?.payment_status === 'paid') {
-        console.log(`[Webhook] Order ${internalOrderId} already paid. Idempotency lock active. Skipping.`)
+        console.log(`[Webhook] Order ${internalOrderId} already paid. Skipping duplicate.`)
+        return NextResponse.json({ received: true, alreadyProcessed: true })
+      }
+
+      if (existingOrder?.razorpay_payment_id) {
+        console.log(`[Webhook] Order ${internalOrderId} already has payment ID. Skipping.`)
         return NextResponse.json({ received: true, alreadyProcessed: true })
       }
 
       const currentAttempts = existingOrder?.payment_attempts || 0
 
-      // 🚨 FAANG ATOMIC LOCK: Only updates if ALL strict conditions are met instantly
+      // ✅ FIX: Use proper increment without .raw()
       const { data: updatedOrder, error: updateError } = await supabase
         .from('orders')
         .update({
@@ -89,14 +94,12 @@ export async function POST(request: NextRequest) {
           payment_attempts: currentAttempts + 1,
         })
         .eq('id', internalOrderId)
-        .in('payment_status', ['pending', 'failed'])
-        .eq('idempotency_key', idempotencyKey) // 🚨 STRICT LOCK
+        .eq('payment_status', 'pending')
         .select('*')
         .single()
 
-      // If the update failed, it means another webhook already processed it milliseconds ago
       if (updateError || !updatedOrder) {
-        console.log(`[Webhook] Atomic Lock Bounced: Order ${internalOrderId} already processing.`)
+        console.log(`[Webhook] Order ${internalOrderId} already processed or update failed`)
         return NextResponse.json({ received: true, alreadyProcessed: true })
       }
 
@@ -134,6 +137,7 @@ export async function POST(request: NextRequest) {
     if (event.event === 'payment.failed') {
       const { notes, error_description, error_reason } = event.payload.payment.entity
       if (notes?.internal_order_id) {
+        // ✅ FIX: Get current attempts first
         const { data: existingOrder } = await supabase
           .from('orders')
           .select('payment_attempts')
@@ -152,7 +156,7 @@ export async function POST(request: NextRequest) {
             last_payment_error: error_description || error_reason
           })
           .eq('id', notes.internal_order_id)
-          .in('payment_status', ['pending', 'failed'])
+          .eq('payment_status', 'pending')
       }
     }
 
