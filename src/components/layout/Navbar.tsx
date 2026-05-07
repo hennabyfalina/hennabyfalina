@@ -146,7 +146,7 @@ export default function Navbar() {
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 xl:gap-6" suppressHydrationWarning>
             
             <div className="flex items-center justify-between shrink-0 w-full xl:w-auto" suppressHydrationWarning>
-              <Link href="/" className="block text-lg sm:text-xl lg:text-2xl font-extrabold tracking-tight text-gray-900 hover:text-[#0B57D0] transition-opacity flex items-center p-1 rounded-sm">
+              <Link href="/" className="block text-lg sm:text-xl lg:text-2xl font-extrabold tracking-tight text-gray-900 hover:text-[#f08804] transition-opacity flex items-center p-1 rounded-sm">
                 <span className="hidden sm:inline">{siteConfig.name}</span>
                 <span className="sm:hidden">{siteConfig.shortName}</span>
               </Link>
@@ -167,7 +167,7 @@ export default function Navbar() {
             </div>
 
             <div ref={searchContainerRef} className="flex flex-1 w-full max-w-4xl relative z-40" suppressHydrationWarning>
-              <form onSubmit={handleSearch} className="flex flex-1 w-full relative rounded-md overflow-hidden bg-white border border-gray-300 focus-within:border-[#0B57D0] focus-within:ring-1 focus-within:ring-[#0B57D0] transition-all shadow-none">
+              <form onSubmit={handleSearch} className="flex flex-1 w-full relative rounded-md overflow-hidden bg-white border border-gray-300 focus-within:border-[#007185] focus-within:ring-1 focus-within:ring-[#007185] transition-all shadow-none">
                 <input
                   type="text"
                   value={searchQuery}

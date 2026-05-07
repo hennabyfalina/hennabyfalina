@@ -19,10 +19,8 @@ import Loader from '@/components/ui/Loader'
 import { SHIPPING_THRESHOLD, SHIPPING_COST } from '@/lib/constants'
 import { formatCurrency, numberToIndianWords } from '@/lib/utils'
 import { AddressFormData } from '@/components/checkout/AddressForm'
-import { Lock, ChevronLeft, X, AlertTriangle, Package, MapPin, Store, ShieldCheck, ExternalLink, RefreshCw, Truck } from 'lucide-react'
+import { Lock, ChevronLeft, X, AlertTriangle, MapPin, Store, ShieldCheck, RefreshCw, Truck } from 'lucide-react'
 import { siteConfig } from '@/config/site'
-import Image from 'next/image'
-import { getPublicUrl } from '@/lib/supabase/storage'
 import { useProductDraftStore } from '@/store/productDraft.store'
 
 // 🚨 B2B & Tax Imports
@@ -39,6 +37,10 @@ export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false) 
   const [showCartWarningModal, setShowCartWarningModal] = useState(false) 
+  
+  // 🚨 NEW: Address Editing Modal State
+  const [showAddressModal, setShowAddressModal] = useState(false)
+
   const [userId, setUserId] = useState<string | null>(null)
   const [isFormLoaded, setIsFormLoaded] = useState(false)
   const [isPhoneValid, setIsPhoneValid] = useState(true)
@@ -52,7 +54,6 @@ export default function CheckoutPage() {
     name: '', phone: '', addressLine1: '', addressLine2: '', landmark: '', city: '', state: '', pincode: '', delivery_instructions: ''
   })
 
-  // Dynamic check: Did ANY item in the cart qualify for a bulk discount?
   const hasBulkDiscount = items.some((item: any) => 
     item.bulk_price && item.bulk_min_quantity && item.quantity >= item.bulk_min_quantity
   )
@@ -61,7 +62,6 @@ export default function CheckoutPage() {
     setMounted(true)
   }, [])
 
-  // Keep a fresh reference to the modal state so the popstate listener sees the current value
   const showConfirmModalRef = useRef(showConfirmModal)
   useEffect(() => {
     showConfirmModalRef.current = showConfirmModal
@@ -77,9 +77,10 @@ export default function CheckoutPage() {
 
     const handlePopState = () => {
       window.history.pushState({ checkoutTrap: true }, '', window.location.href)
-      
       if (showConfirmModalRef.current) {
         setShowConfirmModal(false)
+      } else if (showAddressModal) {
+        setShowAddressModal(false)
       } else {
         setShowCartWarningModal(true)
       }
@@ -87,7 +88,7 @@ export default function CheckoutPage() {
 
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
-  }, [mounted, isAuthChecking, isProcessing, isNavigatingToCart])
+  }, [mounted, isAuthChecking, isProcessing, isNavigatingToCart, showAddressModal])
 
   const handleClearAddressForm = () => {
     setFormData({
@@ -101,16 +102,12 @@ export default function CheckoutPage() {
     }
   }
 
-  const handleReturnToCartClick = () => {
-    setShowCartWarningModal(true)
-  }
+  const handleReturnToCartClick = () => setShowCartWarningModal(true)
 
   const confirmReturnToCart = () => {
     setShowCartWarningModal(false)
     setIsNavigatingToCart(true)
-    setTimeout(() => {
-      router.push('/cart')
-    }, 200)
+    setTimeout(() => { router.push('/cart') }, 200)
   }
 
   const safeTrim = (val?: string | null) => (val || '').trim()
@@ -128,10 +125,11 @@ export default function CheckoutPage() {
     ? (isContactValid && isPincodeValid)
     : (isContactValid && isAddressValid)
 
+  // 🚨 SMART SUMMARY LOGIC: Show form inline for new users, hide for returning
+  const needsInitialSetup = !isFormValid
+
   const shippingCost = shippingMethod === 'pickup' ? 0 : (totalPrice >= SHIPPING_THRESHOLD ? 0 : SHIPPING_COST)
   const finalTotal = totalPrice + shippingCost
-  
-  // 🚨 Calculate Enterprise Tax Breakdown for the Order Summary
   const taxBreakdown = calculateTaxBreakdown(totalPrice)
 
   useEffect(() => {
@@ -196,122 +194,103 @@ export default function CheckoutPage() {
     setSavedAddresses(addresses)
   }
 
-  const handleFormChange = (field: keyof AddressFormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-  }
-
-  const handlePhoneValidation = (isValid: boolean) => {
-    setIsPhoneValid(isValid)
-  }
-
-  const handleCountryChange = (countryCode: string) => {
-    setSelectedCountryCode(countryCode)
-  }
-
-  const handleOpenConfirmModal = () => {
-    setShowConfirmModal(true)
-  }
-
-  const handleCloseModal = () => {
-    setShowConfirmModal(false)
-    setIsProcessing(false)
-  }
+  const handleFormChange = (field: keyof AddressFormData, value: string) => setFormData(prev => ({ ...prev, [field]: value }))
+  const handlePhoneValidation = (isValid: boolean) => setIsPhoneValid(isValid)
+  const handleCountryChange = (countryCode: string) => setSelectedCountryCode(countryCode)
+  const handleOpenConfirmModal = () => setShowConfirmModal(true)
+  const handleCloseModal = () => { setShowConfirmModal(false); setIsProcessing(false) }
 
   const handleProceedToPaymentGateway = async () => {
-  setIsProcessing(true)
-  // 🚨 INSTANTLY hide the modal so the user never sees the cart empty out recalculations
-  setShowConfirmModal(false)
-  try {
-    let addressToSave;
-    if (shippingMethod === 'pickup') {
-      addressToSave = {
-        name: formData.name,
-        phone: formData.phone,
-        pincode: formData.pincode,
-        country: selectedCountryCode === 'IN' ? 'India' : selectedCountryCode,
-        delivery_method: 'pickup'
-      }
-    } else {
-      addressToSave = {
-        name: formData.name,
-        phone: formData.phone,
-        address_line1: formData.addressLine1,
-        address_line2: formData.addressLine2,
-        landmark: formData.landmark,
-        delivery_instructions: formData.delivery_instructions,
-        city: formData.city,
-        state: formData.state,
-        pincode: formData.pincode,
-        country: selectedCountryCode === 'IN' ? 'India' : selectedCountryCode,
-        delivery_method: 'delivery'
-      }
-    }
-
-    const savedAddress = await saveAddress(addressToSave)
-
-    const orderItems = items.map((item: any) => {
-      // 🚨 CRITICAL FIX: Detect if files are still in the temp_uploads folder
-      const hasTempFiles = item.artwork_urls?.some((url: string) => url.includes('temp_uploads'))
-      
-      return {
-        product_id: item.product_id,
-        quantity: item.quantity,
-        price: item.price,
-        printing_type: item.printing_type || 'None',
-        artwork_urls: item.artwork_urls || [],
-        artwork_sizes: item.artwork_sizes || [],
-        printing_instructions: item.printing_instructions || null,
-        is_temp: hasTempFiles || false
-      }
-    })
-
-    const { order, orderNumber } = await createOrder({
-      addressId: savedAddress.id,
-      items: orderItems,
-      totalAmount: finalTotal,
-      paymentMethod: 'razorpay',
-      shippingMethod,
-      shippingCost,
-    })
-
-    // ✅ FIX: Remove 'amount' from request – server fetches from DB
-    const response = await fetch('/api/razorpay', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        orderId: order.id,
-        orderNumber: orderNumber,
-        userId: userId
-      }),
-    })
-
-    const razorpayData = await response.json()
-    if (razorpayData.error) throw new Error(razorpayData.error)
-
-    clearCart()
-    if (userId) {
-      localStorage.removeItem(`checkout_form_${userId}`)
-      localStorage.removeItem(`checkout_shipping_method_${userId}`)
-    }
-
-    // 🚨 CRITICAL FIX: Clear the product drafts so returning to product pages gives a fresh slate!
-    items.forEach((item: any) => {
-      useProductDraftStore.getState().clearDraft(item.product_id)
-    })
-
-    // 🚨 Replace instead of push, completely erasing the checkout page from browser history
-    router.replace(`/checkout/processing?order_id=${encodeURIComponent(order.id)}&amount=${encodeURIComponent(razorpayData.amount)}&rzp_order=${encodeURIComponent(razorpayData.orderId)}`)
-  } catch (err: any) {
-    console.error(err)
-    alert(err.message || 'Failed to initialize payment')
-    setIsProcessing(false)
+    setIsProcessing(true)
     setShowConfirmModal(false)
+    try {
+      let addressToSave;
+      if (shippingMethod === 'pickup') {
+        addressToSave = {
+          name: formData.name, phone: formData.phone, pincode: formData.pincode, country: selectedCountryCode === 'IN' ? 'India' : selectedCountryCode, delivery_method: 'pickup'
+        }
+      } else {
+        addressToSave = {
+          name: formData.name, phone: formData.phone, address_line1: formData.addressLine1, address_line2: formData.addressLine2, landmark: formData.landmark, delivery_instructions: formData.delivery_instructions, city: formData.city, state: formData.state, pincode: formData.pincode, country: selectedCountryCode === 'IN' ? 'India' : selectedCountryCode, delivery_method: 'delivery'
+        }
+      }
+
+      const savedAddress = await saveAddress(addressToSave)
+      const orderItems = items.map((item: any) => {
+        const hasTempFiles = item.artwork_urls?.some((url: string) => url.includes('temp_uploads'))
+        return {
+          product_id: item.product_id, quantity: item.quantity, price: item.price, printing_type: item.printing_type || 'None', artwork_urls: item.artwork_urls || [], artwork_sizes: item.artwork_sizes || [], printing_instructions: item.printing_instructions || null, is_temp: hasTempFiles || false
+        }
+      })
+
+      const { order, orderNumber } = await createOrder({
+        addressId: savedAddress.id, items: orderItems, totalAmount: finalTotal, paymentMethod: 'razorpay', shippingMethod, shippingCost,
+      })
+
+      const response = await fetch('/api/razorpay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order.id, orderNumber: orderNumber, userId: userId }),
+      })
+
+      const razorpayData = await response.json()
+      if (razorpayData.error) throw new Error(razorpayData.error)
+
+      clearCart()
+      if (userId) {
+        localStorage.removeItem(`checkout_form_${userId}`)
+        localStorage.removeItem(`checkout_shipping_method_${userId}`)
+      }
+
+      items.forEach((item: any) => {
+        useProductDraftStore.getState().clearDraft(item.product_id)
+      })
+
+      router.replace(`/checkout/processing?order_id=${encodeURIComponent(order.id)}&amount=${encodeURIComponent(razorpayData.amount)}&rzp_order=${encodeURIComponent(razorpayData.orderId)}`)
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || 'Failed to initialize payment')
+      setIsProcessing(false)
+      setShowConfirmModal(false)
+    }
   }
-}
+
+  // 🚨 RENDER REUSABLE SAVED ADDRESSES DROPDOWN
+  const renderSavedAddressesDropdown = () => {
+    if (savedAddresses.length === 0) return null
+    return (
+      <div className="bg-white border border-[#D5D9D9] p-4 rounded-sm shadow-sm flex flex-col gap-2 mb-4">
+        <label htmlFor="saved-address-select" className="text-sm font-bold text-[#0F1111] flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-gray-500" />
+          Use a saved address
+        </label>
+        <select
+          id="saved-address-select"
+          disabled={isProcessing}
+          onChange={(e) => {
+            const address = savedAddresses.find(a => a.id === e.target.value)
+            if (address) {
+              setFormData({
+                name: address.name || '', phone: address.phone || '', addressLine1: address.address_line1 || '', addressLine2: address.address_line2 || '', landmark: address.landmark || '', city: address.city || '', state: address.state || '', pincode: address.pincode || '', delivery_instructions: address.delivery_instructions || ''
+              })
+            }
+          }}
+          className="w-full px-3 py-2.5 sm:py-3 bg-white border border-[#D5D9D9] rounded-sm text-[15px] text-[#0F1111] focus:outline-none focus:border-[#FF9900] cursor-pointer disabled:cursor-not-allowed"
+        >
+          <option value="">Select a saved address...</option>
+          {savedAddresses.map((addr) => (
+            <option key={addr.id} value={addr.id}>
+              {addr.name} - {addr.address_line1}, {addr.city}
+            </option>
+          ))}
+        </select>
+      </div>
+    )
+  }
 
   if (isAuthChecking) {
     return (
-      <Container className="flex-1 min-h-[80vh] flex flex-col items-center justify-center">
+      <Container className="flex-1 min-h-[80vh] flex flex-col items-center justify-center bg-[#F0F2F2]">
         <div className="flex flex-col items-center">
           <Loader />
           <p className="text-sm font-medium text-gray-600 mt-4">Verifying session securely...</p>
@@ -321,14 +300,15 @@ export default function CheckoutPage() {
   }
 
   return (
+    // 🚨 AMAZON STYLING: Cool Gray Background
     <div className="min-h-screen bg-[#F0F2F2] flex flex-col">
-      <header className="py-4 border-b border-white/10 bg-black shadow-sm sticky top-0 z-50">
+      <header className="fixed top-0 left-0 w-full py-4 border-b border-[#D5D9D9] bg-white z-50 shadow-sm">
         <Container>
           <div className="flex items-center justify-between">
-            <span className="text-lg sm:text-xl lg:text-2xl font-extrabold tracking-tight text-white cursor-default">
+            <span className="text-lg sm:text-xl lg:text-2xl font-extrabold tracking-tight text-gray-900 cursor-default">
               {siteConfig.name}
             </span>
-            <div className="flex items-center gap-2 text-gray-300 text-sm font-medium">
+            <div className="flex items-center gap-2 text-gray-600 text-sm font-medium">
               <Lock className="w-4 h-4 text-green-500" />
               <span className="hidden sm:inline">Secure Checkout</span>
             </div>
@@ -336,9 +316,9 @@ export default function CheckoutPage() {
         </Container>
       </header>
 
-      <Container className="py-6 md:py-10 pb-12 flex-1">
+      <Container className="mt-[70px] py-6 md:py-10 pb-12 flex-1">
         <div className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900 mb-4">Checkout</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[#0F1111] mb-4">Checkout</h1>
           <div className="bg-white p-4 rounded-sm border border-[#D5D9D9] shadow-sm flex items-start gap-3">
             <ShieldCheck className="w-6 h-6 text-green-600 shrink-0 mt-0.5" />
             <div>
@@ -358,55 +338,64 @@ export default function CheckoutPage() {
               onChange={setShippingMethod}
               disabled={isProcessing}
             />
-
-            {savedAddresses.length > 0 && (
-              <div className="bg-white border border-[#D5D9D9] p-4 rounded-sm shadow-sm flex flex-col gap-2">
-                <label htmlFor="saved-address-select" className="text-sm font-bold text-[#0F1111] flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-gray-500" />
-                  Use a saved address
-                </label>
-                <select
-                  id="saved-address-select"
-                  disabled={isProcessing}
-                  onChange={(e) => {
-                    const address = savedAddresses.find(a => a.id === e.target.value)
-                    if (address) {
-                      setFormData({
-                        name: address.name || '',
-                        phone: address.phone || '',
-                        addressLine1: address.address_line1 || '',
-                        addressLine2: address.address_line2 || '',
-                        landmark: address.landmark || '',
-                        city: address.city || '',
-                        state: address.state || '',
-                        pincode: address.pincode || '',
-                        delivery_instructions: address.delivery_instructions || ''
-                      })
-                    }
-                  }}
-                  className="w-full px-3 py-2.5 sm:py-3 bg-white border border-[#D5D9D9] rounded-sm text-[15px] text-[#0F1111] focus:outline-none focus:border-[#FF9900] cursor-pointer disabled:cursor-not-allowed"
-                >
-                  <option value="">Select a saved address...</option>
-                  {savedAddresses.map((addr) => (
-                    <option key={addr.id} value={addr.id}>
-                      {addr.name} - {addr.address_line1}, {addr.city}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
             
             {shippingMethod === 'pickup' && <StorePickupInfo />}
-            
-            <AddressForm
-              formData={formData}
-              onChange={handleFormChange}
-              onPhoneValidationChange={handlePhoneValidation}
-              onCountryChange={handleCountryChange}
-              shippingMethod={shippingMethod}
-              disabled={isProcessing}
-              onClear={handleClearAddressForm}
-            />
+
+            {/* 🚨 SMART SUMMARY STATE (Returning Users) */}
+            {!needsInitialSetup && (
+              <div className="bg-white border border-[#D5D9D9] p-4 rounded-sm shadow-sm flex flex-col relative transition-all">
+                <div className="flex justify-between items-start">
+                  <div className="flex gap-3">
+                    <div className="mt-0.5">
+                      {shippingMethod === 'pickup' ? <Store className="w-5 h-5 text-gray-400" /> : <MapPin className="w-5 h-5 text-gray-400" />}
+                    </div>
+                    <div>
+                      <h3 className="text-[15px] font-bold text-[#0F1111] mb-1">
+                        {shippingMethod === 'pickup' ? 'Pickup Contact Details' : `Delivering to ${formData.name}`}
+                      </h3>
+                      <div className="text-sm text-[#0F1111] leading-relaxed">
+                        {shippingMethod === 'pickup' ? (
+                          <>
+                            <span className="block">{formData.name}</span>
+                            <span className="block text-gray-600">Phone: {formData.phone}</span>
+                            <span className="block text-gray-600">Pincode: {formData.pincode}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="block">{formData.addressLine1}{formData.addressLine2 ? `, ${formData.addressLine2}` : ''}</span>
+                            <span className="block">{formData.city}, {formData.state} {formData.pincode}</span>
+                            <span className="block text-gray-600 mt-1">Phone: {formData.phone}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowAddressModal(true)}
+                    className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer font-medium whitespace-nowrap"
+                  >
+                    Change
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 🚨 INLINE FORM STATE (New Users) */}
+            {needsInitialSetup && (
+              <div className="space-y-4 transition-all">
+                {renderSavedAddressesDropdown()}
+                <AddressForm
+                  formData={formData}
+                  onChange={handleFormChange}
+                  onPhoneValidationChange={handlePhoneValidation}
+                  onCountryChange={handleCountryChange}
+                  shippingMethod={shippingMethod}
+                  disabled={isProcessing}
+                  onClear={handleClearAddressForm}
+                />
+              </div>
+            )}
+
           </div>
 
           <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-24">
@@ -468,6 +457,43 @@ export default function CheckoutPage() {
             </div>
           </div>
         </div>
+
+        {/* 🚨 ADDRESS EDITING MODAL */}
+        {showAddressModal && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+             <div className="relative w-full max-w-2xl bg-[#F0F2F2] rounded-sm shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+               <div className="flex items-center justify-between p-4 bg-white border-b border-[#D5D9D9] shrink-0">
+                  <h3 className="text-lg font-bold text-[#0F1111]">Change Delivery Details</h3>
+                  <button onClick={() => setShowAddressModal(false)} className="p-1 hover:bg-gray-100 rounded-sm cursor-pointer">
+                    <X className="w-5 h-5 text-gray-500" />
+                  </button>
+               </div>
+               <div className="p-4 overflow-y-auto overscroll-contain flex-1">
+                  {renderSavedAddressesDropdown()}
+                  <AddressForm
+                    formData={formData}
+                    onChange={handleFormChange}
+                    onPhoneValidationChange={handlePhoneValidation}
+                    onCountryChange={handleCountryChange}
+                    shippingMethod={shippingMethod}
+                    disabled={isProcessing}
+                    onClear={handleClearAddressForm}
+                  />
+               </div>
+               <div className="p-4 bg-white border-t border-[#D5D9D9] shrink-0 flex justify-end">
+                  <button 
+                    onClick={() => {
+                      if (isFormValid) setShowAddressModal(false)
+                    }} 
+                    disabled={!isFormValid}
+                    className="px-6 py-2.5 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm text-sm font-bold text-[#0F1111] shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Use this address
+                  </button>
+               </div>
+             </div>
+          </div>
+        )}
 
         {/* 🚨 RETURN TO CART WARNING MODAL */}
         {showCartWarningModal && (

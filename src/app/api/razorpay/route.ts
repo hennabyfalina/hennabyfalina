@@ -55,7 +55,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ✅ FIX: Include razorpay_order_id in select
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select('id, status, payment_status, total_amount, idempotency_key, razorpay_order_id')
@@ -75,7 +74,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ✅ FIX: Check for existing Razorpay order ID
+    // Reuse existing Razorpay order if it was already generated
     if (order.razorpay_order_id) {
       return NextResponse.json({
         orderId: order.razorpay_order_id,
@@ -97,12 +96,16 @@ export async function POST(request: NextRequest) {
     }
 
     const taxBreakdown = calculateTaxBreakdown(order.total_amount)
-    const idempotencyKey = generateIdempotencyKey()
+    
+    // 🚨 FAANG IDEMPOTENCY: Reuse existing key or generate a new one securely
+    const idempotencyKey = order.idempotency_key || generateIdempotencyKey()
 
-    await supabase
-      .from('orders')
-      .update({ idempotency_key: idempotencyKey })
-      .eq('id', orderId)
+    if (!order.idempotency_key) {
+      await supabase
+        .from('orders')
+        .update({ idempotency_key: idempotencyKey })
+        .eq('id', orderId)
+    }
 
     const options = {
       amount: Math.round(order.total_amount * 100),
@@ -111,7 +114,7 @@ export async function POST(request: NextRequest) {
       notes: {
         internal_order_id: orderId,
         user_id: userId,
-        idempotency_key: idempotencyKey,
+        idempotency_key: idempotencyKey, // 🚨 Lock attached to the Razorpay payload
         b2b_gst_compliant: 'true',
         base_amount_inr: taxBreakdown.basePrice.toString(),
         total_gst_inr: taxBreakdown.totalGST.toString(),
