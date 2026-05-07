@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
           payment_attempts: currentAttempts + 1,
         })
         .eq('id', internalOrderId)
-        .eq('payment_status', 'pending')
+        .in('payment_status', ['pending', 'failed'])
         .eq('idempotency_key', idempotencyKey) // 🚨 STRICT LOCK
         .select('*')
         .single()
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
             last_payment_error: error_description || error_reason
           })
           .eq('id', notes.internal_order_id)
-          .eq('payment_status', 'pending')
+          .in('payment_status', ['pending', 'failed'])
       }
     }
 

@@ -187,6 +187,7 @@ razack-packaging-centre/
 │   │   │   ├── StatsCard.tsx
 │   │   │   └── StockUpdateModal.tsx
 │   │   ├── auth/
+│   │   │   ├── GoogleOneTap.tsx
 │   │   │   └── NameModal.tsx
 │   │   ├── cart/
 │   │   │   └── CartRecommendations.tsx
