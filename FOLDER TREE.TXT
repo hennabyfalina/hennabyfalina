@@ -13,6 +13,7 @@ razack-packaging-centre/
 │   ├── placeholder-category.svg
 │   ├── placeholder-loading.svg
 │   ├── placeholder-product.svg
+│   ├── privacy.html
 │   ├── razorpay-icon.jpg
 │   ├── Roboto-Bold.ttf
 │   ├── Roboto-Regular.ttf
