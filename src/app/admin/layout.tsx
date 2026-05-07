@@ -212,15 +212,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Main Content Area (unchanged from original – only sidebar logic changed) */}
       <div className={`flex-1 flex flex-col h-[100dvh] overflow-y-auto overflow-x-hidden transition-all duration-300 ease-in-out touch-pan-y ${isSidebarOpen ? 'md:ml-[280px]' : 'md:ml-[76px]'} ${isAdmin && !isSuperAdmin ? 'pt-12' : 'pt-0'}`} style={{ WebkitOverflowScrolling: 'touch' }}>
         {/* 🚨 shrink-0 prevents heavy page content from squishing the header 🚨 */}
-        <header className="shrink-0 h-[76px] bg-[#131314] px-4 md:px-6 flex items-center justify-between sticky top-0 z-30 pt-3">
+        <header className="shrink-0 h-[76px] bg-[#131314] px-6 hidden md:flex items-center justify-between sticky top-0 z-30 pt-3">
           <div className="flex items-center">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="hidden p-2.5 mr-2 rounded-full hover:bg-[#282A2C] transition-colors cursor-pointer text-[#C4C7C5]"
+              className="p-2.5 mr-2 rounded-full hover:bg-[#282A2C] transition-colors cursor-pointer text-[#C4C7C5]"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <Link href="/admin/dashboard" className="hidden md:block text-xl font-medium tracking-tight text-[#A8C7FA] transition-opacity hover:opacity-80">
+            <Link href="/admin/dashboard" className="text-xl font-medium tracking-tight text-[#A8C7FA] transition-opacity hover:opacity-80">
               {isSuperAdmin ? 'Super Admin' : 'Admin'}
             </Link>
           </div>
@@ -228,7 +228,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="flex items-center gap-4 relative" ref={profileRef}>
             <button
               onClick={handleRefresh}
-              className="hidden md:flex items-center justify-center p-2.5 rounded-full hover:bg-[#282A2C] transition-colors cursor-pointer text-[#C4C7C5]"
+              className="flex items-center justify-center p-2.5 rounded-full hover:bg-[#282A2C] transition-colors cursor-pointer text-[#C4C7C5]"
               title="Sync Latest Data"
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-[#A8C7FA]' : ''}`} />
@@ -236,7 +236,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
-              className="hidden lg:flex items-center gap-2 bg-[#1E1F20] hover:bg-[#282A2C] px-4 py-2.5 rounded-full text-[#C4C7C5] transition-colors cursor-pointer mr-2 border border-transparent hover:border-[#333538]"
+              className="flex items-center gap-2 bg-[#1E1F20] hover:bg-[#282A2C] px-4 py-2.5 rounded-full text-[#C4C7C5] transition-colors cursor-pointer mr-2 border border-transparent hover:border-[#333538]"
             >
               <Search className="w-4 h-4" />
               <span className="text-sm font-medium">Search records...</span>
@@ -246,7 +246,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {/* Avatar ring */}
             <button
               onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="hidden md:flex relative p-[2.5px] rounded-full cursor-pointer hover:scale-105 transition-transform items-center justify-center"
+              className="relative flex p-[2.5px] rounded-full cursor-pointer hover:scale-105 transition-transform items-center justify-center"
               style={{ background: 'conic-gradient(from 90deg, #EA4335 0deg 90deg, #4285F4 90deg 180deg, #34A853 180deg 270deg, #FBBC05 270deg 360deg)' }}
             >
               <div className="w-8 h-8 rounded-full bg-[#1E1F20] flex items-center justify-center text-[#E3E3E3] font-medium text-sm border-2 border-[#131314]">
@@ -326,6 +326,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <X className="w-5 h-5" />
               </button>
             </div>
+            
+            {/* 🚨 MOBILE IDENTITY BLOCK 🚨 */}
+            <div className="bg-[#131314] rounded-2xl p-4 border border-[#333538] mb-6 flex flex-col items-center text-center shadow-inner">
+              <p className="text-sm font-bold text-[#E3E3E3] tracking-wide">{isSuperAdmin ? 'Super Admin' : 'Admin'} Workspace</p>
+              <p className="text-[11px] text-[#8E9196] font-mono mt-1">{getMaskedEmail(userEmail)}</p>
+            </div>
+
+            {/* 🚨 MOBILE GLOBAL SEARCH 🚨 */}
+            <button
+              onClick={() => { setIsMobileMenuOpen(false); window.dispatchEvent(new CustomEvent('open-command-palette')); }}
+              className="w-full flex items-center justify-center gap-3 p-4 mb-6 bg-[#282A2C] text-[#E3E3E3] hover:text-[#A8C7FA] rounded-[24px] transition-colors cursor-pointer shadow-sm border border-[#333538]"
+            >
+              <Search className="w-5 h-5" />
+              <span className="text-sm font-bold tracking-wide">Search Workspace...</span>
+            </button>
+
             <div className="grid grid-cols-2 gap-3 mb-4">
               {filteredNavItems.slice(4).map((item) => {
                 const Icon = item.icon
