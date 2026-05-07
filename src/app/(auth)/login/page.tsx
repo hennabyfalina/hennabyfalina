@@ -119,6 +119,77 @@ export default function LoginPage() {
     }
   }, [])
 
+  // ─── Google One Tap ───────────────────────────────────────────────────────
+  useEffect(() => {
+    const initializeGoogleOneTap = () => {
+      // Prevent re-prompting if the user intentionally closed it this session
+      if (sessionStorage.getItem('google_one_tap_dismissed') === 'true') return
+
+      // @ts-ignore
+      if (window.google?.accounts?.id) {
+        // @ts-ignore
+        window.google.accounts.id.initialize({
+          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
+          callback: async (response: any) => {
+            setIsGoogleLoading(true)
+            try {
+              const supabase = createClient()
+              const { data, error } = await supabase.auth.signInWithIdToken({
+                provider: 'google',
+                token: response.credential,
+              })
+
+              if (error) throw error
+
+              if (data.user) {
+                const { data: userData } = await supabase
+                  .from('users')
+                  .select('name, role')
+                  .eq('id', data.user.id)
+                  .maybeSingle()
+
+                if (userData?.role === 'admin' || userData?.role === 'super_admin') {
+                  window.location.href = '/admin-gate'
+                  return
+                }
+              }
+
+              const params = new URLSearchParams(window.location.search)
+              const redirectPath = params.get('next') || params.get('redirect') || '/products'
+              router.push(redirectPath)
+            } catch (err: any) {
+              setError(err.message || 'Google One Tap login failed.')
+              setIsGoogleLoading(false)
+            }
+          },
+          context: 'use',
+          cancel_on_tap_outside: false,
+        })
+
+        // @ts-ignore
+        window.google.accounts.id.prompt((notification: any) => {
+          // Listen for user closing or skipping the prompt
+          if (notification.isSkippedMoment() || notification.isDismissedMoment()) {
+            sessionStorage.setItem('google_one_tap_dismissed', 'true')
+          }
+        })
+      }
+    }
+
+    const scriptId = 'google-gsi-script'
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement('script')
+      script.id = scriptId
+      script.src = 'https://accounts.google.com/gsi/client'
+      script.async = true
+      script.defer = true
+      script.onload = initializeGoogleOneTap
+      document.body.appendChild(script)
+    } else {
+      initializeGoogleOneTap()
+    }
+  }, [router])
+
 // ─── Google Login ───────────────────────────────────────────────────────────
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true)
@@ -365,6 +436,16 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
+      {/* 🚨 Full-screen blocking loader during background verification 🚨 */}
+      {isGoogleLoading && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/70 backdrop-blur-sm transition-all">
+          <div className="flex flex-col items-center gap-4 bg-white p-6 rounded-2xl shadow-xl border border-gray-100">
+            <div className="animate-spin w-10 h-10 border-4 border-gray-200 border-t-[#007185] rounded-full shadow-sm" />
+            <p className="text-[#007185] font-bold tracking-wide text-sm animate-pulse">Securing session...</p>
+          </div>
+        </div>
+      )}
+
       <header className="w-full py-4 flex items-center justify-center border-b border-gray-100">
         <Link href="/" className="text-2xl font-extrabold tracking-tight text-gray-900 hover:opacity-90 transition-opacity">
           {siteConfig.name}
