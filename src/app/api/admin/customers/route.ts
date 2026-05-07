@@ -1,7 +1,7 @@
 // src/app/api/admin/customers/route.ts
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyAdmin } from '@/lib/admin-auth'
 import { z } from 'zod'
 
@@ -29,25 +29,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid input', details: parsed.error.format() }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    const adminSupabase = createAdminClient()
     const { name, email, phone, ...addressData } = parsed.data
 
-    // Note: If you have a different schema (e.g. keeping addresses in a separate table), 
-    // adjust this insert logic to match your database structure.
-    const { data, error } = await supabase
-      .from('users')
-      .insert({
+    // 1. Create secure Auth User via Admin API
+    const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
+      email: email || undefined,
+      phone: phone || undefined,
+      email_confirm: true,
+      user_metadata: { name, role: 'customer' }
+    })
+
+    if (authError) throw authError
+    const userId = authData.user.id
+
+    // 2. Ensure public users table is updated (in case triggers lag)
+    await adminSupabase.from('users').update({ name, phone: phone || null }).eq('id', userId)
+
+    // 3. Insert address records if provided
+    if (addressData.address_line1 || addressData.city) {
+      await adminSupabase.from('addresses').insert({
+        user_id: userId,
         name,
-        email: email || null,
         phone: phone || null,
-        role: 'customer'
+        ...addressData,
+        is_default: true,
+        delivery_method: 'delivery'
       })
-      .select()
-      .single()
+    }
 
-    if (error) throw error
-
-    return NextResponse.json(data)
+    return NextResponse.json({ id: userId, name, email })
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Failed to create customer' }, { status: 500 })
   }

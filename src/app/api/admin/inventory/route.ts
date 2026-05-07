@@ -1,13 +1,15 @@
+// src/app/api/admin/inventory/route.ts
+
 import { NextResponse } from 'next/server'
 import { updateStock } from '@/services/inventory.service'
 import { verifyAdmin } from '@/lib/admin-auth'
 import { z } from 'zod'
 
 const inventoryUpdateSchema = z.object({
-  productId: z.string().min(1),
-  newStock: z.number().int().nonnegative(),
+  product_id: z.string().min(1),
+  stock: z.number().int().nonnegative(),
   reason: z.string().min(1),
-  notes: z.string().optional(),
+  notes: z.string().nullable().optional(),
 })
 
 export async function POST(req: Request) {
@@ -22,9 +24,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid input', details: parsed.error.format() }, { status: 400 })
     }
 
-    const { productId, newStock, reason, notes } = parsed.data
+    const { product_id, stock, reason, notes } = parsed.data
 
-    await updateStock(productId, newStock, reason, notes)
+    await updateStock(product_id, stock, reason, notes || undefined)
     return NextResponse.json({ success: true })
     
   } catch (error: any) {

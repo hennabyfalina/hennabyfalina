@@ -15,20 +15,33 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const paymentMethod = searchParams.get('payment_method')
     const search = searchParams.get('search')
+    const limit = searchParams.get('limit')
+    const userId = searchParams.get('user_id')
+
+    let selectStr = `
+      id,
+      order_number,
+      total_amount,
+      status,
+      payment_status,
+      payment_method_detail,
+      created_at,
+      users!user_id (name)
+    `
+    
+    // 🚨 Deeply nest products & logistics for the Customer Order History tab
+    if (userId) {
+      selectStr += `, shipping_cost, shipping_method, addresses (*), order_items (*, products(name))`
+    }
 
     let query = supabase
       .from('orders')
-      .select(`
-        id,
-        order_number,
-        total_amount,
-        status,
-        payment_status,
-        payment_method_detail,
-        created_at,
-        users!user_id (name)
-      `)
+      .select(selectStr)
       .order('created_at', { ascending: false })
+
+    if (userId) {
+      query = query.eq('user_id', userId)
+    }
 
     if (status && status !== 'all') {
       query = query.eq('status', status)
@@ -41,12 +54,16 @@ export async function GET(request: NextRequest) {
     if (search) {
       query = query.or(`order_number.ilike.%${search}%,users.name.ilike.%${search}%`)
     }
+    
+    if (limit) {
+      query = query.limit(parseInt(limit, 10))
+    }
 
     const { data, error } = await query
 
     if (error) throw error
 
-    const formattedOrders = (data || []).map(order => ({
+    const formattedOrders = ((data as any[]) || []).map((order: any) => ({
       ...order,
       users: Array.isArray(order.users) ? order.users[0] : order.users,
     }))

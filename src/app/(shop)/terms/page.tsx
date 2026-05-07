@@ -16,7 +16,7 @@ export default function TermsPage() {
       <div className="bg-[#F0F2F2] border-b border-gray-200">
         <Container className="py-8 md:py-12">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Terms & Conditions</h1>
-          <p className="text-sm text-gray-600 mt-2">Last updated: March 2025</p>
+          <p className="text-sm text-gray-600 mt-2">Last updated: May 2026</p>
         </Container>
       </div>
 

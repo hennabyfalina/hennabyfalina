@@ -1,6 +1,7 @@
 // src/app/admin/dashboard/page.tsx
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { siteConfig } from '@/config/site'
@@ -14,9 +15,16 @@ import {
   History, IndianRupee, Bell, AlertTriangle, 
   ChevronRight, ArrowUpRight, Zap, Lock
 } from 'lucide-react'
+import DashboardDateFilter from '@/components/admin/DashboardDateFilter'
 
-export default async function AdminDashboard() {
+export default async function AdminDashboard({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const supabase = await createClient()
+
+  const adminSupabase = createAdminClient()
+  const resolvedParams = await searchParams
+  const range = (resolvedParams?.range as string) || '30d'
+  const startParam = resolvedParams?.start as string
+  const endParam = resolvedParams?.end as string
 
   // 0. Fetch User Role for Permissions
   const { data: { user } } = await supabase.auth.getUser()
@@ -27,38 +35,97 @@ export default async function AdminDashboard() {
   }
 
   // 1. Fetch Aggregated Totals
-  const { count: totalOrders } = await supabase.from('orders').select('*', { count: 'exact', head: true })
-  const { count: totalProducts } = await supabase.from('products').select('*', { count: 'exact', head: true })
-  const { count: totalCustomers } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'customer')
+  const { count: totalOrders } = await adminSupabase.from('orders').select('*', { count: 'exact', head: true })
+  const { count: totalProducts } = await adminSupabase.from('products').select('*', { count: 'exact', head: true })
+  const { count: totalCustomers } = await adminSupabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'customer')
 
   // 2. 🚨 REAL-TIME ALERTS ENGINE 🚨
-  const { data: lowStockItems } = await supabase.from('products').select('name, stock').lte('stock', 10).limit(3)
-  const { data: pendingOrders } = await supabase.from('orders').select('order_number').eq('status', 'pending').limit(3)
-  const { data: latestOrders } = await supabase.from('orders').select('order_number, total_amount, status, created_at').order('created_at', { ascending: false }).limit(5)
+  const { data: lowStockItems } = await adminSupabase.from('products').select('name, stock').lte('stock', 10).limit(3)
+  const { data: pendingOrders } = await adminSupabase.from('orders').select('order_number').eq('status', 'pending').limit(3)
+  const { data: latestOrders } = await adminSupabase.from('orders').select('order_number, total_amount, status, created_at').order('created_at', { ascending: false }).limit(5)
 
   // 3. Fetch Top Selling Products
-  const { data: topProducts } = await supabase
+  const { data: topProducts } = await adminSupabase
     .from('order_items')
     .select(`quantity, products (id, name, price, images)`)
     .order('quantity', { ascending: false })
     .limit(4)
 
   // 4. CHART DATA LOGIC (Aggregation)
-  const thirtyDaysAgo = new Date()
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29)
-  const { data: recentOrders } = await supabase.from('orders').select('created_at, total_amount').gte('created_at', thirtyDaysAgo.toISOString()).eq('payment_status', 'paid')
+  let startDate = new Date()
+  let endDate = new Date()
+  let daysToFetch = 30
+
+  if (range === 'custom' && startParam && endParam) {
+    startDate = new Date(startParam)
+    endDate = new Date(endParam)
+    endDate.setHours(23, 59, 59, 999)
+    daysToFetch = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+  } else {
+    if (range === '3m') daysToFetch = 90
+    else if (range === '6m') daysToFetch = 180
+    else if (range === '1y') daysToFetch = 365
+    
+    startDate.setDate(startDate.getDate() - (daysToFetch - 1))
+    startDate.setHours(0, 0, 0, 0)
+  }
+
+  const { data: recentOrders } = await adminSupabase
+    .from('orders')
+    .select('created_at, total_amount')
+    .gte('created_at', startDate.toISOString())
+    .lte('created_at', endDate.toISOString())
+    .eq('payment_status', 'paid')
 
   const chartDataMap = new Map()
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date(); d.setDate(d.getDate() - i)
-    const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    chartDataMap.set(dateStr, { date: dateStr, revenue: 0, orders: 0 })
+  if (daysToFetch <= 90) {
+    for (let i = daysToFetch - 1; i >= 0; i--) {
+      const d = new Date(endDate); d.setDate(d.getDate() - i)
+      const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      chartDataMap.set(dateStr, { date: dateStr, revenue: 0, orders: 0 })
+    }
+    recentOrders?.forEach(o => {
+      const dStr = new Date(o.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      if (chartDataMap.has(dStr)) { const e = chartDataMap.get(dStr); e.revenue += o.total_amount; e.orders += 1; }
+    })
+  } else {
+    const monthsToFetch = Math.ceil(daysToFetch / 30)
+    for (let i = monthsToFetch - 1; i >= 0; i--) {
+      const d = new Date(endDate); d.setMonth(d.getMonth() - i)
+      const monthStr = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+      chartDataMap.set(monthStr, { date: monthStr, revenue: 0, orders: 0 })
+    }
+    recentOrders?.forEach(o => {
+      const dStr = new Date(o.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+      if (chartDataMap.has(dStr)) { const e = chartDataMap.get(dStr); e.revenue += o.total_amount; e.orders += 1; }
+    })
   }
-  recentOrders?.forEach(o => {
-    const dStr = new Date(o.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    if (chartDataMap.has(dStr)) { const e = chartDataMap.get(dStr); e.revenue += o.total_amount; e.orders += 1; }
-  })
   const chartData = Array.from(chartDataMap.values())
+  
+  // 5. CATEGORY SALES DATA (Donut Chart)
+  const { data: orderItemsData } = await adminSupabase
+    .from('order_items')
+    .select(`quantity, price, products(category:categories(name))`)
+  
+  const categoryMap = new Map()
+  orderItemsData?.forEach(item => {
+    const catName = (item.products as any)?.category?.name || 'Uncategorized'
+    const val = (item.quantity || 0) * (item.price || 0)
+    categoryMap.set(catName, (categoryMap.get(catName) || 0) + val)
+  })
+  const categorySalesData = Array.from(categoryMap.entries()).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value)
+
+  // 6. ORDER STATUS DISTRIBUTION (Pie Chart)
+  const { data: allOrdersStatus } = await adminSupabase.from('orders').select('status')
+  const statusMap = new Map()
+  allOrdersStatus?.forEach(o => {
+    const formattedStatus = o.status.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
+    statusMap.set(formattedStatus, (statusMap.get(formattedStatus) || 0) + 1)
+  })
+  const orderStatusData = Array.from(statusMap.entries()).map(([name, value]) => ({ name, value }))
+
+  // 7. INVENTORY HEALTH (Bar Chart)
+  const { data: inventoryData } = await adminSupabase.from('products').select('name, stock').order('stock', { ascending: true }).limit(6)
 
   return (
     <div className="space-y-8 pt-4 md:pt-6 pb-12">
@@ -137,8 +204,16 @@ export default async function AdminDashboard() {
         <StatsCard title="Verified Customers" value={totalCustomers || 0} icon={<Users className="w-5 h-5" />} />
       </div>
 
-      {/* 🚨 ANALYTICS VISUALIZATION 🚨 */}
+      {/* 🚨 BUSINESS INTELLIGENCE & ANALYTICS (Super Admin Only) 🚨 */}
       <div className="relative">
+        <div className="flex items-center justify-between mb-4 z-20 relative px-2 md:px-0">
+          <div>
+            <h2 className="text-lg font-bold text-[#E3E3E3] tracking-tight">Business Intelligence</h2>
+            <p className="text-sm text-[#8E9196] hidden sm:block">Interactive visualizations and financial metrics.</p>
+          </div>
+          <DashboardDateFilter />
+        </div>
+
         {!isSuperAdmin && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#131314]/60 backdrop-blur-md rounded-[32px] border border-[#333538]">
             <Lock className="w-8 h-8 text-[#F9AB00] mb-3" />
@@ -147,7 +222,12 @@ export default async function AdminDashboard() {
           </div>
         )}
         <div className={!isSuperAdmin ? 'opacity-40 pointer-events-none select-none' : ''}>
-          <DashboardCharts data={chartData} />
+          <DashboardCharts 
+            revenueData={chartData} 
+            categoryData={categorySalesData} 
+            statusData={orderStatusData} 
+            inventoryData={inventoryData || []} 
+          />
         </div>
       </div>
 
@@ -160,20 +240,28 @@ export default async function AdminDashboard() {
             <h2 className="text-base font-medium text-[#E3E3E3]">Recent Activity</h2>
             <Link href="/admin/orders" className="text-xs font-bold text-[#A8C7FA] hover:underline uppercase">All Orders</Link>
           </div>
-          <div className="space-y-4">
-            {latestOrders?.map(order => (
-              <div key={order.order_number} className="flex items-center justify-between py-3 border-b border-[#333538] last:border-0">
-                <div>
-                  <p className="text-sm font-mono text-[#E3E3E3]">{order.order_number}</p>
-                  <p className="text-[11px] text-[#8E9196] mt-0.5">{formatDate(order.created_at)}</p>
+          {(!latestOrders || latestOrders.length === 0) ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center animate-in fade-in duration-500">
+              <History className="w-10 h-10 text-[#333538] mb-3" />
+              <p className="text-base font-medium text-[#C4C7C5]">No recent activity</p>
+              <p className="text-sm text-[#8E9196] mt-1 max-w-xs mx-auto">When customers place orders, they will appear here in real-time.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {latestOrders.map(order => (
+                <div key={order.order_number} className="flex items-center justify-between py-3 border-b border-[#333538] last:border-0">
+                  <div>
+                    <p className="text-sm font-mono text-[#E3E3E3]">{order.order_number}</p>
+                    <p className="text-[11px] text-[#8E9196] mt-0.5">{formatDate(order.created_at)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-[#E3E3E3]">{formatCurrency(order.total_amount)}</p>
+                    <p className="text-[10px] uppercase font-bold text-[#93D7A4] tracking-tighter">{order.status}</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-[#E3E3E3]">{formatCurrency(order.total_amount)}</p>
-                  <p className="text-[10px] uppercase font-bold text-[#93D7A4] tracking-tighter">{order.status}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Top Products Table */}
@@ -188,24 +276,33 @@ export default async function AdminDashboard() {
           <div className={!isSuperAdmin ? 'opacity-40 pointer-events-none select-none' : ''}>
             <div className="px-6 py-4 flex items-center justify-between">
               <h2 className="text-base font-medium text-[#E3E3E3]">Top Selling Products</h2>
+              <Link href="/admin/products" className="text-xs font-bold text-[#A8C7FA] hover:underline uppercase">All Products</Link>
             </div>
           </div>
-          <div className="space-y-1">
-            {topProducts?.map((item: any, index: number) => (
-              <div key={index} className="flex items-center justify-between p-4 rounded-[24px] hover:bg-[#282A2C] transition-colors cursor-pointer group">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium text-[#A8C7FA] bg-[#131314] border border-[#333538]">{index + 1}</div>
-                  <div>
-                    <p className="text-[15px] font-medium text-[#E3E3E3] line-clamp-1">{item.products?.name || 'Unknown'}</p>
-                    <p className="text-sm text-[#8E9196] mt-0.5">{item.quantity} units sold</p>
+          {(!topProducts || topProducts.length === 0) ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center animate-in fade-in duration-500">
+              <Package className="w-10 h-10 text-[#333538] mb-3" />
+              <p className="text-base font-medium text-[#C4C7C5]">No sales data yet</p>
+              <p className="text-sm text-[#8E9196] mt-1 max-w-xs mx-auto">Top performing products will be ranked here once sales begin.</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {topProducts.map((item: any, index: number) => (
+                <div key={index} className="flex items-center justify-between p-4 rounded-[24px] hover:bg-[#282A2C] transition-colors cursor-pointer group">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium text-[#A8C7FA] bg-[#131314] border border-[#333538]">{index + 1}</div>
+                    <div>
+                      <p className="text-[15px] font-medium text-[#E3E3E3] line-clamp-1">{item.products?.name || 'Unknown'}</p>
+                      <p className="text-sm text-[#8E9196] mt-0.5">{item.quantity} units sold</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[15px] font-medium text-[#93D7A4]">{formatCurrency((item.products?.price || 0) * item.quantity)}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-[15px] font-medium text-[#93D7A4]">{formatCurrency((item.products?.price || 0) * item.quantity)}</p>
-                </div>
-              </div>
-            ))}
+              ))}
             </div>
+          )}
         </div>
       </div>
     </div>

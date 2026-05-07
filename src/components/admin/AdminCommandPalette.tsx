@@ -114,7 +114,7 @@ export default function AdminCommandPalette() {
   const isTyping = query.length > 0
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-start justify-center pt-[10vh] sm:pt-[15vh] px-4">
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-24 sm:pt-32 px-4">
       {/* Heavy Blur Backdrop */}
       <div 
         className="absolute inset-0 bg-black/60 backdrop-blur-md animate-in fade-in duration-200"

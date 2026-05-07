@@ -10,6 +10,10 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import { showToast } from '@/components/ui/Toast'
 import { Wallet, IndianRupee, TrendingDown, FileText, Download, Search, Filter, ReceiptText, Lock } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
+import DashboardDateFilter from '@/components/admin/DashboardDateFilter'
+import { useSearchParams } from 'next/navigation'
+import FinanceCharts from '@/components/admin/FinanceCharts'
+import FinanceLedgerTable from '@/components/admin/FinanceLedgerTable'
 
 // 🚨 IMPORTED DRY CONSTANTS 🚨
 import { FINANCE_TRANSACTION_TYPES, FINANCE_SORT_OPTIONS } from '@/lib/constants'
@@ -39,20 +43,45 @@ export default function AdminFinance() {
   const [typeFilter, setTypeFilter] = useState('all')
   const [sortBy, setSortBy] = useState('date_desc')
 
+  const searchParams = useSearchParams()
+  const range = searchParams?.get('range') || '30d'
+  const startParam = searchParams?.get('start') || ''
+  const endParam = searchParams?.get('end') || ''
+
   const supabase = createClient()
 
   useEffect(() => {
     loadFinancials()
-  }, [])
+  }, [range, startParam, endParam]) // Re-fetch when date changes!
 
   const loadFinancials = async () => {
     setIsLoading(true)
     try {
+      // 🚨 DYNAMIC DATE CALCULATION
+      let startDate = new Date()
+      let endDate = new Date()
+
+      if (range === 'custom' && startParam && endParam) {
+        startDate = new Date(startParam)
+        endDate = new Date(endParam)
+        endDate.setHours(23, 59, 59, 999)
+      } else {
+        let daysToFetch = 30
+        if (range === '3m') daysToFetch = 90
+        else if (range === '6m') daysToFetch = 180
+        else if (range === '1y') daysToFetch = 365
+        
+        startDate.setDate(startDate.getDate() - (daysToFetch - 1))
+        startDate.setHours(0, 0, 0, 0)
+      }
+
       // Pull only finalized financial states
       const { data, error } = await supabase
         .from('orders')
         .select('id, order_number, created_at, total_amount, payment_status, razorpay_payment_id')
         .in('payment_status', ['paid', 'refunded'])
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString())
 
       if (error) throw error
 
@@ -127,8 +156,37 @@ export default function AdminFinance() {
   const netIncome = grossInflow - totalRefunds
   const estimatedGST = ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.gst_amount, 0)
 
+  // 🚨 CHART DATA AGGREGATION 🚨
+  const cashflowData = [
+    { name: 'Taxable Income', value: grossInflow - estimatedGST, color: '#93D7A4' },
+    { name: 'GST Liability', value: estimatedGST, color: '#A8C7FA' },
+    { name: 'Refunds (Debit)', value: totalRefunds, color: '#F2B8B5' }
+  ].filter(d => d.value > 0)
+
+  const timelineMap = new Map()
+  // Sort chronologically for the timeline chart
+  const ledgerChronological = [...filteredLedger].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+  ledgerChronological.forEach(entry => {
+    const dateStr = new Date(entry.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    if (!timelineMap.has(dateStr)) {
+      timelineMap.set(dateStr, { date: dateStr, income: 0, gst: 0, refunds: 0 })
+    }
+    const data = timelineMap.get(dateStr)
+    if (entry.type === 'credit') {
+      data.income += entry.taxable_value
+      data.gst += entry.gst_amount
+    } else {
+      data.refunds += entry.total_amount
+    }
+  })
+  const timelineData = Array.from(timelineMap.values())
+
   if (authLoading) {
-    return <AdminLoader message="Verifying permissions..." />
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <AdminLoader message="Verifying permissions..." />
+      </div>
+    )
   }
 
   if (!isSuperAdmin) {
@@ -149,7 +207,11 @@ export default function AdminFinance() {
   }
 
   if (isLoading) {
-    return <AdminLoader message="Reconciling financial ledger..." />
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <AdminLoader message="Reconciling financial ledger..." />
+      </div>
+    )
   }
 
   return (
@@ -162,22 +224,28 @@ export default function AdminFinance() {
             <h1 className="text-[28px] font-medium text-[#E3E3E3] tracking-tight leading-tight">Financial Ledger</h1>
             <p className="text-sm text-[#C4C7C5] mt-1">Audit transactions, manage settlements, and track tax liabilities.</p>
           </div>
-          <button
-            onClick={exportToCSV}
-            disabled={isExporting || ledger.length === 0}
-            className="w-full sm:w-auto px-6 py-3 text-sm font-bold bg-[#1E1F20] text-[#E3E3E3] border border-[#333538] hover:border-[#A8C7FA] rounded-full hover:bg-[#282A2C] transition-colors shadow-lg active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            <Download className="w-4 h-4" /> {isExporting ? 'Generating CSV...' : 'Export Audit Report'}
-          </button>
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            <DashboardDateFilter />
+            <button
+              onClick={exportToCSV}
+              disabled={isExporting || ledger.length === 0}
+              className="w-full sm:w-auto px-6 py-3 text-sm font-bold bg-[#1E1F20] text-[#E3E3E3] border border-[#333538] hover:border-[#A8C7FA] rounded-full hover:bg-[#282A2C] transition-colors shadow-lg active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" /> {isExporting ? 'Generating CSV...' : 'Export Audit Report'}
+            </button>
+          </div>
         </div>
 
         {/* 🚨 ACCOUNTING STATS GRID 🚨 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatsCard title="Gross Inflow (Credit)" value={formatCurrency(grossInflow)} icon={<IndianRupee className="w-5 h-5 text-[#93D7A4]" />} />
+          <StatsCard title="Gross Inflow (Credit)" value={formatCurrency(grossInflow)} icon={<IndianRupee className="w-5 h-5 text-[#02fa40]" />} />
           <StatsCard title="Net Income" value={formatCurrency(netIncome)} icon={<Wallet className="w-5 h-5 text-[#A8C7FA]" />} />
-          <StatsCard title="GST Liability (Est.)" value={formatCurrency(estimatedGST)} icon={<ReceiptText className="w-5 h-5 text-[#C4C7C5]" />} />
-          <StatsCard title="Refunds (Debit)" value={formatCurrency(totalRefunds)} icon={<TrendingDown className="w-5 h-5 text-[#F2B8B5]" />} />
+          <StatsCard title="GST Liability (Est.)" value={formatCurrency(estimatedGST)} icon={<ReceiptText className="w-5 h-5 text-[#A8C7FA]" />} />
+          <StatsCard title="Refunds (Debit)" value={formatCurrency(totalRefunds)} icon={<TrendingDown className="w-5 h-5 text-[#A8C7FA]" />} />
         </div>
+
+        {/* 🚨 BUSINESS INTELLIGENCE CHARTS 🚨 */}
+        <FinanceCharts timelineData={timelineData} cashflowData={cashflowData} />
 
         {/* 🚨 FLOATING SEARCH & FILTERS 🚨 */}
         <div className="flex flex-col md:flex-row gap-3 bg-[#1E1F20] p-3 rounded-[24px] border border-[#333538]">
@@ -224,65 +292,7 @@ export default function AdminFinance() {
         </div>
 
         {/* 🚨 ELITE AUDIT LEDGER TABLE 🚨 */}
-        <div className="bg-[#1E1F20] rounded-[32px] border border-[#333538] overflow-hidden">
-          <div className="overflow-x-auto no-scrollbar">
-            <table className="w-full min-w-[1000px] text-left">
-              <thead className="bg-[#131314]">
-                <tr>
-                  <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest whitespace-nowrap">Date & Time</th>
-                  <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest whitespace-nowrap">Invoice Ref</th>
-                  <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest whitespace-nowrap">Gateway Txn ID</th>
-                  <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest whitespace-nowrap">Entry Type</th>
-                  <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest text-right whitespace-nowrap">Taxable Value</th>
-                  <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest text-right whitespace-nowrap">GST (18%)</th>
-                  <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest text-right whitespace-nowrap">Gross Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#333538]">
-                {sortedLedger.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-16 text-center">
-                      <FileText className="w-12 h-12 text-[#333538] mx-auto mb-4" />
-                      <p className="text-[#8E9196] font-medium">No finalized financial records found.</p>
-                    </td>
-                  </tr>
-                ) : (
-                  sortedLedger.map((entry) => (
-                    <tr key={entry.id} className="hover:bg-[#282A2C] transition-colors group cursor-default">
-                      <td className="px-6 py-5 text-sm text-[#C4C7C5] whitespace-nowrap">
-                        {formatDate(entry.created_at)}
-                      </td>
-                      <td className="px-6 py-5">
-                        <span className="font-mono text-[#E3E3E3] font-medium">{entry.order_number}</span>
-                      </td>
-                      <td className="px-6 py-5">
-                        <span className="font-mono text-[#8E9196] text-[13px] bg-[#131314] px-2 py-1 rounded-md border border-[#333538]">
-                          {entry.razorpay_payment_id || 'EXTERNAL_SETTLEMENT'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-5 whitespace-nowrap">
-                        <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase border ${
-                          entry.type === 'credit' ? 'bg-[#214332]/30 text-[#93D7A4] border-[#214332]' : 'bg-[#4D2628] text-[#F2B8B5] border-[#8C1D18]'
-                        }`}>
-                          {entry.type === 'credit' ? 'Credit' : 'Debit'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-5 text-right font-mono text-sm text-[#C4C7C5]">
-                        {formatCurrency(entry.taxable_value)}
-                      </td>
-                      <td className="px-6 py-5 text-right font-mono text-sm text-[#C4C7C5]">
-                        {formatCurrency(entry.gst_amount)}
-                      </td>
-                      <td className={`px-6 py-5 text-right font-mono font-bold text-[15px] ${entry.type === 'credit' ? 'text-[#93D7A4]' : 'text-[#F2B8B5]'}`}>
-                        {entry.type === 'debit' ? '-' : ''}{formatCurrency(entry.total_amount)}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <FinanceLedgerTable sortedLedger={sortedLedger} />
       </div>
     </>
   )

@@ -86,8 +86,8 @@ export default function StockUpdateModal({ isOpen, onClose, product, onSuccess }
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          productId: product.id,
-          newStock: parsedStockNum,
+          product_id: product.id, // 🚨 Updated to match standard Supabase schema
+          stock: parsedStockNum,  // 🚨 Updated to match standard Supabase schema
           reason,
           notes: notes.trim() || null
         })

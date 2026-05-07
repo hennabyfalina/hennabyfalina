@@ -14,6 +14,7 @@ import { siteConfig } from '@/config/site'
 import AdminLoader from '@/components/admin/AdminLoader'
 import AdminConfirmModal from '@/components/admin/layout/AdminConfirmModal'
 import AdminCommandPalette from '@/components/admin/AdminCommandPalette'
+import AdminRealtimeNotifier from '@/components/admin/AdminRealtimeNotifier'
 import Toaster from '@/components/ui/Toast'
 import { useIdleTimeout } from '@/hooks/useIdleTimeout'
 
@@ -171,7 +172,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           ${isAdmin && !isSuperAdmin ? 'pt-12' : 'pt-0'}
         `}
       >
-        <div className="h-16 flex items-center px-4 md:px-5">
+        <div className="shrink-0 h-[76px] flex items-center px-4 md:px-5 pt-3">
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className="p-2.5 rounded-full hover:bg-[#282A2C] transition-colors cursor-pointer text-[#C4C7C5] flex-shrink-0"
@@ -210,8 +211,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Main Content Area (unchanged from original – only sidebar logic changed) */}
       <div className={`flex-1 flex flex-col h-[100dvh] overflow-y-auto overflow-x-hidden transition-all duration-300 ease-in-out touch-pan-y ${isSidebarOpen ? 'md:ml-[280px]' : 'md:ml-[76px]'} ${isAdmin && !isSuperAdmin ? 'pt-12' : 'pt-0'}`} style={{ WebkitOverflowScrolling: 'touch' }}>
-        {/* Header (unchanged) */}
-        <header className="h-16 bg-[#131314] px-4 md:px-6 flex items-center justify-between sticky top-0 z-30 pt-1">
+        {/* 🚨 shrink-0 prevents heavy page content from squishing the header 🚨 */}
+        <header className="shrink-0 h-[76px] bg-[#131314] px-4 md:px-6 flex items-center justify-between sticky top-0 z-30 pt-3">
           <div className="flex items-center">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -367,6 +368,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       />
 
       <AdminCommandPalette />
+      <AdminRealtimeNotifier />
       <Toaster />
     </div>
   )

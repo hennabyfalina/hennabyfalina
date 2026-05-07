@@ -37,7 +37,7 @@ export default function AdminSidebar({ pathname, isSidebarOpen, setIsSidebarOpen
         ${isSidebarOpen ? 'w-[280px]' : 'w-[76px]'}
       `}
     >
-      <div className="h-16 flex items-center px-4 mt-2">
+      <div className="shrink-0 h-[76px] flex items-center px-4 pt-3">
         <button 
           onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
           className="p-2.5 rounded-full hover:bg-[#282A2C] transition-colors flex-shrink-0 cursor-pointer text-[#C4C7C5]"

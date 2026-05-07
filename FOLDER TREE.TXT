@@ -1,5 +1,7 @@
 razack-packaging-centre/
 ├── public/
+│   ├── fonts/
+│   │   └── Inter-VariableFont.ttf
 │   ├── cat.jpg
 │   ├── fallback-ce627215c0e4a9af.js
 │   ├── file.svg
@@ -7,6 +9,7 @@ razack-packaging-centre/
 │   ├── icon-192x192.png
 │   ├── icon-512x512.png
 │   ├── logo.png
+│   ├── notification.mp3
 │   ├── placeholder-category.svg
 │   ├── placeholder-loading.svg
 │   ├── placeholder-product.svg
@@ -168,10 +171,15 @@ razack-packaging-centre/
 │   │   │   │   └── AdminSidebar.tsx
 │   │   │   ├── AdminCommandPalette.tsx
 │   │   │   ├── AdminLoader.tsx
+│   │   │   ├── AdminPhoneInput.tsx
+│   │   │   ├── AdminRealtimeNotifier.tsx
 │   │   │   ├── CategoryForm.tsx
 │   │   │   ├── CustomerModal.tsx
 │   │   │   ├── DashboardCharts.tsx
+│   │   │   ├── DashboardDateFilter.tsx
 │   │   │   ├── DashboardSearchBar.tsx
+│   │   │   ├── FinanceCharts.tsx
+│   │   │   ├── FinanceLedgerTable.tsx
 │   │   │   ├── OrderModal.tsx
 │   │   │   ├── OrderStatusBadge.tsx
 │   │   │   ├── ProductForm.tsx

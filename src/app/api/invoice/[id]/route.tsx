@@ -59,10 +59,19 @@ export async function GET(
 
     // 4. STREAM GENERATION: Instantly render and stream the PDF to prevent memory leaks
     // Pass the rich B2B order object into our upgraded template
-    const stream = await renderToStream(<InvoiceDocument order={order} invoiceType={invoiceType} /> as any)
+    const pdfStream = await renderToStream(<InvoiceDocument order={order} invoiceType={invoiceType} /> as any)
+    
+    // 🚨 THE FIX: Convert legacy NodeJS Stream to modern Web ReadableStream for Next.js App Router
+    const readableWebStream = new ReadableStream({
+      start(controller) {
+        pdfStream.on('data', (chunk) => controller.enqueue(chunk))
+        pdfStream.on('end', () => controller.close())
+        pdfStream.on('error', (err) => controller.error(err))
+      }
+    })
     
     // 5. SECURE DELIVERY: Set headers to trigger a direct download in the browser
-    return new Response(stream as unknown as ReadableStream, {
+    return new Response(readableWebStream, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${invoiceType === 'merchant' ? 'Merchant-' : ''}Invoice-${order.order_number}.pdf"`,

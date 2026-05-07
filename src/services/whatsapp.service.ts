@@ -128,9 +128,8 @@ export async function notifyOrderConfirmed(order: any) {
   const adminSummary = summarizeForAdmin(itemsArray);
   const totalAmount = formatCurrency(order.total_amount);
 
-  // 🚨 SMART FULFILLMENT: Customer Logic
-  const customerFulfillment = isPickup ? 'Store Pickup' : 'Standard Home Delivery';
-  const delMethod = isPickup ? 'Store Pickup' : 'Home Delivery';
+  // 🚨 UNIFIED DELIVERY METHOD LOGIC (Used for both Customer {{2}} and Admin {{4}})
+  const deliveryMethodString = isPickup ? 'Store Pickup' : 'Home Delivery';
 
   // 🚨 SMART FULFILLMENT: Admin Address Line (Variable {{5}})
   let adminAddressLine = '';
@@ -152,12 +151,12 @@ export async function notifyOrderConfirmed(order: any) {
       const buttonParam = order.order_number ? encodeURIComponent(String(order.order_number).trim()) : 'UNKNOWN';
       const sent = await sendWhatsAppTemplate(
         customerPhone,
-        'order_confirmed_receipt',
+        'customer_order_receipt',
         [
-          sanitizeForMeta(order.order_number),       
-          sanitizeForMeta(customerFulfillment),        
-          sanitizeForMeta(customerSummary),          
-          sanitizeForMeta(totalAmount)               
+          sanitizeForMeta(order.order_number),       // {{1}} Order ID
+          sanitizeForMeta(deliveryMethodString),     // {{2}} Delivery Method
+          sanitizeForMeta(customerSummary),          // {{3}} Order Summary
+          sanitizeForMeta(totalAmount)               // {{4}} Total Paid
         ],
         buttonParam 
       );
@@ -174,15 +173,15 @@ export async function notifyOrderConfirmed(order: any) {
       if (adminPhone) {
         const sent = await sendWhatsAppTemplate(
           adminPhone,
-          'admin_order_alert',
+          'admin_order_notification',
           [
-            sanitizeForMeta(order.order_number),                        // {{1}}
-            sanitizeForMeta(addressObj.name || order.customer_name),    // {{2}}
-            sanitizeForMeta(addressObj.phone),                          // {{3}}
-            sanitizeForMeta(delMethod),                                 // 🚨 {{4}} Delivery Method
-            sanitizeForMeta(adminAddressLine),                          // 🚨 {{5}} Address
-            sanitizeForMeta(adminSummary),                              // 🚨 {{6}} Order Summary
-            sanitizeForMeta(totalAmount)                                // 🚨 {{7}} Total
+            sanitizeForMeta(order.order_number),                        // {{1}} Order ID
+            sanitizeForMeta(addressObj.name || order.customer_name),    // {{2}} Customer Name
+            sanitizeForMeta(addressObj.phone),                          // {{3}} Phone
+            sanitizeForMeta(deliveryMethodString),                      // {{4}} Delivery Method
+            sanitizeForMeta(adminAddressLine),                          // {{5}} Address
+            sanitizeForMeta(adminSummary),                              // {{6}} Order Summary
+            sanitizeForMeta(totalAmount)                                // {{7}} Total Paid
           ]
         );
         if (sent) successCount++;
