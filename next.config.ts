@@ -1,4 +1,5 @@
 // next.config.ts
+
 import type { NextConfig } from "next";
 import withPWAInit from "@ducanh2912/next-pwa";
 
@@ -96,8 +97,9 @@ const nextConfig: NextConfig = {
             value: 'max-age=31536000; includeSubDomains; preload', // Enforces strict HTTPS
           },
           {
+            // ✨ B2B SECURE CSP: Updated to allow Google OneTap, Supabase PDFs, and dynamic Country Flags ✨
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://checkout.razorpay.com https://challenges.cloudflare.com https://www.googletagmanager.com https://va.vercel-scripts.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://placehold.co https://*.supabase.co https://lh3.googleusercontent.com https://lh3.google.com https://www.google-analytics.com https://purecatamphetamine.github.io https://catamphetamine.gitlab.io https://flagcdn.com https://flag.pk; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://*.razorpay.com https://graph.facebook.com https://vitals.vercel-insights.com https://www.google-analytics.com https://challenges.cloudflare.com; frame-src 'self' https://api.razorpay.com https://*.razorpay.com https://challenges.cloudflare.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';",
+            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://checkout.razorpay.com https://challenges.cloudflare.com https://www.googletagmanager.com https://va.vercel-scripts.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://*.razorpay.com https://graph.facebook.com https://vitals.vercel-insights.com https://www.google-analytics.com https://challenges.cloudflare.com https://accounts.google.com; frame-src 'self' https://api.razorpay.com https://*.razorpay.com https://challenges.cloudflare.com https://accounts.google.com https://*.supabase.co; worker-src 'self' blob:; object-src 'self' https://*.supabase.co data: blob:; base-uri 'self'; form-action 'self';",
           }
         ],
       },

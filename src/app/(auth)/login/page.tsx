@@ -56,6 +56,14 @@ export default function LoginPage() {
     }
   }, [error])
 
+  // ─── Auto-hide WhatsApp Message ─────────────────────────────────────────
+  useEffect(() => {
+    if (showWhatsappSoon) {
+      const timer = setTimeout(() => setShowWhatsappSoon(false), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [showWhatsappSoon])
+
   // ─── Restore State from Session Storage ──────────────────────────────────
   useEffect(() => {
     try {
