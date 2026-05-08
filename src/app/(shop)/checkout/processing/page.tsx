@@ -145,7 +145,7 @@ export default function ProcessingPage() {
         // ✅ REMOVED: Direct DB update – webhook will handle it
         // Just wait and redirect to order page
         setTimeout(() => {
-          router.replace(`/order/${encodeURIComponent(orderId || '')}`)
+          router.replace(`/order/${encodeURIComponent(orderId || '')}?new_order=true`)
         }, 2000)
       },
       prefill: { name: '', email: '', contact: '' },

@@ -190,6 +190,16 @@ export async function signOut(): Promise<AuthResult> {
 
   const { error } = await supabase.auth.signOut()
 
+  // 🚨 EXPLICIT CROSS-TAB LOGOUT BROADCAST 🚨
+  if (typeof window !== 'undefined') {
+    try {
+      const bc = new BroadcastChannel('auth-sync')
+      bc.postMessage({ type: 'LOGOUT' })
+      bc.close()
+    } catch(e) {}
+    try { localStorage.setItem('logout_event', Date.now().toString()) } catch(e) {}
+  }
+
   if (error) {
     return { success: false, message: error.message }
   }

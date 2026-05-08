@@ -2,7 +2,7 @@
 
 'use client'
 
-import { ShieldCheck, Truck, RotateCcw, CreditCard } from 'lucide-react'
+import { ShieldCheck, Truck, IndianRupee, CreditCard } from 'lucide-react'
 import { siteConfig } from '@/config/site'
 
 export default function WhyChooseUsSection() {
@@ -10,7 +10,7 @@ export default function WhyChooseUsSection() {
     { icon: ShieldCheck, title: 'Premium Quality', desc: 'Industry standard materials' },
     { icon: Truck, title: 'Fast Delivery', desc: 'Secure Pan-India logistics' },
     { icon: CreditCard, title: 'Secure Payment', desc: '100% protected transactions' },
-    { icon: RotateCcw, title: 'Easy Returns', desc: '7-day replacement policy' },
+    { icon: IndianRupee, title: 'GST Compliant', desc: 'B2B Input Tax Credit ready' },
   ]
 
   return (

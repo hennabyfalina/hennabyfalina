@@ -2,7 +2,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Script from 'next/script'
 import { createClient } from '@/lib/supabase/client'
@@ -17,6 +17,20 @@ declare global {
 export default function GoogleOneTap() {
   const router = useRouter()
   const [isProcessing, setIsProcessing] = useState(false)
+
+  useEffect(() => {
+    // Fallback initialization in case the Next.js script loaded before the component fully mounted
+    if (typeof window !== 'undefined' && window.google?.accounts?.id) {
+      initializeGoogleOneTap()
+    }
+
+    // 🚨 CANCEL GOOGLE ONE TAP ON UNMOUNT TO PREVENT PWA GLITCHES 🚨
+    return () => {
+      if (typeof window !== 'undefined' && window.google?.accounts?.id) {
+        window.google.accounts.id.cancel()
+      }
+    }
+  }, [])
 
   const handleCredentialResponse = async (response: any) => {
     try {
@@ -62,21 +76,23 @@ export default function GoogleOneTap() {
   }
 
   const initializeGoogleOneTap = () => {
-    if (!window.google) return
+    if (!window.google?.accounts?.id) return
 
-    // Initialize the Google Identity Services prompt
+    // 🚨 ENTERPRISE ONE-TAP CONFIGURATION 🚨
     window.google.accounts.id.initialize({
       client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
       callback: handleCredentialResponse,
-      auto_select: false, // Set to true if you want aggressive auto-login, false is safer for UX
+      auto_select: true, // Automatically sign in if the user has a single active Google session
       cancel_on_tap_outside: false,
-      context: 'use', // Context changes the text slightly (signin, signup, use)
+      context: 'use',
+      itp_support: true, // Crucial for Safari and Firefox Privacy protections
+      use_fedcm_for_prompt: true, // Uses native browser UI for higher conversion rates & adblocker bypass
     })
 
     // Trigger the slide-in UI
     window.google.accounts.id.prompt((notification: any) => {
       if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        console.log('[Google One Tap] Skipped or blocked by browser settings.')
+        console.log('[Google One Tap] Skipped or blocked:', notification.getNotDisplayedReason() || notification.getSkippedReason())
       }
     })
   }
@@ -87,6 +103,7 @@ export default function GoogleOneTap() {
         src="https://accounts.google.com/gsi/client" 
         strategy="afterInteractive"
         onLoad={initializeGoogleOneTap}
+        onReady={initializeGoogleOneTap}
       />
       
       {/* 🚨 Processing Indicator: Appears top-right while verifying the token */}

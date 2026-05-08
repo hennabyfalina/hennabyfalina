@@ -113,6 +113,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     try {
       await fetch('/api/clear-admin-cookie', { method: 'POST' })
       await supabase.auth.signOut()
+      
+      // 🚨 EXPLICIT CROSS-TAB LOGOUT BROADCAST 🚨
+      if (typeof window !== 'undefined') {
+        try {
+          const bc = new BroadcastChannel('auth-sync')
+          bc.postMessage({ type: 'LOGOUT' })
+          bc.close()
+        } catch(e) {}
+        try { localStorage.setItem('logout_event', Date.now().toString()) } catch(e) {}
+      }
       router.push('/')
       router.refresh()
     } finally {

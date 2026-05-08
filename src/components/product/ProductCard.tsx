@@ -106,7 +106,7 @@ export default function ProductCard({ product, priority = false, searchQuery = '
   }
 
   return (
-    <div className="relative bg-white rounded-sm p-4 border border-gray-200 hover:border-gray-300 flex flex-col h-full shadow-sm group/card" suppressHydrationWarning>
+    <div className="relative bg-white rounded-sm p-4 border border-gray-200 hover:border-gray-300 flex flex-col h-full hover:shadow-[0_8px_25px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 group/card z-10 hover:z-20" suppressHydrationWarning>
       
       <button 
         onClick={handleWishlist}
@@ -125,7 +125,7 @@ export default function ProductCard({ product, priority = false, searchQuery = '
               alt={product.name}
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              className="object-contain mix-blend-multiply"
+              className="object-contain mix-blend-multiply group-hover/card:scale-105 transition-transform duration-500"
               priority={priority}
               loading={priority ? 'eager' : 'lazy'}
               unoptimized={imageUrl.startsWith('http') || imageUrl.includes('supabase')}

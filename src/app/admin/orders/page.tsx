@@ -25,6 +25,7 @@ interface Order {
 export default function AdminOrders() {
   const [orders, setOrders] = useState<Order[]>([])
   const [stats, setStats] = useState<Record<string, number>>({})
+  const [globalOrders, setGlobalOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('all')
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('all')
@@ -36,7 +37,7 @@ export default function AdminOrders() {
     loadOrders()
   }, [statusFilter, paymentMethodFilter, searchQuery])
 
-  const loadOrders = async () => {
+  const loadOrders = async (forceRefreshGlobal = false) => {
     setIsLoading(true)
     try {
       const params = new URLSearchParams()
@@ -48,15 +49,28 @@ export default function AdminOrders() {
       const data = await response.json()
       setOrders(data)
 
+      let statsSource = data
       if (statusFilter === 'all' && paymentMethodFilter === 'all' && !searchQuery) {
-        const currentStats = { pending: 0, processing: 0, shipped: 0, delivered: 0, cancelled: 0 }
-        data.forEach((o: Order) => {
-          if (currentStats[o.status as keyof typeof currentStats] !== undefined) {
-            currentStats[o.status as keyof typeof currentStats]++
-          }
-        })
-        setStats(currentStats)
+        setGlobalOrders(data)
+      } else {
+        if (forceRefreshGlobal || globalOrders.length === 0) {
+          const gRes = await fetch('/api/admin/orders')
+          const gData = await gRes.json()
+          setGlobalOrders(gData)
+          statsSource = gData
+        } else {
+          statsSource = globalOrders
+        }
       }
+      
+      const currentStats = { total: statsSource.length, pending: 0, processing: 0, delivered: 0, cancelled: 0 }
+      statsSource.forEach((o: Order) => {
+        if (o.status === 'pending') currentStats.pending++
+        else if (['processing', 'confirmed', 'packed', 'ready_for_pickup', 'shipped'].includes(o.status)) currentStats.processing++
+        else if (['delivered', 'picked_up'].includes(o.status)) currentStats.delivered++
+        else if (['cancelled', 'returned', 'cancel_requested', 'return_requested'].includes(o.status)) currentStats.cancelled++
+      })
+      setStats(currentStats)
     } catch (error) {
       console.error('Failed to load orders:', error)
     } finally {
@@ -65,7 +79,7 @@ export default function AdminOrders() {
   }
 
   const handleOrderUpdate = () => {
-    loadOrders()
+    loadOrders(true)
   }
 
   const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>, orderId: string) => {
@@ -79,10 +93,10 @@ export default function AdminOrders() {
         body: JSON.stringify({ status: newStatus }),
       })
       if (!response.ok) throw new Error('Failed to update status')
-      loadOrders()
+      loadOrders(true)
     } catch (error) {
       console.error('Failed to update order status:', error)
-      loadOrders()
+      loadOrders(true)
     }
   }
 
@@ -107,7 +121,7 @@ export default function AdminOrders() {
         {/* Gemini-Inspired Stats Grid [cite: 17] */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {[
-            { title: "Total Orders", value: Object.values(stats).reduce((a, b) => a + b, 0), icon: <ShoppingBag className="w-5 h-5" /> },
+            { title: "Total Orders", value: stats.total || 0, icon: <ShoppingBag className="w-5 h-5" /> },
             { title: "Pending", value: stats.pending || 0, icon: <Clock className="w-5 h-5" /> },
             { title: "Processing", value: stats.processing || 0, icon: <RefreshCw className="w-5 h-5" /> },
             { title: "Delivered", value: stats.delivered || 0, icon: <CheckCircle2 className="w-5 h-5 text-green-400" /> },

@@ -26,7 +26,7 @@ export async function GET(
 
     // 1b. Check if the user is an Admin
     const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single()
-    const isAdmin = userData?.role === 'admin'
+    const isAdmin = userData?.role === 'admin' || userData?.role === 'super_admin'
 
     // 2. FETCH SECURE DATA: Fetch the order with addresses and B2B order items
     let query = supabase.from('orders')

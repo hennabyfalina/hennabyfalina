@@ -66,7 +66,7 @@ export default function ProductCard({ product, searchQuery = '', priority = fals
   }
 
   return (
-    <Link href={`/product/${product.slug}`} className="group block bg-white rounded-2xl p-2.5 sm:p-4 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 active:scale-[0.98]">
+    <Link href={`/product/${product.slug}`} className="group block bg-white rounded-sm p-2.5 sm:p-4 border border-gray-200 hover:border-gray-300 hover:shadow-[0_8px_25px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 cursor-pointer relative z-10 hover:z-20">
       <div className="space-y-3 sm:space-y-4">
         {/* Image container */}
         <div className="aspect-square bg-gray-50/50 rounded-xl overflow-hidden relative">
@@ -80,7 +80,7 @@ export default function ProductCard({ product, searchQuery = '', priority = fals
             alt={product.name}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className={`object-cover group-hover:scale-105 transition-all duration-300 ${
+            className={`object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500 ${
               isLoading ? 'opacity-0' : 'opacity-100'
             }`}
             onLoad={() => setIsLoading(false)}

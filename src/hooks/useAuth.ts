@@ -57,7 +57,47 @@ export function useAuth() {
 
     getUser()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // 🚨 ENTERPRISE CROSS-TAB SYNCHRONIZATION 🚨
+    const handleCrossTabLogout = () => {
+      if (typeof window !== 'undefined' && !(window as any).__isSigningOut) {
+        (window as any).__isSigningOut = true
+        
+        // Instantly lock and obscure the UI across all active tabs
+        document.body.style.transition = 'all 0.2s ease-out'
+        document.body.style.filter = 'blur(20px) grayscale(100%)'
+        document.body.style.opacity = '0.4'
+        document.body.style.pointerEvents = 'none'
+
+        try { sessionStorage.clear() } catch (e) {}
+
+        // Force a hard replace to instantly wipe history state for secured pages
+        window.location.replace('/')
+      }
+    }
+
+    // 1. Listen via BroadcastChannel (Modern & Instant)
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      bc = new BroadcastChannel('auth-sync')
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'LOGOUT') handleCrossTabLogout()
+      }
+    }
+
+    // 2. Listen via Storage Event (Fallback for older browsers/stale contexts)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'logout_event' || (e.key && e.key.includes('supabase-auth-token') && !e.newValue)) {
+        handleCrossTabLogout()
+      }
+    }
+    if (typeof window !== 'undefined') window.addEventListener('storage', handleStorageChange)
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        handleCrossTabLogout()
+        return
+      }
+
       setUser(session?.user || null)
       if (session?.user) {
         supabase
@@ -96,7 +136,11 @@ export function useAuth() {
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+      if (bc) bc.close()
+      if (typeof window !== 'undefined') window.removeEventListener('storage', handleStorageChange)
+    }
   }, [])
 
   return { user, role, isAdmin, isSuperAdmin, isLoading, isNameMissing }

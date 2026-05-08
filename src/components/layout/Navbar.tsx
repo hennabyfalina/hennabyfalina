@@ -303,7 +303,7 @@ export default function Navbar() {
                           )}
                         </div>
                         <div className="border-t border-gray-200 mt-3 pt-3">
-                          <button onClick={handleLogoutClick} className="w-full text-left px-2 py-1.5 text-sm text-red-600 hover:text-red-800 hover:underline transition-colors">Sign Out</button>
+                          <button onClick={handleLogoutClick} className="w-full text-left px-2 py-1.5 text-sm text-red-600 hover:text-red-800 hover:underline transition-colors cursor-pointer">Sign Out</button>
                         </div>
                       </div>
                     ) : (

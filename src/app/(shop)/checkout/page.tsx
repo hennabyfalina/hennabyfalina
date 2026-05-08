@@ -192,6 +192,22 @@ export default function CheckoutPage() {
   const loadSavedAddresses = async () => {
     const addresses = await getSavedAddresses()
     setSavedAddresses(addresses)
+    
+    // 🚨 AMZ-STYLE SEAMLESS CHECKOUT 🚨
+    // If user has a saved address and hasn't started a new form, auto-apply the most recent address!
+    setFormData(prev => {
+      if (addresses.length > 0 && !prev.name && !prev.phone && !prev.pincode && !prev.addressLine1) {
+        const latest = addresses[0]
+        return {
+          name: latest.name || '', phone: latest.phone || '',
+          addressLine1: latest.address_line1 || '', addressLine2: latest.address_line2 || '',
+          landmark: latest.landmark || '', city: latest.city || '',
+          state: latest.state || '', pincode: latest.pincode || '',
+          delivery_instructions: latest.delivery_instructions || ''
+        }
+      }
+      return prev
+    })
   }
 
   const handleFormChange = (field: keyof AddressFormData, value: string) => setFormData(prev => ({ ...prev, [field]: value }))

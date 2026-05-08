@@ -12,8 +12,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'High-quality packaging materials for your business needs.',
     start_url: `/`,
     display: 'standalone',
-    background_color: '#ffffff',
-    theme_color: '#111827',
+    background_color: '#eaeded',
+    theme_color: '#ffffff',
     icons: [
       {
         src: `/icon-192x192.png?v=${VERSION}`,

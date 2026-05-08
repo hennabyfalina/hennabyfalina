@@ -214,8 +214,7 @@ razack-packaging-centre/
 │   │   │   ├── Footer.tsx
 │   │   │   ├── MobileBottomNav.tsx
 │   │   │   ├── MoreMenuModal.tsx
-│   │   │   ├── Navbar.tsx
-│   │   │   └── route.ts
+│   │   │   └── Navbar.tsx
 │   │   ├── order/
 │   │   │   ├── ClearDraftsOnMount.tsx
 │   │   │   ├── InvoiceLink.tsx
@@ -301,7 +300,6 @@ razack-packaging-centre/
 │   │   ├── order.service.ts
 │   │   ├── payment.service.ts
 │   │   ├── product.service.ts
-│   │   ├── route.ts
 │   │   ├── whatsapp.service.ts
 │   │   └── wishlist.service.ts
 │   ├── store/

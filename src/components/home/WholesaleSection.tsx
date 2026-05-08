@@ -3,7 +3,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Package, TrendingUp } from 'lucide-react'
+import { TrendingUp } from 'lucide-react'
 
 export default function WholesaleSection() {
   return (
@@ -13,18 +13,18 @@ export default function WholesaleSection() {
         <h2 className="text-lg sm:text-2xl font-bold text-gray-900">Wholesale Pricing</h2>
       </div>
       <p className="text-md text-gray-600 mb-4 flex-1">
-        Get the best rates for bulk orders. We offer competitive wholesale pricing for businesses, retailers, and high-volume buyers.
+        No need to wait for quotes. Wholesale discounts are applied automatically in your cart when you order 1000+ units of qualifying packaging materials.
       </p>
       <ul className="text-md text-gray-700 space-y-2 mb-6">
-        <li className="flex items-center gap-2"><span className="text-green-600 font-bold">✓</span> Free samples available</li>
-        <li className="flex items-center gap-2"><span className="text-green-600 font-bold">✓</span> Custom branding options</li>
-        <li className="flex items-center gap-2"><span className="text-green-600 font-bold">✓</span> Pan-India delivery</li>
+        <li className="flex items-center gap-2"><span className="text-green-600 font-bold">✓</span> Auto-Applied Bulk Discounts</li>
+        <li className="flex items-center gap-2"><span className="text-green-600 font-bold">✓</span> B2B GST Input Tax Credit</li>
+        <li className="flex items-center gap-2"><span className="text-green-600 font-bold">✓</span> Real-Time Inventory Checks</li>
       </ul>
       <Link
-        href="/contact"
+        href="/products"
         className="w-full py-2 bg-white text-gray-900 text-sm font-bold text-center border border-gray-300 rounded-sm hover:bg-gray-50 shadow-sm"
       >
-        Contact Sales
+        Shop Wholesale Deals
       </Link>
     </div>
   )

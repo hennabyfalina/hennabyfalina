@@ -62,11 +62,11 @@ export default function CategorySection({ categories }: CategorySectionProps) {
         </Link>
       </div>
 
-      <div className="relative group" suppressHydrationWarning>
+      <div className="relative group/slider" suppressHydrationWarning>
         {canScrollLeft && (
           <button 
             onClick={() => scroll('left')}
-            className="absolute left-0 top-[40%] -translate-y-1/2 -ml-2 sm:-ml-4 z-10 w-10 h-10 bg-white rounded-full shadow-md border border-gray-200 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-50 focus:outline-none hidden sm:flex transition-opacity opacity-0 group-hover:opacity-100"
+            className="absolute left-0 top-[40%] -translate-y-1/2 -ml-2 sm:-ml-4 z-10 w-10 h-10 bg-white rounded-full shadow-md border border-gray-200 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-50 focus:outline-none hidden sm:flex transition-opacity opacity-0 group-hover/slider:opacity-100"
             aria-label="Scroll left"
           >
             <ChevronLeft className="w-6 h-6" />
@@ -119,7 +119,7 @@ export default function CategorySection({ categories }: CategorySectionProps) {
         {canScrollRight && (
           <button 
             onClick={() => scroll('right')}
-            className="absolute right-0 top-[40%] -translate-y-1/2 -mr-2 sm:-mr-4 z-10 w-10 h-10 bg-white rounded-full shadow-md border border-gray-200 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-50 focus:outline-none hidden sm:flex transition-opacity opacity-0 group-hover:opacity-100"
+            className="absolute right-0 top-[40%] -translate-y-1/2 -mr-2 sm:-mr-4 z-10 w-10 h-10 bg-white rounded-full shadow-md border border-gray-200 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-50 focus:outline-none hidden sm:flex transition-opacity opacity-0 group-hover/slider:opacity-100"
             aria-label="Scroll right"
           >
             <ChevronRight className="w-6 h-6" />

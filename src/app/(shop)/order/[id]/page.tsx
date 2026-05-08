@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import Container from '@/components/ui/Container'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { getPublicUrl } from '@/lib/supabase/storage'
-import { ChevronLeft, X, ExternalLink, Package } from 'lucide-react'
+import { ChevronLeft, X, ExternalLink, Package, CheckCircle2 } from 'lucide-react'
 import PrintButton from '@/components/order/PrintButton'
 import TrackingTimeline from '@/components/order/TrackingTimeline'
 import OrderStatusBadge from '@/components/ui/OrderStatusBadge'
@@ -19,8 +19,8 @@ import { siteConfig } from '@/config/site'
 import ClearDraftsOnMount from '@/components/order/ClearDraftsOnMount'
 
 interface OrderPageProps {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ msg?: string }>;
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ msg?: string, new_order?: string }>
 }
 
 export default async function OrderPage({ params, searchParams }: OrderPageProps) {
@@ -29,6 +29,7 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
   
   const resolvedSearchParams = await searchParams
   const msg = resolvedSearchParams?.msg
+  const isNewOrder = resolvedSearchParams?.new_order === 'true'
 
   const { data: { user }, error: userError } = await supabase.auth.getUser()
   
@@ -107,7 +108,7 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
   const productIds = order.order_items.map((item: any) => item.product_id)
 
   return (
-    <Container className="py-8 md:py-12 max-w-5xl">
+    <Container className="py-8 md:py-12 max-w-4xl">
       {/* 🆕 Clear drafts for products in this order (only if payment is paid) */}
       <ClearDraftsOnMount productIds={productIds} />
 
@@ -116,6 +117,28 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
           <ChevronLeft className="w-4 h-4" /> Back to Orders
         </Link>
       </div>
+
+      {/* 🚨 ONE-TIME WHATSAPP TRUST BANNER FOR NEW ORDERS 🚨 */}
+      {isNewOrder && (
+        <div className="mb-6 p-5 bg-white border border-[#25D366]/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm relative overflow-hidden animate-in fade-in slide-in-from-top-4">
+          <div className="absolute top-0 left-0 w-1.5 h-full bg-[#25D366]"></div>
+          <div className="flex items-start sm:items-center gap-4 pl-2">
+            <div className="w-12 h-12 bg-[#25D366]/10 rounded-full flex items-center justify-center shrink-0">
+              {/* Official WhatsApp Logo */}
+              <svg className="w-7 h-7 text-[#25D366]" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.305-.88-.653-1.473-1.46-1.646-1.758-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.347-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.876 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-gray-900 font-bold text-base">Order Placed Successfully!</h3>
+              <p className="text-gray-600 text-sm mt-0.5 leading-snug">
+                A detailed confirmation has been sent to your <span className="font-bold text-[#25D366]">WhatsApp</span>. You will receive real-time updates as your package is prepared.
+              </p>
+            </div>
+          </div>
+          <Link href={`/order/${id}`} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition-colors shrink-0 cursor-pointer"><X className="w-4 h-4" /></Link>
+        </div>
+      )}
 
       {(msg === 'cancel_soon' || msg === 'return_soon') && (
         <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-sm relative pr-8 lg:pr-4">
@@ -142,7 +165,9 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
       )}
 
       <div className="space-y-6 md:space-y-8">
-        <div className="flex flex-col md:flex-row justify-between gap-4 border-b border-gray-200 pb-6">
+        
+        {/* 🚨 HEADER INFORMATION CARD 🚨 */}
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">
@@ -156,7 +181,7 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
               <p>Order# {order.order_number}</p>
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-start md:justify-end gap-3 mt-4 md:mt-0 bg-gray-50 md:bg-transparent p-4 md:p-0 rounded-lg border border-gray-200 md:border-none w-full md:w-auto">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-start md:justify-end gap-3 w-full md:w-auto">
             {!isCancelled && isPaymentPending && (
               <div className="text-sm font-medium text-yellow-800 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-md text-center w-full sm:w-auto">
                 Payment is being processed.
@@ -184,8 +209,8 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
         </div>
 
         {!isCancelled && !order.status.includes('cancel') && !order.status.includes('return') && (
-          <div className="bg-white border border-gray-200 rounded-lg p-6 md:p-8 shadow-sm">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 md:p-8 shadow-sm">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2 tracking-tight">
               {order.status === 'delivered' || order.status === 'picked_up' ? (
                 <span className="text-[#007185]">{isStorePickup ? 'Picked up on' : 'Delivered on'} {formatDate(order.updated_at || order.created_at)}</span>
               ) : isStorePickup ? (
@@ -208,8 +233,8 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
-            <h3 className="font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">Billing & Shipping Address</h3>
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+            <h3 className="font-bold text-gray-900 mb-4 border-b border-gray-200 pb-3">Billing & Shipping Address</h3>
             <div className="grid gap-2 text-sm text-gray-800">
               <div className="flex gap-2">
                 <span className="font-semibold text-gray-500 w-28 shrink-0">Delivery method:</span> 
@@ -259,8 +284,8 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
-            <h3 className="font-bold text-gray-900 mb-3">Payment Method</h3>
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+            <h3 className="font-bold text-gray-900 mb-4 border-b border-gray-200 pb-3">Payment Method</h3>
             <div className="text-sm text-gray-700 space-y-2">
               <p className="capitalize">Razorpay {order.payment_method_detail || order.payment_method || 'Standard'}</p>
               <div className="flex items-center gap-2">
@@ -270,8 +295,8 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
-            <h3 className="font-bold text-gray-900 mb-3">Order Summary</h3>
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+            <h3 className="font-bold text-gray-900 mb-4 border-b border-gray-200 pb-3">Order Summary</h3>
             <div className="space-y-2">
               <div className="flex justify-between gap-2 text-sm">
                 <span className="text-gray-600">Subtotal</span>
@@ -285,7 +310,7 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
                   {shippingCost === 0 ? 'Free' : formatCurrency(shippingCost)}
                 </span>
               </div>
-              <div className="flex justify-between gap-2 font-bold pt-2 border-t border-gray-200 mt-2">
+              <div className="flex justify-between gap-2 font-bold pt-3 border-t border-gray-200 mt-3">
                 <span className="text-gray-900">Total</span>
                 <span className="text-gray-900 whitespace-nowrap ml-2">
                   {formatCurrency(order.total_amount)}
@@ -295,8 +320,8 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
           </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-          <div className="bg-gray-50 px-5 py-3 border-b border-gray-200 font-bold text-gray-900">
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+          <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 font-bold text-gray-900">
             Order Items
           </div>
           <div className="divide-y divide-gray-200">
@@ -310,11 +335,11 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
               }
               
               return (
-                <div key={item.id} className="p-5 flex flex-col md:flex-row gap-5 items-start">
+                <div key={item.id} className="p-6 flex flex-col md:flex-row gap-5 items-start">
                   
                   <div className="flex gap-5 flex-1">
-                    <div className="relative w-20 h-20 md:w-24 md:h-24 rounded-md bg-gray-50 border border-gray-200 overflow-hidden shrink-0">
-                      <Image src={imageUrl} fill sizes="96px" unoptimized={imageUrl.includes('token=') || imageUrl.includes('supabase')} className="object-contain p-1 mix-blend-multiply" alt={item.products?.name || 'Product'} />
+                    <div className="relative w-20 h-20 md:w-28 md:h-28 rounded-xl bg-white border border-gray-200 overflow-hidden shrink-0">
+                      <Image src={imageUrl} fill sizes="(min-width: 768px) 112px, 80px" unoptimized={imageUrl.includes('token=') || imageUrl.includes('supabase')} className="object-contain p-2 mix-blend-multiply" alt={item.products?.name || 'Product'} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <Link href={`/product/${item.products?.slug}`} className="text-base font-bold text-[#007185] hover:text-[#C7511F] hover:underline line-clamp-2">
@@ -372,7 +397,7 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-center gap-3 shrink-0 md:ml-4 w-full md:w-48 mt-4 md:mt-0">
+                  <div className="flex flex-col items-center gap-3 shrink-0 md:ml-4 w-full md:w-48 mt-2 md:mt-0">
                     <div className="text-sm font-bold text-gray-900 whitespace-nowrap text-center w-full">
                       {formatCurrency(item.price * item.quantity)}
                     </div>
