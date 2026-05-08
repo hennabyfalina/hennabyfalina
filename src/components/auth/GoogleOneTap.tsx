@@ -57,7 +57,7 @@ export default function GoogleOneTap() {
     }
   }
 
-  // 🚨 STRICT LOCK: Only allows Google to initialize exactly once
+  // 🚨 STRICT LOCK & FedCM COMPLIANCE
   const initializeGoogleOneTap = useCallback(() => {
     if (typeof window === 'undefined' || !window.google?.accounts?.id || isInitialized.current) return
 
@@ -73,18 +73,17 @@ export default function GoogleOneTap() {
       use_fedcm_for_prompt: true, 
     })
 
-    window.google.accounts.id.prompt((notification: any) => {
-      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        console.log('[Google One Tap] Skipped or blocked:', notification.getNotDisplayedReason() || notification.getSkippedReason())
-      }
-    })
+    // 🚨 VERCEL STYLE: Call prompt completely empty. 
+    // This allows the native FedCM browser API to bypass Tracking Prevention.
+    window.google.accounts.id.prompt()
+    
   }, [router])
 
   useEffect(() => {
     return () => {
       if (typeof window !== 'undefined' && window.google?.accounts?.id) {
         window.google.accounts.id.cancel()
-        isInitialized.current = false // Reset lock on unmount
+        isInitialized.current = false 
       }
     }
   }, [])
@@ -95,7 +94,6 @@ export default function GoogleOneTap() {
         src="https://accounts.google.com/gsi/client" 
         strategy="afterInteractive"
         onLoad={initializeGoogleOneTap}
-        // Removed onReady to prevent the double-fire warning
       />
       
       {isProcessing && (
