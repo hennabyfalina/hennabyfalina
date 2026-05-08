@@ -81,6 +81,7 @@ export default function PhoneInput({
           onBlur={() => setTouched(true)}
           onCountryChange={handleCountrySelect}
           disabled={disabled}
+          flagUrl="https://flagsapi.com/{XX}/flat/64.png" // 🚨 FIX: Bypasses strict AdBlockers
           className="w-full phone-input-custom px-3 py-2 text-sm text-[#0F1111]"
         />
       </div>
