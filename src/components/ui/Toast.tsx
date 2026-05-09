@@ -72,7 +72,7 @@ export default function Toaster() {
   const isAdmin = pathname.startsWith('/admin')
 
   return createPortal(
-    <div className={`fixed z-[9999] flex flex-col gap-3 transition-all duration-500
+    <div className={`fixed z-[999999] flex flex-col gap-3 transition-all duration-500
       ${isAdmin 
         ? 'bottom-8 left-1/2 -translate-x-1/2 w-full max-w-[420px] px-4' // Gemini Admin: Bottom Center
         : 'bottom-[80px] left-4 right-4 md:bottom-6 md:left-auto md:right-6 md:w-[380px]' // Amazon Store: Bottom Right

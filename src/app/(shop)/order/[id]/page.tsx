@@ -7,13 +7,14 @@ import { createClient } from '@/lib/supabase/server'
 import Container from '@/components/ui/Container'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { getPublicUrl } from '@/lib/supabase/storage'
-import { ChevronLeft, X, ExternalLink, Package, CheckCircle2 } from 'lucide-react'
+import { ChevronLeft, X, Package, CheckCircle2 } from 'lucide-react'
 import PrintButton from '@/components/order/PrintButton'
 import TrackingTimeline from '@/components/order/TrackingTimeline'
 import OrderStatusBadge from '@/components/ui/OrderStatusBadge'
 import StarRating from '@/components/product/StarRating'
 import ProductWishlistButton from '@/components/product/ProductWishlistButton'
 import { siteConfig } from '@/config/site'
+import ArtworkDownloadButton from '@/components/order/ArtworkDownloadButton'
 
 // 🆕 Client component to clear drafts after successful order
 import ClearDraftsOnMount from '@/components/order/ClearDraftsOnMount'
@@ -377,15 +378,7 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
                           {item.signed_artwork_urls && item.signed_artwork_urls.length > 0 && (
                             <div className="flex flex-wrap gap-2 mt-2">
                               {item.signed_artwork_urls.map((url: string, idx: number) => (
-                                <a 
-                                  key={idx}
-                                  href={url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer" 
-                                  className="inline-flex items-center gap-1.5 font-bold text-[#007185] hover:text-[#C7511F] hover:underline transition-colors"
-                                >
-                                  <ExternalLink className="w-3 h-3" /> Download File {idx + 1}
-                                </a>
+                                <ArtworkDownloadButton key={idx} url={url} index={idx} />
                               ))}
                             </div>
                           )}

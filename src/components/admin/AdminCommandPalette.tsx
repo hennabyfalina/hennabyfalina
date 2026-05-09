@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Package, ShoppingCart, User, X, ArrowRight, Loader2 } from 'lucide-react'
+import { Search, Package, ShoppingCart, User, X, ArrowRight, Loader2, Sparkles, CornerDownLeft } from 'lucide-react'
 
 interface SearchResults {
   products: any[]
@@ -126,13 +126,13 @@ export default function AdminCommandPalette() {
         
         {/* Input Header */}
         <div className="flex items-center px-4 py-4 border-b border-[#333538] bg-[#131314]">
-          <Search className="w-5 h-5 text-[#8E9196] shrink-0" />
+          <Sparkles className="w-5 h-5 text-[#A8C7FA] shrink-0" />
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search products, orders, or customers..."
+            placeholder="Ask anything or search records..."
             className="flex-1 bg-transparent border-none text-[#E3E3E3] text-lg px-4 focus:outline-none placeholder:text-[#565959]"
           />
           {isLoading ? (
@@ -149,11 +149,10 @@ export default function AdminCommandPalette() {
           
           {!isTyping && (
             <div className="p-8 text-center text-[#565959] flex flex-col items-center">
-              <Search className="w-10 h-10 mb-3 opacity-20" />
+              <Sparkles className="w-10 h-10 mb-3 opacity-20" />
               <p className="text-sm">Type to search across your workspace.</p>
               <div className="flex gap-2 mt-4 text-[10px] font-mono tracking-widest uppercase">
-                <span className="bg-[#131314] border border-[#333538] px-2 py-1 rounded-md text-[#8E9196]">⌘ K (Mac)</span>
-                <span className="bg-[#131314] border border-[#333538] px-2 py-1 rounded-md text-[#8E9196]">Alt K (Win)</span>
+                <span className="bg-[#131314] border border-[#333538] px-3 py-1.5 rounded-full text-[#8E9196] flex items-center gap-1.5">Press Enter <CornerDownLeft className="w-3 h-3" /></span>
               </div>
             </div>
           )}

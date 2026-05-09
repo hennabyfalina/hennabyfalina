@@ -13,7 +13,8 @@ import OrderStatusBadge from '@/components/ui/OrderStatusBadge'
 import ProductWishlistButton from '@/components/product/ProductWishlistButton'
 import StarRating from '@/components/product/StarRating'
 import { siteConfig } from '@/config/site'
-import { X, ExternalLink, Package } from 'lucide-react'
+import { X, Package } from 'lucide-react'
+import ArtworkDownloadButton from '@/components/order/ArtworkDownloadButton'
 
 export const metadata = {
   title: `Your Orders | ${siteConfig.name}`
@@ -267,15 +268,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                                   {item.signed_artwork_urls && item.signed_artwork_urls.length > 0 && (
                                     <div className="flex flex-wrap gap-2 mt-1.5">
                                       {item.signed_artwork_urls.map((signedUrl: string, idx: number) => (
-                                        <a 
-                                          key={idx}
-                                          href={signedUrl} 
-                                          target="_blank" 
-                                          rel="noopener noreferrer" 
-                                          className="inline-flex items-center gap-1.5 font-bold text-[#007185] hover:text-[#C7511F] hover:underline transition-colors"
-                                        >
-                                          <ExternalLink className="w-3 h-3" /> Download File {idx + 1}
-                                        </a>
+                                        <ArtworkDownloadButton key={idx} url={signedUrl} index={idx} />
                                       ))}
                                     </div>
                                   )}

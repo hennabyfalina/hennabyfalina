@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatCompactIndianCurrency, formatDate } from '@/lib/utils'
 import { siteConfig } from '@/config/site'
 
 // 🚨 Components
@@ -221,7 +221,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
             <p className="text-[#8E9196] text-sm mt-1">Analytics viewing is restricted.</p>
           </div>
         )}
-        <div className={!isSuperAdmin ? 'opacity-40 pointer-events-none select-none' : ''}>
+        <div className={`w-full ${!isSuperAdmin ? 'opacity-40 pointer-events-none select-none' : ''}`}>
           <DashboardCharts 
             revenueData={chartData} 
             categoryData={categorySalesData} 

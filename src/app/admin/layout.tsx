@@ -224,12 +224,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* 🚨 shrink-0 prevents heavy page content from squishing the header 🚨 */}
         <header className="shrink-0 h-[76px] bg-[#131314] px-6 hidden md:flex items-center justify-between sticky top-0 z-30 pt-3">
           <div className="flex items-center">
-            <button
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2.5 mr-2 rounded-full hover:bg-[#282A2C] transition-colors cursor-pointer text-[#C4C7C5]"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
+            
             <Link href="/admin/dashboard" className="text-xl font-medium tracking-tight text-[#A8C7FA] transition-opacity hover:opacity-80">
               {isSuperAdmin ? 'Super Admin' : 'Admin'}
             </Link>

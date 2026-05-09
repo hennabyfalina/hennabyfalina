@@ -259,6 +259,14 @@ export default function LoginPage() {
     }
   }
 
+  const handleClearOtp = () => {
+    setOtpCode('')
+    setError('')
+    setSuccessMessage('')
+    // Focus back to first input
+    inputRefs.current[0]?.focus()
+  }
+
   const handleVerifyOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     setError('')
@@ -389,12 +397,12 @@ export default function LoginPage() {
       <GoogleOneTap />
 
       {error && (
-        <div className="mb-4 p-4 border-l-4 border-red-600 border border-gray-300 rounded-sm bg-white shadow-sm">
+        <div className="mb-4 p-4 border border-red-200 rounded-lg bg-red-50 shadow-sm">
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0" />
             <div>
-              <h3 className="text-red-700 font-bold text-sm mb-1">There was a problem</h3>
-              <p className="text-sm text-gray-900">{error}</p>
+              <h3 className="text-red-800 font-bold text-sm">Login Error</h3>
+              <p className="text-xs text-red-700 mt-0.5">{error}</p>
             </div>
           </div>
         </div>
@@ -566,6 +574,16 @@ export default function LoginPage() {
                   className="w-9 sm:w-11 h-10 sm:h-12 text-center text-lg sm:text-xl font-bold text-gray-900 bg-white border border-gray-400 rounded-sm focus:outline-none focus:border-[#e77600] focus:ring-1 focus:ring-[#e77600] transition-shadow disabled:bg-gray-50 disabled:opacity-75 disabled:cursor-not-allowed"
                 />
               ))}
+            </div>
+
+            <div className={`flex justify-end mb-4 transition-opacity duration-200 ${otpCode.length > 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+              <button
+                type="button"
+                onClick={handleClearOtp}
+                className="text-xs font-medium text-[#007185] hover:text-[#C7511F] hover:underline transition-colors cursor-pointer"
+              >
+                Clear code
+              </button>
             </div>
 
             <div className="mt-3 text-center">

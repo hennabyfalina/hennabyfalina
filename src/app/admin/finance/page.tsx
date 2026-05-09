@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import StatsCard from '@/components/admin/StatsCard'
 import AdminLoader from '@/components/admin/AdminLoader'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatCompactIndianCurrency, formatDate } from '@/lib/utils'
 import { showToast } from '@/components/ui/Toast'
 import { Wallet, IndianRupee, TrendingDown, FileText, Download, Search, Filter, ReceiptText, Lock } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
@@ -238,10 +238,10 @@ export default function AdminFinance() {
 
         {/* 🚨 ACCOUNTING STATS GRID 🚨 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatsCard title="Gross Inflow (Credit)" value={formatCurrency(grossInflow)} icon={<IndianRupee className="w-5 h-5 text-[#02fa40]" />} />
-          <StatsCard title="Net Income" value={formatCurrency(netIncome)} icon={<Wallet className="w-5 h-5 text-[#A8C7FA]" />} />
-          <StatsCard title="GST Liability (Est.)" value={formatCurrency(estimatedGST)} icon={<ReceiptText className="w-5 h-5 text-[#A8C7FA]" />} />
-          <StatsCard title="Refunds (Debit)" value={formatCurrency(totalRefunds)} icon={<TrendingDown className="w-5 h-5 text-[#A8C7FA]" />} />
+          <StatsCard title="Gross Inflow (Credit)" value={formatCompactIndianCurrency(grossInflow)} icon={<IndianRupee className="w-5 h-5 text-[#02fa40]" />} />
+          <StatsCard title="Net Income" value={formatCompactIndianCurrency(netIncome)} icon={<Wallet className="w-5 h-5 text-[#A8C7FA]" />} />
+          <StatsCard title="GST Liability (Est.)" value={formatCompactIndianCurrency(estimatedGST)} icon={<ReceiptText className="w-5 h-5 text-[#A8C7FA]" />} />
+          <StatsCard title="Refunds (Debit)" value={formatCompactIndianCurrency(totalRefunds)} icon={<TrendingDown className="w-5 h-5 text-[#A8C7FA]" />} />
         </div>
 
         {/* 🚨 BUSINESS INTELLIGENCE CHARTS 🚨 */}

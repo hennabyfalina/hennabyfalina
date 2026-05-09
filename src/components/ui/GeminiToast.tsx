@@ -47,7 +47,7 @@ export default function GeminiToast({ message, type = 'info', isVisible, onClose
   const { icon: Icon, color, glow } = styleMap[type]
 
   return (
-    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none">
+    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[999999] pointer-events-none">
       <div 
         className={`
           flex items-center gap-3 px-5 py-3 

@@ -4,6 +4,7 @@
 
 import { Download } from 'lucide-react'
 import { useState } from 'react'
+import { showToast } from '@/components/ui/Toast'
 
 interface InvoiceLinkProps {
   orderId: string
@@ -34,6 +35,8 @@ export default function InvoiceLink({ orderId, orderNumber, className, invoiceTy
       a.click()
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
+      
+      showToast("Download started. Check your device's download section.", 'success')
     } catch (error) {
       console.error('Error downloading invoice:', error)
       alert('Failed to download invoice. Please try again.')

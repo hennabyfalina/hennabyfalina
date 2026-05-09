@@ -48,8 +48,8 @@ export default function GoogleOneTap() {
       const params = new URLSearchParams(window.location.search)
       const redirectPath = params.get('next') || params.get('redirect') || '/products'
       
-      router.push(redirectPath)
-      router.refresh() 
+      // 🚨 PWA FIX: Force a hard reload so the middleware immediately sees the newly set auth cookies!
+      window.location.assign(redirectPath)
 
     } catch (error) {
       console.error('[Google One Tap] Auth Error:', error)

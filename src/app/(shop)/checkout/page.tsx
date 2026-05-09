@@ -133,7 +133,7 @@ export default function CheckoutPage() {
   const taxBreakdown = calculateTaxBreakdown(totalPrice)
 
   useEffect(() => {
-    const verifyAuth = async () => {
+    const verifyAuthAndLoadData = async () => {
       const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
@@ -141,9 +141,29 @@ export default function CheckoutPage() {
         return
       }
       setUserId(session.user.id)
+      
+      // 🚨 AMZ-STYLE SEAMLESS CHECKOUT 🚨
+      // Load addresses BEFORE revealing the UI to prevent the "premature form flash"
+      const addresses = await getSavedAddresses()
+      setSavedAddresses(addresses)
+      
+      setFormData(prev => {
+        if (addresses.length > 0 && !prev.name && !prev.phone && !prev.pincode && !prev.addressLine1) {
+          const latest = addresses[0]
+          return {
+            name: latest.name || '', phone: latest.phone || '',
+            addressLine1: latest.address_line1 || '', addressLine2: latest.address_line2 || '',
+            landmark: latest.landmark || '', city: latest.city || '',
+            state: latest.state || '', pincode: latest.pincode || '',
+            delivery_instructions: latest.delivery_instructions || ''
+          }
+        }
+        return prev
+      })
+
       setIsAuthChecking(false)
     }
-    verifyAuth()
+    verifyAuthAndLoadData()
   }, [router])
 
   useEffect(() => {
@@ -184,31 +204,8 @@ export default function CheckoutPage() {
     if (items.length === 0 && !isProcessing && !isAuthChecking) {
       router.push('/cart')
     }
-    if (!isAuthChecking) {
-      loadSavedAddresses()
-    }
   }, [items.length, router, isProcessing, isAuthChecking])
 
-  const loadSavedAddresses = async () => {
-    const addresses = await getSavedAddresses()
-    setSavedAddresses(addresses)
-    
-    // 🚨 AMZ-STYLE SEAMLESS CHECKOUT 🚨
-    // If user has a saved address and hasn't started a new form, auto-apply the most recent address!
-    setFormData(prev => {
-      if (addresses.length > 0 && !prev.name && !prev.phone && !prev.pincode && !prev.addressLine1) {
-        const latest = addresses[0]
-        return {
-          name: latest.name || '', phone: latest.phone || '',
-          addressLine1: latest.address_line1 || '', addressLine2: latest.address_line2 || '',
-          landmark: latest.landmark || '', city: latest.city || '',
-          state: latest.state || '', pincode: latest.pincode || '',
-          delivery_instructions: latest.delivery_instructions || ''
-        }
-      }
-      return prev
-    })
-  }
 
   const handleFormChange = (field: keyof AddressFormData, value: string) => setFormData(prev => ({ ...prev, [field]: value }))
   const handlePhoneValidation = (isValid: boolean) => setIsPhoneValid(isValid)
@@ -309,7 +306,7 @@ export default function CheckoutPage() {
       <Container className="flex-1 min-h-[80vh] flex flex-col items-center justify-center bg-[#F0F2F2]">
         <div className="flex flex-col items-center">
           <Loader />
-          <p className="text-sm font-medium text-gray-600 mt-4">Verifying session securely...</p>
+          <p className="text-sm font-medium text-gray-600 mt-4">Securing your checkout...</p>
         </div>
       </Container>
     )

@@ -3,7 +3,6 @@ razack-packaging-centre/
 │   ├── fonts/
 │   │   └── Inter-VariableFont.ttf
 │   ├── cat.jpg
-│   ├── fallback-ce627215c0e4a9af.js
 │   ├── file.svg
 │   ├── globe.svg
 │   ├── icon-192x192.png
@@ -17,10 +16,7 @@ razack-packaging-centre/
 │   ├── razorpay-icon.jpg
 │   ├── Roboto-Bold.ttf
 │   ├── Roboto-Regular.ttf
-│   ├── sw.js
-│   ├── swe-worker-5c72df51bb1f6ee0.js
-│   ├── window.svg
-│   └── workbox-f1770938.js
+│   └── window.svg
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/
@@ -216,6 +212,7 @@ razack-packaging-centre/
 │   │   │   ├── MoreMenuModal.tsx
 │   │   │   └── Navbar.tsx
 │   │   ├── order/
+│   │   │   ├── ArtworkDownloadButton.tsx
 │   │   │   ├── ClearDraftsOnMount.tsx
 │   │   │   ├── InvoiceLink.tsx
 │   │   │   ├── PrintButton.tsx

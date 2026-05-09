@@ -15,6 +15,24 @@ export function formatCurrency(amount: number): string {
   }).format(amount)
 }
 
+// 🚨 Enterprise Admin Compact Indian Currency Formatter
+// Automatically scales values to Thousands (K), Lakhs (L), and Crores (Cr)
+export function formatCompactIndianCurrency(amount: number): string {
+  const num = Math.abs(amount)
+  const sign = amount < 0 ? '-' : ''
+  
+  if (num >= 10000000) return `${sign}₹${Number((num / 10000000).toFixed(2))}Cr`
+  if (num >= 100000) return `${sign}₹${Number((num / 100000).toFixed(2))}L`
+  if (num >= 1000) return `${sign}₹${Number((num / 1000).toFixed(2))}K`
+  
+  // For numbers under 1000, just show the normal currency without decimals
+  return `${sign}${new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(num)}`
+}
+
 export function formatDate(date: string): string {
   return new Date(date).toLocaleDateString('en-IN', {
     day: 'numeric',
@@ -55,9 +73,9 @@ export function numberToIndianWords(num: number): string {
   if (hundred > 0) word += formatTens(hundred) + ' Hundred '
   if (temp > 0) {
     if (word !== '') word += 'and '
-    word += formatTens(temp) + ' '
+    word += formatTens(temp)
   }
-
+  
   return word.trim() + ' Rupees Only'
 }
 

@@ -70,7 +70,6 @@ export default function AdminPhoneInput({
           onBlur={() => setTouched(true)}
           onCountryChange={handleCountrySelect}
           disabled={disabled}
-          flagUrl="https://flagsapi.com/{XX}/flat/64.png" // 🚨 FIX: Bypasses strict AdBlockers
           className="w-full flex items-center gap-3 [&_.PhoneInputInput]:bg-transparent [&_.PhoneInputInput]:border-none [&_.PhoneInputInput]:focus:outline-none [&_.PhoneInputInput]:focus:ring-0 [&_.PhoneInputInput]:w-full [&_.PhoneInputInput]:text-[#E3E3E3] [&_.PhoneInputInput]:placeholder:text-[#565959]"
         />
       </div>

@@ -9,7 +9,7 @@ import OrderStatusBadge from './OrderStatusBadge'
 import AdminLoader from './AdminLoader'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { showToast } from '@/components/ui/Toast'
-import { Package, Truck, MapPin, CreditCard, Calendar, Hash, ExternalLink, Printer, Trash2, Phone } from 'lucide-react'
+import { Package, Truck, MapPin, CreditCard, Calendar, Hash, ExternalLink, Printer, Trash2, Phone, Download } from 'lucide-react'
 import InvoiceLink from '@/components/order/InvoiceLink'
 import { siteConfig } from '@/config/site'
 import { ORDER_STATUS_FILTERS } from '@/lib/constants'
@@ -145,11 +145,28 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
     }
   }
 
-  const handleSecureDownload = async (internalPath: string) => {
+  const handleSecureDownload = async (internalPath: string, action: 'view' | 'download' = 'view') => {
     setDownloadingArtwork(internalPath)
     try {
       const url = `/api/admin/artwork?path=${encodeURIComponent(internalPath)}`
-      window.open(url, '_blank')
+      
+      if (action === 'download') {
+        const response = await fetch(url)
+        if (!response.ok) throw new Error('Failed to fetch file')
+        const blob = await response.blob()
+        const objectUrl = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = objectUrl
+        a.download = internalPath.split('/').pop() || `artwork-${Date.now()}`
+        document.body.appendChild(a)
+        a.click()
+        showToast("Download Successfully. Check your device's download section.", 'success')
+        window.URL.revokeObjectURL(objectUrl)
+        document.body.removeChild(a)
+      } else {
+        showToast("Opening artwork in new tab...", 'success')
+        window.open(url, '_blank')
+      }
     } catch (error) {
       showToast('Failed to access artwork file', 'error')
     } finally {
@@ -328,18 +345,27 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                         {item.artwork_urls && item.artwork_urls.length > 0 && (
                           <div className="flex flex-wrap gap-2 justify-end w-full sm:w-auto">
                             {item.artwork_urls.map((url: string, idx: number) => (
-                              <button 
-                                key={idx}
-                                onClick={() => handleSecureDownload(url)}
-                                disabled={downloadingArtwork === url}
-                                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 sm:py-1.5 bg-[#282A2C] hover:bg-[#333538] border border-[#44474A] text-xs font-medium text-[#E3E3E3] rounded-full transition-colors cursor-pointer disabled:opacity-50 shrink-0 w-full sm:w-auto"
-                              >
-                                {downloadingArtwork === url ? (
-                                  <><div className="w-3 h-3 border-2 border-[#A8C7FA] border-t-transparent rounded-full animate-spin" /> Loading...</>
-                                ) : (
-                                  <><ExternalLink className="w-3.5 h-3.5 text-[#A8C7FA]" /> View File {idx + 1}</>
-                                )}
-                              </button>
+                              <div key={idx} className="flex flex-row items-center bg-[#282A2C] border border-[#44474A] rounded-full overflow-hidden shrink-0 w-full sm:w-auto transition-colors focus-within:border-[#A8C7FA]">
+                                <button 
+                                  onClick={() => handleSecureDownload(url, 'view')}
+                                  disabled={downloadingArtwork === url}
+                                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 hover:bg-[#333538] text-xs font-medium text-[#E3E3E3] transition-colors cursor-pointer disabled:opacity-50 flex-1 border-r border-[#44474A]"
+                                >
+                                  {downloadingArtwork === url ? (
+                                    <><div className="w-3 h-3 border-2 border-[#A8C7FA] border-t-transparent rounded-full animate-spin" /> ...</>
+                                  ) : (
+                                    <><ExternalLink className="w-3 h-3 text-[#A8C7FA]" /> View {idx + 1}</>
+                                  )}
+                                </button>
+                                <button 
+                                  onClick={() => handleSecureDownload(url, 'download')}
+                                  disabled={downloadingArtwork === url}
+                                  className="inline-flex items-center justify-center px-3 py-2 sm:py-1.5 hover:bg-[#333538] text-xs font-medium text-[#93D7A4] transition-colors cursor-pointer disabled:opacity-50"
+                                  title={`Download File ${idx + 1}`}
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             ))}
                           </div>
                         )}

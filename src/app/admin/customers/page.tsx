@@ -8,7 +8,7 @@ import StatsCard from '@/components/admin/StatsCard'
 import AdminLoader from '@/components/admin/AdminLoader'
 import CustomerModal from '@/components/admin/CustomerModal'
 import { Users, UserPlus, UserCheck, Search, Filter, Edit } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatCompactIndianCurrency } from '@/lib/utils'
 import { showToast } from '@/components/ui/Toast'
 
 // 🚨 DRY CONSTANTS 🚨
@@ -204,7 +204,7 @@ export default function AdminCustomers() {
                         </span>
                       </td>
                       <td className="px-6 py-5 text-right font-medium text-[#E3E3E3]">
-                        {customer.total_spent > 0 ? formatCurrency(customer.total_spent) : '—'}
+                        {customer.total_spent > 0 ? formatCompactIndianCurrency(customer.total_spent) : '—'}
                       </td>
                       <td className="px-6 py-5 text-right">
                          <button className="p-2 text-[#A8C7FA] hover:bg-[#0B57D0]/20 rounded-full transition-colors cursor-pointer">

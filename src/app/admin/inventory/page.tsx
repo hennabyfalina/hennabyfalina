@@ -10,7 +10,7 @@ import AdminLoader from '@/components/admin/AdminLoader'
 import StockUpdateModal from '@/components/admin/StockUpdateModal' // 🚨 PROPER MODAL IMPORT
 import { showToast } from '@/components/ui/Toast'
 import { getPublicUrl } from '@/lib/supabase/storage'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatCompactIndianCurrency } from '@/lib/utils'
 import { Boxes, AlertTriangle, XCircle, TrendingUp, Search, Filter, Edit, Image as ImageIcon, History } from 'lucide-react'
 
 // 🚨 IMPORTED DRY CONSTANTS 🚨
@@ -139,7 +139,7 @@ export default function AdminInventory() {
           <StatsCard title="Total SKUs" value={inventory.length} icon={<Boxes className="w-5 h-5 text-[#A8C7FA]" />} />
           <StatsCard title="Low Stock Alert" value={lowStockCount} icon={<AlertTriangle className="w-5 h-5 text-[#A8C7FA]" />} />
           <StatsCard title="Out of Stock" value={outOfStockCount} icon={<XCircle className="w-5 h-5 text-red-400" />} />
-          <StatsCard title="Est. Asset Value" value={formatCurrency(totalValue).replace(/\.00$/, '')} icon={<TrendingUp className="w-5 h-5 text-[#A8C7FA]" />} />
+          <StatsCard title="Est. Asset Value" value={formatCompactIndianCurrency(totalValue).replace(/\.00$/, '')} icon={<TrendingUp className="w-5 h-5 text-[#A8C7FA]" />} />
         </div>
 
         {/* 🚨 FLOATING SEARCH & FILTERS 🚨 */}
