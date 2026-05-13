@@ -38,7 +38,7 @@ export default function ManualUpdateButton() {
     <button
       onClick={checkForUpdates}
       disabled={isUpdating}
-      className="px-4 py-2 bg-[#007185] text-white rounded-full text-sm font-medium hover:bg-[#005d6e] transition-colors disabled:opacity-50"
+      className="px-4 py-2 bg-[#007185] text-white rounded-full text-sm font-medium hover:bg-[#005d6e] transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
     >
       {isUpdating ? (
         <><RefreshCw className="w-4 h-4 animate-spin inline mr-2" /> Checking...</>

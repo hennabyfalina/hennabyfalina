@@ -311,7 +311,8 @@ export default function LoginPage() {
         .maybeSingle()
 
       if (userData?.role === 'admin') {
-        window.location.href = '/admin-gate'
+        router.push('/admin-gate')
+        router.refresh()
         return
       }
     }

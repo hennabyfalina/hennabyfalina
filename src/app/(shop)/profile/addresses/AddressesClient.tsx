@@ -5,12 +5,10 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Container from '@/components/ui/Container'
-import Modal from '@/components/ui/Modal'
-import PhoneInput from '@/components/ui/PhoneInput'
-import { Plus } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
-import { INDIAN_STATES } from '@/lib/states' // 🚨 Clean Reusable Import
+import AddressForm from '@/components/checkout/AddressForm'
 
 interface Address {
   id: string
@@ -25,7 +23,6 @@ interface Address {
   pincode: string
   country: string
   delivery_instructions: string | null
-  address_type: string | null
   is_default: boolean
 }
 
@@ -37,15 +34,14 @@ interface AddressesClientProps {
 const emptyForm = {
   name: '',
   phone: '',
-  address_line1: '',
-  address_line2: '',
+  addressLine1: '',
+  addressLine2: '',
   landmark: '',
   city: '',
   state: '',
   pincode: '',
   country: 'India',
   delivery_instructions: '',
-  address_type: 'Home',
   is_default: false
 }
 
@@ -116,8 +112,8 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
     const newErrors: Record<string, string> = {}
     
     newErrors.name = validateName(formData.name)
-    newErrors.address_line1 = validateAddressLine1(formData.address_line1)
-    newErrors.address_line2 = validateAddressLine2(formData.address_line2 || '')
+    newErrors.addressLine1 = validateAddressLine1(formData.addressLine1)
+    newErrors.addressLine2 = validateAddressLine2(formData.addressLine2 || '')
     newErrors.city = validateCity(formData.city)
     newErrors.state = validateState(formData.state)
     newErrors.pincode = validatePincode(formData.pincode)
@@ -160,15 +156,14 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
     const baseForm = {
       name: addr.name,
       phone: addr.phone,
-      address_line1: addr.address_line1,
-      address_line2: addr.address_line2 || '',
+      addressLine1: addr.address_line1,
+      addressLine2: addr.address_line2 || '',
       landmark: addr.landmark || '',
       city: addr.city,
       state: addr.state,
       pincode: addr.pincode,
       country: addr.country || 'India',
       delivery_instructions: addr.delivery_instructions || '',
-      address_type: addr.address_type || 'Home',
       is_default: addr.is_default
     }
     let initial = { ...baseForm }
@@ -208,15 +203,14 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
           .update({
             name: formData.name,
             phone: formData.phone,
-            address_line1: formData.address_line1,
-            address_line2: formData.address_line2 || null,
+            address_line1: formData.addressLine1,
+            address_line2: formData.addressLine2 || null,
             landmark: formData.landmark || null,
             city: formData.city,
             state: formData.state,
             pincode: formData.pincode,
             country: formData.country,
             delivery_instructions: formData.delivery_instructions || null,
-            address_type: formData.address_type,
           })
           .eq('id', editingId)
           .select()
@@ -240,15 +234,14 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
           .insert({ 
             name: formData.name,
             phone: formData.phone,
-            address_line1: formData.address_line1,
-            address_line2: formData.address_line2 || null,
+            address_line1: formData.addressLine1,
+            address_line2: formData.addressLine2 || null,
             landmark: formData.landmark || null,
             city: formData.city,
             state: formData.state,
             pincode: formData.pincode,
             country: formData.country,
             delivery_instructions: formData.delivery_instructions || null,
-            address_type: formData.address_type,
             user_id: userId 
           })
           .select()
@@ -303,18 +296,23 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
     }
   }
 
-  const inputErrorClass = "w-full px-3 py-2 bg-white border border-red-500 rounded-sm focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 shadow-sm text-sm"
-  const inputClass = "w-full px-3 py-2 bg-white border border-gray-400 rounded-sm focus:outline-none focus:border-[#e77600] focus:ring-1 focus:ring-[#e77600] shadow-sm text-sm"
-  const labelClass = "block text-sm font-bold text-gray-900 mb-1"
-  const errorClass = "text-xs text-red-600 mt-1 font-medium"
+  const handleFormChange = (field: any, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleClearAddressForm = () => {
+    setFormData({ ...emptyForm, is_default: addresses.length === 0 })
+    setIsPhoneValid(true)
+    setErrors({})
+  }
 
   const hasValidationErrors = Object.values(errors).some(err => err !== '')
   const isFormFilled = Boolean(
     formData.name.trim() &&
     formData.phone &&
     isPhoneValid &&
-    formData.address_line1.trim() &&
-    formData.address_line2?.trim() &&
+    formData.addressLine1.trim() &&
+    formData.addressLine2?.trim() &&
     formData.city.trim() &&
     formData.state &&
     formData.pincode.replace(/\D/g, '').length === 6
@@ -323,7 +321,7 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
   const isButtonDisabled = isSaving || !isFormFilled || hasValidationErrors || !isDirty
 
   return (
-    <div className="min-h-screen bg-white py-6 md:py-10 relative">
+    <div className="min-h-screen bg-white py-6 md:py-10 relative" style={{ colorScheme: 'light' }}>
       <Container className="max-w-[1000px]">
         {/* Breadcrumb */}
         <div className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline mb-4">
@@ -361,13 +359,13 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
               <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-200 text-sm">
                 <button 
                   onClick={() => openEditModal(addr)} 
-                  className="text-[#007185] hover:text-[#C7511F] hover:underline"
+                  className="text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer"
                 >
                   Edit
                 </button>
                 <button 
                   onClick={() => confirmRemove(addr.id)} 
-                  className="text-[#007185] hover:text-[#C7511F] hover:underline"
+                  className="text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer"
                 >
                   Remove
                 </button>
@@ -379,7 +377,7 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
       </Container>
 
       {deleteConfirmId && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" style={{ colorScheme: 'light' }}>
           <div className="bg-white rounded-md shadow-xl max-w-sm w-full p-6 text-center border border-gray-200 animate-in fade-in zoom-in duration-200">
             <h3 className="text-xl font-normal text-gray-900 mb-2">Remove Address</h3>
             <p className="text-sm text-gray-600 mb-6">
@@ -389,14 +387,14 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
               <button
                 onClick={() => setDeleteConfirmId(null)}
                 disabled={isDeleting}
-                className="flex-1 py-2 text-sm font-normal text-gray-900 bg-white border border-gray-300 rounded-sm hover:bg-gray-50 shadow-sm transition-colors"
+                className="flex-1 py-2 text-sm font-normal text-gray-900 bg-white border border-gray-300 rounded-sm hover:bg-gray-50 shadow-sm transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={executeRemove}
                 disabled={isDeleting}
-                className="flex-1 py-2 text-sm font-normal text-gray-900 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm shadow-sm transition-colors disabled:opacity-50"
+                className="flex-1 py-2 text-sm font-normal text-gray-900 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm shadow-sm transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {isDeleting ? 'Removing...' : 'Yes, remove'}
               </button>
@@ -405,181 +403,41 @@ export default function AddressesClient({ initialAddresses, userId }: AddressesC
         </div>
       )}
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Update your address" : "Add a new address"}>
-        <form onSubmit={handleSave} className="flex flex-col max-h-[85vh] sm:max-h-[80vh] relative">
-          
-          <div className="flex-1 overflow-y-auto overscroll-contain space-y-4 px-1 pb-10">
-            <div>
-              <label className={labelClass}>Country/Region</label>
-            <select
-              aria-label="Country or Region"
-              title="Select Country"
-              value={formData.country}
-              onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-              className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-sm text-sm font-medium text-gray-900 focus:outline-none"
-            >
-              <option value="India">India</option>
-            </select>
-          </div>
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" style={{ colorScheme: 'light' }}>
+           <div className="relative w-full max-w-2xl bg-[#F0F2F2] rounded-sm shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+             <div className="flex items-center justify-between p-4 bg-white border-b border-[#D5D9D9] shrink-0">
+                <h3 className="text-lg font-bold text-[#0F1111]">{editingId ? "Update your address" : "Add a new address"}</h3>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="p-1 hover:bg-gray-100 rounded-sm cursor-pointer">
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+             </div>
+             
+             <div className="flex-1 overflow-y-auto overscroll-contain p-4">
+             <AddressForm
+               formData={formData as any}
+               onChange={handleFormChange}
+               onPhoneValidationChange={handlePhoneValidation}
+               shippingMethod="delivery"
+               disabled={isSaving}
+               onClear={handleClearAddressForm}
+             />
+           </div>
 
-          <div>
-            <label className={labelClass}>Full name (First and Last name) <span className="text-red-600">*</span></label>
-            <input
-              type="text"
-              required
-              placeholder="Full name"
-              value={formData.name}
-              onChange={(e) => {
-                setFormData({ ...formData, name: e.target.value })
-                setErrors(prev => ({ ...prev, name: validateName(e.target.value) }))
-              }}
-              className={errors.name ? inputErrorClass : inputClass}
-            />
-            {errors.name && <p className={errorClass}>{errors.name}</p>}
-          </div>
-
-          <div>
-            <label className={labelClass}>Mobile number <span className="text-red-600">*</span></label>
-            <PhoneInput
-              value={formData.phone}
-              onChange={(val) => setFormData({ ...formData, phone: val })}
-              onValidationChange={handlePhoneValidation}
-            />
-            {errors.phone && <p className={errorClass}>{errors.phone}</p>}
-          </div>
-
-          <div>
-            <label className={labelClass}>Flat, House no., Building, Company, Apartment <span className="text-red-600">*</span></label>
-            <input
-              type="text"
-              required
-              placeholder="Flat, House no., Building, Company, Apartment"
-              value={formData.address_line1}
-              onChange={(e) => {
-                setFormData({ ...formData, address_line1: e.target.value })
-                setErrors(prev => ({ ...prev, address_line1: validateAddressLine1(e.target.value) }))
-              }}
-              className={errors.address_line1 ? inputErrorClass : inputClass}
-            />
-            {errors.address_line1 && <p className={errorClass}>{errors.address_line1}</p>}
-          </div>
-
-          <div>
-            <label className={labelClass}>Area, Street, Sector, Village <span className="text-red-600">*</span></label>
-            <input
-              type="text"
-              required
-              placeholder="Area, Street, Sector, Village"
-              value={formData.address_line2}
-              onChange={(e) => {
-                setFormData({ ...formData, address_line2: e.target.value })
-                setErrors(prev => ({ ...prev, address_line2: validateAddressLine2(e.target.value) }))
-              }}
-              className={errors.address_line2 ? inputErrorClass : inputClass}
-            />
-            {errors.address_line2 && <p className={errorClass}>{errors.address_line2}</p>}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Town/City <span className="text-red-600">*</span></label>
-              <input
-                type="text"
-                required
-                placeholder="Town/City"
-                value={formData.city}
-                onChange={(e) => {
-                  setFormData({ ...formData, city: e.target.value })
-                  setErrors(prev => ({ ...prev, city: validateCity(e.target.value) }))
-                }}
-                className={errors.city ? inputErrorClass : inputClass}
-              />
-              {errors.city && <p className={errorClass}>{errors.city}</p>}
-            </div>
-            
-            {/* 🚨 REUSABLE DROPDOWN IMPORTED FROM states.ts */}
-            <div>
-              <label className={labelClass}>State <span className="text-red-600">*</span></label>
-              <select
-                aria-label="State"
-                title="Select State"
-                required
-                value={formData.state || ""}
-                onChange={(e) => {
-                  setFormData({ ...formData, state: e.target.value })
-                  setErrors(prev => ({ ...prev, state: validateState(e.target.value) }))
-                }}
-                disabled={isSaving}
-                className={errors.state ? inputErrorClass : inputClass}
-              >
-                <option value="" disabled>Select State</option>
-                {INDIAN_STATES.map((stateName) => (
-                  <option key={stateName} value={stateName}>
-                    {stateName}
-                  </option>
-                ))}
-              </select>
-              {errors.state && <p className={errorClass}>{errors.state}</p>}
-            </div>
-          </div>
-
-          <div>
-            <label className={labelClass}>Pincode <span className="text-red-600">*</span></label>
-            <input
-              type="text"
-              required
-              maxLength={6}
-              placeholder="6 digits [0-9] PIN code"
-              value={formData.pincode}
-              onChange={(e) => {
-                const val = e.target.value.replace(/\D/g, '')
-                setFormData({ ...formData, pincode: val })
-                setErrors(prev => ({ ...prev, pincode: validatePincode(val) }))
-              }}
-              className={errors.pincode ? inputErrorClass : inputClass}
-            />
-            {errors.pincode && <p className={errorClass}>{errors.pincode}</p>}
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <h3 className="text-base font-bold text-gray-900 mb-4">Delivery Instructions  <span className="text-gray-500 font-normal">(Optional)</span> </h3>
-            <div className="space-y-4">
-              <div>
-                <label className={labelClass}>Landmark</label>
-                <input
-                  type="text"
-                  placeholder="E.g. near apollo hospital"
-                  value={formData.landmark}
-                  onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Preferences</label>
-                <textarea
-                  rows={2}
-                  placeholder="E.g., Leave at the back gate, call before arriving..."
-                  value={formData.delivery_instructions}
-                  onChange={(e) => setFormData({ ...formData, delivery_instructions: e.target.value })}
-                  className={`${inputClass} resize-none`}
-                />
-              </div>
-            </div>
-          </div>
-          </div>
-
-          <div className="pt-4 border-t border-gray-200 mt-2 bg-white flex-shrink-0 sticky bottom-0 z-10 pb-24 sm:pb-4 px-1">
-            <button
-              type="submit"
-              disabled={isButtonDisabled}
-              className="w-full sm:w-auto py-2.5 px-6 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm text-sm font-medium text-gray-900 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSaving ? 'Saving...' : editingId ? 'Save changes' : 'Add address'}
-            </button>
-          </div>
-
-        </form>
-      </Modal>
+               <div className="p-4 bg-white border-t border-[#D5D9D9] shrink-0 flex justify-end">
+                 <button
+                   type="button"
+                   onClick={handleSave}
+                   disabled={isButtonDisabled}
+                   className="w-full sm:w-auto py-2.5 px-6 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm text-sm font-bold text-[#0F1111] shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                 >
+                   {isSaving ? 'Saving...' : editingId ? 'Save changes' : 'Add address'}
+                 </button>
+               </div>
+  
+           </div>
+        </div>
+      )}
     </div>
   )
 }

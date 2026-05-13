@@ -161,7 +161,7 @@ export default function CustomerModal({ isOpen, onClose, customer, onSuccess }: 
   const errorClass = "text-[#F2B8B5] text-[10px] font-medium mt-1 ml-1"
 
   return (
-    <>
+    <div style={{ colorScheme: 'dark' }}>
       <Modal isOpen={isOpen} onClose={onClose} title={customer ? 'Edit Customer' : 'Add New Customer'}>
         <div className="border-b border-[#333538] mb-6">
           <nav className="flex gap-2 min-w-max pb-px">
@@ -220,9 +220,9 @@ export default function CustomerModal({ isOpen, onClose, customer, onSuccess }: 
                 <div>
                   <label className={labelClass}>State</label>
                   <select name="state" title="State" value={formData.state} onChange={handleChange as any} className={`${inputClass(false)} appearance-none cursor-pointer`}>
-                    <option value="" className="bg-[#1E1F20]">Select State</option>
+                  <option value="" className="bg-[#1E1F20] text-[#E3E3E3]">Select State</option>
                     {INDIAN_STATES?.map((st: any) => (
-                      <option key={st.value || st.name || st} value={st.value || st.name || st} className="bg-[#1E1F20]">
+                    <option key={st.value || st.name || st} value={st.value || st.name || st} className="bg-[#1E1F20] text-[#E3E3E3]">
                         {st.label || st.name || st}
                       </option>
                     ))}
@@ -347,6 +347,6 @@ export default function CustomerModal({ isOpen, onClose, customer, onSuccess }: 
         requireMatch="DELETE" 
         isLoading={isSubmitting}
       />
-    </>
+    </div>
   )
 }

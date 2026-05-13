@@ -32,6 +32,8 @@ export default function CheckoutPage() {
   const { items, totalItems, totalPrice, clearCart } = useCart()
   
   const [mounted, setMounted] = useState(false)
+  const safeTrim = (val?: string | null) => (val || '').trim()
+
   const [savedAddresses, setSavedAddresses] = useState<any[]>([])
   const [isAuthChecking, setIsAuthChecking] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -40,6 +42,7 @@ export default function CheckoutPage() {
   
   // 🚨 NEW: Address Editing Modal State
   const [showAddressModal, setShowAddressModal] = useState(false)
+  const [tempFormData, setTempFormData] = useState<AddressFormData | null>(null)
 
   const [userId, setUserId] = useState<string | null>(null)
   const [isFormLoaded, setIsFormLoaded] = useState(false)
@@ -57,6 +60,20 @@ export default function CheckoutPage() {
   const hasBulkDiscount = items.some((item: any) => 
     item.bulk_price && item.bulk_min_quantity && item.quantity >= item.bulk_min_quantity
   )
+
+  const isModalDirty = JSON.stringify(tempFormData) !== JSON.stringify(formData)
+  const isTempContactValid = safeTrim(tempFormData?.name).length > 0 && safeTrim(tempFormData?.phone).length > 0 && isPhoneValid
+  const isTempPincodeValid = /^\d{6}$/.test((tempFormData?.pincode || '').replace(/\D/g, ''))
+  const isTempAddressValid = 
+    safeTrim(tempFormData?.addressLine1).length > 0 &&
+    safeTrim(tempFormData?.addressLine2).length > 0 &&
+    safeTrim(tempFormData?.city).length > 0 &&
+    safeTrim(tempFormData?.state).length > 0 &&
+    isTempPincodeValid
+
+  const isModalFormValid = shippingMethod === 'pickup'
+    ? (isTempContactValid && isTempPincodeValid)
+    : (isTempContactValid && isTempAddressValid)
 
   useEffect(() => {
     setMounted(true)
@@ -81,6 +98,7 @@ export default function CheckoutPage() {
         setShowConfirmModal(false)
       } else if (showAddressModal) {
         setShowAddressModal(false)
+        setTempFormData(null)
       } else {
         setShowCartWarningModal(true)
       }
@@ -109,8 +127,6 @@ export default function CheckoutPage() {
     setIsNavigatingToCart(true)
     setTimeout(() => { router.push('/cart') }, 200)
   }
-
-  const safeTrim = (val?: string | null) => (val || '').trim()
   
   const isContactValid = safeTrim(formData.name).length > 0 && safeTrim(formData.phone).length > 0 && isPhoneValid
   const isPincodeValid = /^\d{6}$/.test((formData.pincode || '').replace(/\D/g, ''))
@@ -269,7 +285,7 @@ export default function CheckoutPage() {
   }
 
   // 🚨 RENDER REUSABLE SAVED ADDRESSES DROPDOWN
-  const renderSavedAddressesDropdown = () => {
+  const renderSavedAddressesDropdown = (isModal: boolean = false) => {
     if (savedAddresses.length === 0) return null
     return (
       <div className="bg-white border border-[#D5D9D9] p-4 rounded-sm shadow-sm flex flex-col gap-2 mb-4">
@@ -283,16 +299,21 @@ export default function CheckoutPage() {
           onChange={(e) => {
             const address = savedAddresses.find(a => a.id === e.target.value)
             if (address) {
-              setFormData({
+              const newData = {
                 name: address.name || '', phone: address.phone || '', addressLine1: address.address_line1 || '', addressLine2: address.address_line2 || '', landmark: address.landmark || '', city: address.city || '', state: address.state || '', pincode: address.pincode || '', delivery_instructions: address.delivery_instructions || ''
-              })
+              }
+              if (isModal && tempFormData) {
+                setTempFormData(newData)
+              } else {
+                setFormData(newData)
+              }
             }
           }}
           className="w-full px-3 py-2.5 sm:py-3 bg-white border border-[#D5D9D9] rounded-sm text-[15px] text-[#0F1111] focus:outline-none focus:border-[#FF9900] cursor-pointer disabled:cursor-not-allowed"
         >
-          <option value="">Select a saved address...</option>
+          <option value="" className="bg-white text-gray-500">Select a saved address...</option>
           {savedAddresses.map((addr) => (
-            <option key={addr.id} value={addr.id}>
+            <option key={addr.id} value={addr.id} className="bg-white text-[#0F1111]">
               {addr.name} - {addr.address_line1}, {addr.city}
             </option>
           ))}
@@ -303,10 +324,10 @@ export default function CheckoutPage() {
 
   if (isAuthChecking) {
     return (
-      <Container className="flex-1 min-h-[80vh] flex flex-col items-center justify-center bg-[#F0F2F2]">
+      <Container className="flex-1 min-h-[80vh] flex flex-col items-center justify-center bg-white">
         <div className="flex flex-col items-center">
           <Loader />
-          <p className="text-sm font-medium text-gray-600 mt-4">Securing your checkout...</p>
+          <p className="text-sm font-bold text-[#0F1111] mt-4">Securing your checkout...</p>
         </div>
       </Container>
     )
@@ -314,7 +335,7 @@ export default function CheckoutPage() {
 
   return (
     // 🚨 AMAZON STYLING: Cool Gray Background
-    <div className="min-h-screen bg-[#F0F2F2] flex flex-col">
+    <div className="min-h-screen bg-[#F0F2F2] flex flex-col" style={{ colorScheme: 'light' }}>
       <header className="fixed top-0 left-0 w-full py-4 border-b border-[#D5D9D9] bg-white z-50 shadow-sm">
         <Container>
           <div className="flex items-center justify-between">
@@ -384,7 +405,7 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                   <button
-                    onClick={() => setShowAddressModal(true)}
+                    onClick={() => { setTempFormData(formData); setShowAddressModal(true); }}
                     className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer font-medium whitespace-nowrap"
                   >
                     Change
@@ -472,33 +493,41 @@ export default function CheckoutPage() {
         </div>
 
         {/* 🚨 ADDRESS EDITING MODAL */}
-        {showAddressModal && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        {showAddressModal && tempFormData && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" style={{ colorScheme: 'light' }}>
              <div className="relative w-full max-w-2xl bg-[#F0F2F2] rounded-sm shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
                <div className="flex items-center justify-between p-4 bg-white border-b border-[#D5D9D9] shrink-0">
                   <h3 className="text-lg font-bold text-[#0F1111]">Change Delivery Details</h3>
-                  <button onClick={() => setShowAddressModal(false)} className="p-1 hover:bg-gray-100 rounded-sm cursor-pointer">
+                  <button onClick={() => { setShowAddressModal(false); setTempFormData(null); }} className="p-1 hover:bg-gray-100 rounded-sm cursor-pointer">
                     <X className="w-5 h-5 text-gray-500" />
                   </button>
                </div>
                <div className="p-4 overflow-y-auto overscroll-contain flex-1">
-                  {renderSavedAddressesDropdown()}
+                  {renderSavedAddressesDropdown(true)}
                   <AddressForm
-                    formData={formData}
-                    onChange={handleFormChange}
+                    formData={tempFormData}
+                    onChange={(field, value) => setTempFormData(prev => ({ ...prev!, [field]: value }))}
                     onPhoneValidationChange={handlePhoneValidation}
                     onCountryChange={handleCountryChange}
                     shippingMethod={shippingMethod}
                     disabled={isProcessing}
-                    onClear={handleClearAddressForm}
+                    onClear={() => {
+                       setTempFormData({ name: '', phone: '', addressLine1: '', addressLine2: '', city: '', state: '', pincode: '', landmark: '', delivery_instructions: '' })
+                       setIsPhoneValid(true)
+                       setSelectedCountryCode('IN')
+                    }}
                   />
                </div>
                <div className="p-4 bg-white border-t border-[#D5D9D9] shrink-0 flex justify-end">
                   <button 
                     onClick={() => {
-                      if (isFormValid) setShowAddressModal(false)
+                      if (isModalFormValid) {
+                        setFormData(tempFormData)
+                        setShowAddressModal(false)
+                        setTempFormData(null)
+                      }
                     }} 
-                    disabled={!isFormValid}
+                    disabled={!isModalFormValid || !isModalDirty}
                     className="px-6 py-2.5 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm text-sm font-bold text-[#0F1111] shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Use this address

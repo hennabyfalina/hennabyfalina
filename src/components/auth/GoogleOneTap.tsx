@@ -40,7 +40,8 @@ export default function GoogleOneTap() {
           .maybeSingle()
 
         if (userData?.role === 'admin') {
-          window.location.href = '/admin-gate'
+          router.push('/admin-gate')
+          router.refresh()
           return
         }
       }
@@ -48,8 +49,10 @@ export default function GoogleOneTap() {
       const params = new URLSearchParams(window.location.search)
       const redirectPath = params.get('next') || params.get('redirect') || '/products'
       
-      // 🚨 PWA FIX: Force a hard reload so the middleware immediately sees the newly set auth cookies!
-      window.location.assign(redirectPath)
+      // 🚨 PWA FIX: Use Next.js router! Hard reloads (window.location) in PWA mode cause the Service Worker 
+      // to serve a stale cached unauthenticated page, creating an infinite login loop!
+      router.push(redirectPath)
+      router.refresh()
 
     } catch (error) {
       console.error('[Google One Tap] Auth Error:', error)

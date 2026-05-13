@@ -24,5 +24,16 @@ export default async function SecurityPage() {
     .eq('id', session.user.id)
     .single()
 
-  return <SecurityClient sessionUser={session.user} userData={userData} />
+  // 🚨 FETCH PHONE FROM ADDRESSES TABLE 🚨
+  const { data: addressData } = await supabase
+    .from('addresses')
+    .select('phone')
+    .eq('user_id', session.user.id)
+    .order('is_default', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  const addressPhone = addressData?.[0]?.phone || null
+
+  return <SecurityClient sessionUser={session.user} userData={userData} addressPhone={addressPhone} />
 }

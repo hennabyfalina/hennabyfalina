@@ -3,9 +3,6 @@
 'use client'
 
 import { useState } from 'react'
-import PhoneInputLib, { isValidPhoneNumber, parsePhoneNumber } from 'react-phone-number-input'
-import type { Country } from 'react-phone-number-input'
-import 'react-phone-number-input/style.css'
 
 interface PhoneInputProps {
   value: string
@@ -26,68 +23,57 @@ export default function PhoneInput({
 }: PhoneInputProps) {
   const [touched, setTouched] = useState(false)
 
-  // Default to India (IN) - no IP detection to avoid CORS issues
-  const defaultCountry: Country = 'IN'
+  // Always default to India for compatibility
+  if (onCountryChange && !value) {
+    onCountryChange('IN')
+  }
 
-  const handleChange = (val: string | undefined) => {
-    const phone = val ?? ''
-    onChange(phone)
+  // Clean the incoming value for display (strip +91 if present)
+  const displayValue = value.startsWith('+91') 
+    ? value.slice(3) 
+    : (value.startsWith('91') && value.length === 12 ? value.slice(2) : value.replace(/\D/g, '').slice(0, 10))
 
-    // Extract country from phone number when user types or selects flag
-    if (phone && onCountryChange) {
-      try {
-        const parsed = parsePhoneNumber(phone)
-        if (parsed && parsed.country) {
-          onCountryChange(parsed.country)
-        }
-      } catch (e) {
-        // ignore parsing errors
-      }
-    }
-
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawNumbers = e.target.value.replace(/\D/g, '').slice(0, 10)
+    const fullPhone = rawNumbers.length > 0 ? `+91${rawNumbers}` : ''
+    
+    onChange(fullPhone)
+    
     if (onValidationChange) {
-      if (!phone) {
-        onValidationChange(false) // An empty phone number is not valid if required
-      } else {
-        onValidationChange(isValidPhoneNumber(phone))
-      }
+      onValidationChange(rawNumbers.length === 10)
     }
   }
 
-  const handleCountrySelect = (countryCode: Country) => {
-    // When user manually selects a flag, notify parent
-    if (onCountryChange) {
-      onCountryChange(countryCode)
-    }
-  }
-
-  const showError = touched && value && !isValidPhoneNumber(value)
+  const showError = touched && displayValue.length > 0 && displayValue.length < 10
 
   return (
     <div>
       <div
-        className={`flex items-center border rounded-sm bg-white transition-shadow focus-within:ring-1 ${
+        className={`flex items-stretch border rounded-sm bg-white transition-shadow focus-within:ring-1 ${
           showError || error
             ? 'border-red-600 focus-within:border-red-600 focus-within:ring-red-600'
             : 'border-[#D5D9D9] focus-within:border-[#FF9900] focus-within:ring-[#FF9900]'
         }`}
       >
-        <PhoneInputLib
-          international
-          countryCallingCodeEditable={false}
-          defaultCountry={defaultCountry}
-          value={value}
+        <div className="flex items-center justify-center px-3 bg-[#F3F4F6] border-r border-[#D5D9D9] text-[15px] font-bold text-[#565959] select-none">
+          +91
+        </div>
+        <input
+          type="tel"
+          value={displayValue}
           onChange={handleChange}
           onBlur={() => setTouched(true)}
-          onCountryChange={handleCountrySelect}
           disabled={disabled}
-          className="w-full phone-input-custom px-3 py-2 text-sm text-[#0F1111]"
+          placeholder="10-digit mobile number"
+          className="w-full px-3 py-2.5 sm:py-3 text-[15px] font-medium text-[#0F1111] bg-transparent border-none outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
+          maxLength={10}
         />
       </div>
 
       {showError && !error && (
         <p className="text-xs text-red-600 font-medium mt-1">
           <span className="font-bold"></span>
+          Please enter a valid 10-digit mobile number
         </p>
       )}
       {error && (

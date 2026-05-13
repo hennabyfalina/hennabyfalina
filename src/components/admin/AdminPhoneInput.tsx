@@ -16,6 +16,15 @@ interface AdminPhoneInputProps {
   disabled?: boolean
 }
 
+// 🚨 GOOGLE GEMINI-STYLE TEXT FLAG: Eliminates PWA Image Loading Errors 🚨
+const CustomTextFlag = ({ country }: { country?: string }) => {
+  return (
+    <span className="text-[10px] font-bold text-[#A8C7FA] bg-[#0B57D0]/10 border border-[#0B57D0]/30 px-1.5 py-0.5 rounded shadow-sm inline-block min-w-[26px] text-center uppercase tracking-widest">
+      {country || 'WW'}
+    </span>
+  )
+}
+
 export default function AdminPhoneInput({
   value,
   onChange,
@@ -69,6 +78,7 @@ export default function AdminPhoneInput({
           onChange={handleChange}
           onBlur={() => setTouched(true)}
           onCountryChange={handleCountrySelect}
+          flagComponent={CustomTextFlag}
           disabled={disabled}
           className="w-full flex items-center gap-3 [&_.PhoneInputInput]:bg-transparent [&_.PhoneInputInput]:border-none [&_.PhoneInputInput]:focus:outline-none [&_.PhoneInputInput]:focus:ring-0 [&_.PhoneInputInput]:w-full [&_.PhoneInputInput]:text-[#E3E3E3] [&_.PhoneInputInput]:placeholder:text-[#565959]"
         />

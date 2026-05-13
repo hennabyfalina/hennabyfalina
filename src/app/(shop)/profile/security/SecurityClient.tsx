@@ -12,11 +12,13 @@ import PhoneInput from '@/components/ui/PhoneInput'
 interface SecurityClientProps {
   sessionUser: any
   userData: any
+  addressPhone?: string | null
 }
 
-export default function SecurityClient({ sessionUser, userData }: SecurityClientProps) {
+export default function SecurityClient({ sessionUser, userData, addressPhone }: SecurityClientProps) {
   const [isEditingPhone, setIsEditingPhone] = useState(false)
-  const [phone, setPhone] = useState(userData?.phone || sessionUser.phone || '')
+  const initialPhone = addressPhone || userData?.phone || sessionUser?.phone || sessionUser?.user_metadata?.phone || ''
+  const [phone, setPhone] = useState(initialPhone)
   const [isPhoneValid, setIsPhoneValid] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -58,9 +60,9 @@ export default function SecurityClient({ sessionUser, userData }: SecurityClient
 
     try {
       const { error } = await supabase
-        .from('users')
+        .from('addresses')
         .update({ phone: phone })
-        .eq('id', sessionUser.id)
+        .eq('user_id', sessionUser.id) // 🚨 FIX: Match user_id column, not the address id column!
 
       if (error) {
         console.error('Supabase update error:', error)
@@ -133,16 +135,16 @@ export default function SecurityClient({ sessionUser, userData }: SecurityClient
                 <div className="text-xs text-gray-500 mt-1">Securely receive delivery updates</div>
               </div>
               
-              {isPhonePrimary ? (
+              {phone ? (
                 <div className="text-xs text-gray-400 font-medium text-right">
-                  Primary login
+                  {isPhonePrimary ? 'Primary login' : 'Cannot edit'}
                 </div>
               ) : (
                 <button 
                   onClick={() => setIsEditingPhone(true)}
                   className="px-4 py-1.5 bg-white border border-gray-300 rounded-sm text-xs font-medium text-gray-900 hover:bg-gray-50 shadow-sm transition-colors"
                 >
-                  {phone ? 'Edit' : 'Add'}
+                  Add
                 </button>
               )}
             </div>
@@ -168,7 +170,7 @@ export default function SecurityClient({ sessionUser, userData }: SecurityClient
                   <button 
                     onClick={() => {
                       setIsEditingPhone(false)
-                      setPhone(userData?.phone || sessionUser.phone || '')
+                      setPhone(initialPhone)
                     }} 
                     className="px-5 py-1.5 bg-white border border-gray-300 rounded-sm text-xs font-medium text-gray-900 hover:bg-gray-50 shadow-sm transition-colors"
                   >
