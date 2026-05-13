@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CheckCircle, AlertTriangle, X } from 'lucide-react'
+import { CheckCircle, AlertTriangle, X, XCircle } from 'lucide-react'
 
 interface ToastItem {
   id: string
@@ -94,21 +94,17 @@ export default function Toaster() {
             key={toast.id}
             className={`transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-auto transform origin-bottom w-full flex flex-col overflow-hidden
               ${isAdmin 
-                ? 'bg-[#1E1F20] rounded-full border border-[#333538] shadow-2xl' // 🚨 GEMINI PILL
-                : 'bg-white rounded-sm border-l-[4px] shadow-[0_4px_14px_rgba(0,0,0,0.15)]' // 🚨 AMAZON BOX
+                ? 'bg-[#1E1F20] rounded-lg border border-[#333538] shadow-2xl' // 🚨 GOOGLE CLOUD STYLE
+                : 'bg-white rounded-sm shadow-[0_4px_14px_rgba(0,0,0,0.15)] border border-[#D5D9D9]' // 🚨 AMAZON BOX
               }
-              ${!isAdmin && (isError ? 'border-l-red-600' : 'border-l-green-600')}
               ${toast.visible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'}
             `}
           >
-            <div className={`flex items-center justify-between gap-3 ${isAdmin ? 'p-3 px-5' : 'p-3.5'}`}>
+            <div className={`flex items-center justify-between gap-3 ${isAdmin ? 'p-3 px-4' : 'p-3.5'}`}>
               <div className="flex items-center gap-3 min-w-0">
-                {isAdmin ? (
-                   // 🚨 Gemini Admin Icons
-                  isError ? <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" /> : <CheckCircle className="w-5 h-5 text-[#A8C7FA] shrink-0" />
-                ) : (
+                {!isAdmin && (
                   // 🚨 Amazon Store Icons
-                  isError ? <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" /> : <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
+                  isError ? <XCircle className="w-5 h-5 text-red-600 shrink-0" /> : <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
                 )}
                 
                 <span className={`text-sm font-medium ${isAdmin ? 'text-[#E3E3E3]' : 'text-[#0F1111]'}`}>
@@ -134,14 +130,16 @@ export default function Toaster() {
                   </Link>
                 )}
 
-                {/* Close Button */}
-                <button 
-                  onClick={() => removeToast(toast.id)} 
-                  className={`transition-colors p-1 rounded-full ${isAdmin ? 'text-[#8E9196] hover:bg-[#282A2C] hover:text-[#E3E3E3]' : 'text-gray-400 hover:text-gray-600'}`}
-                  aria-label="Close"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                {/* Close Action */}
+                {isAdmin ? (
+                  <button onClick={() => removeToast(toast.id)} className="text-[12px] font-bold text-[#A8C7FA] hover:bg-[#A8C7FA]/10 px-3 py-2 rounded transition-colors uppercase tracking-wide cursor-pointer shrink-0" aria-label="Close">
+                    Close
+                  </button>
+                ) : (
+                  <button onClick={() => removeToast(toast.id)} className="transition-colors p-1 rounded-full text-gray-400 hover:text-gray-600 cursor-pointer" aria-label="Close">
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
           </div>

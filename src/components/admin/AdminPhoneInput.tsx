@@ -3,87 +3,60 @@
 'use client'
 
 import { useState } from 'react'
-import PhoneInputLib, { isValidPhoneNumber, parsePhoneNumber } from 'react-phone-number-input'
-import type { Country } from 'react-phone-number-input'
-import 'react-phone-number-input/style.css'
 
 interface AdminPhoneInputProps {
   value: string
   onChange: (value: string) => void
   onValidationChange?: (isValid: boolean) => void
-  onCountryChange?: (countryCode: string) => void
   error?: string
   disabled?: boolean
-}
-
-// 🚨 GOOGLE GEMINI-STYLE TEXT FLAG: Eliminates PWA Image Loading Errors 🚨
-const CustomTextFlag = ({ country }: { country?: string }) => {
-  return (
-    <span className="text-[10px] font-bold text-[#A8C7FA] bg-[#0B57D0]/10 border border-[#0B57D0]/30 px-1.5 py-0.5 rounded shadow-sm inline-block min-w-[26px] text-center uppercase tracking-widest">
-      {country || 'WW'}
-    </span>
-  )
 }
 
 export default function AdminPhoneInput({
   value,
   onChange,
   onValidationChange,
-  onCountryChange,
   error,
   disabled,
 }: AdminPhoneInputProps) {
   const [touched, setTouched] = useState(false)
 
-  const defaultCountry: Country = 'IN'
+  // Clean the incoming value for display (strip +91 if present)
+  const displayValue = value.startsWith('+91') 
+    ? value.slice(3) 
+    : (value.startsWith('91') && value.length === 12 ? value.slice(2) : value.replace(/\D/g, '').slice(0, 10))
 
-  const handleChange = (val: string | undefined) => {
-    const phone = val ?? ''
-    onChange(phone)
-
-    if (phone && onCountryChange) {
-      try {
-        const parsed = parsePhoneNumber(phone)
-        if (parsed && parsed.country) {
-          onCountryChange(parsed.country)
-        }
-      } catch (e) {}
-    }
-
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawNumbers = e.target.value.replace(/\D/g, '').slice(0, 10)
+    const fullPhone = rawNumbers.length > 0 ? `+91${rawNumbers}` : ''
+    
+    onChange(fullPhone)
+    
     if (onValidationChange) {
-      if (!phone) {
-        onValidationChange(false)
-      } else {
-        onValidationChange(isValidPhoneNumber(phone))
-      }
+      onValidationChange(rawNumbers.length === 10)
     }
   }
 
-  const handleCountrySelect = (countryCode: Country) => {
-    if (onCountryChange) {
-      onCountryChange(countryCode)
-    }
-  }
-
-  const showError = touched && value && !isValidPhoneNumber(value)
+  const showError = touched && displayValue.length > 0 && displayValue.length < 10
 
   return (
     <div>
-      <div className={`flex items-center w-full px-4 py-3 bg-[#131314] border ${showError || error ? 'border-[#8C1D18] ring-1 ring-[#8C1D18]' : 'border-[#333538]'} rounded-2xl focus-within:border-[#A8C7FA] focus-within:ring-1 focus-within:ring-[#A8C7FA] transition-all`}>
-        <PhoneInputLib
-          international
-          countryCallingCodeEditable={false}
-          defaultCountry={defaultCountry}
-          value={value}
+      <div className={`flex items-stretch w-full overflow-hidden bg-[#131314] border ${showError || error ? 'border-[#8C1D18] ring-1 ring-[#8C1D18]' : 'border-[#333538]'} rounded-2xl focus-within:border-[#A8C7FA] focus-within:ring-1 focus-within:ring-[#A8C7FA] transition-all`}>
+        <div className="flex items-center justify-center px-4 bg-[#1E1F20] border-r border-[#333538] text-sm font-bold text-[#8E9196] select-none">
+          +91
+        </div>
+        <input
+          type="tel"
+          value={displayValue}
           onChange={handleChange}
           onBlur={() => setTouched(true)}
-          onCountryChange={handleCountrySelect}
-          flagComponent={CustomTextFlag}
           disabled={disabled}
-          className="w-full flex items-center gap-3 [&_.PhoneInputInput]:bg-transparent [&_.PhoneInputInput]:border-none [&_.PhoneInputInput]:focus:outline-none [&_.PhoneInputInput]:focus:ring-0 [&_.PhoneInputInput]:w-full [&_.PhoneInputInput]:text-[#E3E3E3] [&_.PhoneInputInput]:placeholder:text-[#565959]"
+          placeholder="10-digit mobile number"
+          className="w-full px-4 py-3 text-sm font-medium text-[#E3E3E3] bg-transparent border-none outline-none disabled:opacity-50 placeholder:text-[#565959]"
+          maxLength={10}
         />
       </div>
-      {showError && !error && <p className="text-[#F2B8B5] text-[10px] font-medium mt-1 ml-1">Please enter a valid phone number</p>}
+      {showError && !error && <p className="text-[#F2B8B5] text-[10px] font-medium mt-1 ml-1">Please enter a valid 10-digit mobile number</p>}
       {error && <p className="text-[#F2B8B5] text-[10px] font-medium mt-1 ml-1">{error}</p>}
     </div>
   )
