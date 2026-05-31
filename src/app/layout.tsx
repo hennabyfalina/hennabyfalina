@@ -11,6 +11,7 @@ import QuickViewModal from '@/components/product/QuickViewModal'
 import { siteConfig } from '@/config/site'
 import { Analytics } from '@vercel/analytics/next'
 import SplashScreen from '@/components/ui/SplashScreen'
+import BroadcastListener from '@/components/providers/BroadcastListener'
 
 const inter = localFont({
   // Download 'Inter-VariableFont.ttf' and place it in your 'public/fonts' directory
@@ -131,6 +132,7 @@ export default function RootLayout({
           <PWAUpdater />
           <Analytics />
           <QuickViewModal />
+          <BroadcastListener />
         </WishlistProvider>
       </body>
     </html>

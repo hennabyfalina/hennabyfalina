@@ -2,7 +2,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { 
   getCategoriesWithCounts, 
@@ -21,7 +21,6 @@ import { showToast } from '@/components/ui/Toast'
 import { Layers, CheckCircle, Package, GripVertical, Search, Filter, Edit, Trash2, Image as ImageIcon } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 
-// 🚨 IMPORTED DRY CONSTANT 🚨
 import { CATEGORY_SORT_OPTIONS } from '@/lib/constants'
 
 const formatIST = (dateString?: string) => {
@@ -45,15 +44,10 @@ export default function AdminCategories() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
   
-  // Filters
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('display_order')
 
-  useEffect(() => {
-    loadCategories()
-  }, [])
-
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     setIsLoading(true)
     try {
       const data = await getCategoriesWithCounts()
@@ -63,7 +57,11 @@ export default function AdminCategories() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    loadCategories()
+  }, [loadCategories])
 
   const handleSubmit = async (formData: any) => {
     setIsSubmitting(true)
@@ -111,13 +109,12 @@ export default function AdminCategories() {
 
     setCategories(items)
 
-    // Update order in database (Silent UI update)
     const orderedIds = items.map(item => item.id)
     try {
       await updateCategoryOrder(orderedIds)
     } catch (error) {
       showToast('Failed to save new order', 'error')
-      loadCategories() // Revert on failure
+      loadCategories()
     }
   }
 
@@ -148,11 +145,11 @@ export default function AdminCategories() {
   return (
     <>
       <div className="flex flex-col gap-6">
-        {/* Header */}
+        
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-[28px] font-medium text-[#E3E3E3] tracking-tight leading-tight">Categories</h1>
-            <p className="text-sm text-[#C4C7C5] mt-1">Organize products into functional catalog hierarchies.</p>
+            <h1 className="text-[28px] font-medium admin-text-primary tracking-tight leading-tight">Categories</h1>
+            <p className="text-sm admin-text-secondary mt-1">Organize products into functional catalog hierarchies.</p>
           </div>
           <button
             onClick={() => {
@@ -165,57 +162,53 @@ export default function AdminCategories() {
           </button>
         </div>
 
-        {/* Gemini-Inspired Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard title="Total Categories" value={totalCategories} icon={<Layers className="w-5 h-5" />} />
           <StatsCard title="Active Categories" value={activeCategories} icon={<CheckCircle className="w-5 h-5 text-green-500" />} />
           <StatsCard title="Products Mapped" value={totalProducts} icon={<Package className="w-5 h-5" />} />
         </div>
 
-        {/* Gemini Floating Controls */}
-        <div className="flex flex-col md:flex-row gap-3 bg-[#1E1F20] p-3 rounded-[24px] border border-[#333538]">
+        <div className="flex flex-col md:flex-row gap-3 admin-bg-card p-3 rounded-[24px] border admin-border">
           <div className="relative flex-1 group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8E9196] group-focus-within:text-[#A8C7FA] transition-colors" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 admin-text-muted group-focus-within:admin-text-accent transition-colors" />
             <input
               type="text"
               placeholder="Search categories..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-3 pl-10 bg-[#131314] border border-transparent text-[#E3E3E3] placeholder:text-[#8E9196] rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-text"
+              className="w-full px-4 py-3 pl-10 admin-bg-primary border border-transparent admin-text-primary placeholder:admin-text-muted rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-text"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8E9196] hover:text-[#E3E3E3]">✕</button>
+              <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 admin-text-muted hover:admin-text-primary">✕</button>
             )}
           </div>
           
           <div className="flex gap-3 overflow-x-auto no-scrollbar">
-            {/* 🚨 DRY Sort Dropdown 🚨 */}
             <div className="relative shrink-0 min-w-[220px]">
-              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8E9196]" />
+              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 admin-text-muted" />
               <select
                 value={sortBy}
                 title="Sort categories"
                 onChange={(e) => setSortBy(e.target.value)}
-                className="w-full px-4 py-3 pl-10 pr-8 appearance-none bg-[#131314] border border-transparent text-[#E3E3E3] rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
+                className="w-full px-4 py-3 pl-10 pr-8 appearance-none admin-bg-primary border border-transparent admin-text-primary rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
               >
                 {CATEGORY_SORT_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value} className="bg-[#1E1F20]">{opt.label}</option>
+                  <option key={opt.value} value={opt.value} className="admin-bg-card">{opt.label}</option>
                 ))}
               </select>
             </div>
           </div>
         </div>
 
-        {/* Categories List (Drag & Drop) */}
-        <div className="bg-[#1E1F20] rounded-[32px] border border-[#333538] overflow-hidden">
+        <div className="admin-bg-card rounded-[32px] border admin-border overflow-hidden">
           {isLoading && categories.length > 0 && (
-            <div className="w-full h-1 bg-[#282A2C] overflow-hidden">
+            <div className="w-full h-1 admin-bg-elevated overflow-hidden">
               <div className="h-full bg-[#A8C7FA] animate-pulse w-1/3 rounded-r-full"></div>
             </div>
           )}
           
-          <div className="px-6 py-5 bg-[#131314]/30 border-b border-[#333538]">
-            <div className="grid grid-cols-12 gap-4 text-xs font-bold text-[#8E9196] uppercase tracking-widest">
+          <div className="px-6 py-5 admin-bg-primary/30 border-b admin-border">
+            <div className="grid grid-cols-12 gap-4 text-xs font-bold admin-text-muted uppercase tracking-widest">
               <div className="col-span-6 sm:col-span-5">Category Details</div>
               <div className="col-span-3 sm:col-span-2 text-center">Products</div>
               <div className="hidden sm:block sm:col-span-3 text-center">Last Updated</div>
@@ -226,7 +219,7 @@ export default function AdminCategories() {
           <DragDropContext onDragEnd={handleDragEnd}>
             <Droppable droppableId="categories">
               {(provided) => (
-                <div {...provided.droppableProps} ref={provided.innerRef} className="divide-y divide-[#333538] min-h-[100px]">
+                <div {...provided.droppableProps} ref={provided.innerRef} className="divide-y admin-border min-h-[100px]">
                   {sortedCategories.map((category, index) => (
                     <Draggable key={category.id} draggableId={category.id} index={index} isDragDisabled={sortBy !== 'display_order' || searchQuery.length > 0}>
                       {(provided, snapshot) => (
@@ -234,60 +227,55 @@ export default function AdminCategories() {
                           ref={provided.innerRef}
                           {...provided.draggableProps}
                           className={`grid grid-cols-12 gap-4 items-center px-6 py-4 transition-colors group ${
-                            snapshot.isDragging ? 'bg-[#282A2C] shadow-2xl ring-1 ring-[#0B57D0] z-50 rounded-[24px]' : 'bg-[#1E1F20] hover:bg-[#282A2C]'
+                            snapshot.isDragging ? 'admin-bg-elevated shadow-2xl ring-1 ring-[#0B57D0] z-50 rounded-[24px]' : 'admin-bg-card hover:admin-bg-elevated'
                           }`}
                         >
                           <div className="col-span-6 sm:col-span-5 flex items-center gap-4">
-                            {/* Drag Handle */}
                             <div 
                               {...provided.dragHandleProps} 
-                              className={`flex-shrink-0 p-1 rounded-md transition-colors ${sortBy === 'display_order' && !searchQuery ? 'cursor-grab text-[#565959] hover:text-[#A8C7FA] hover:bg-[#131314]' : 'opacity-20 cursor-not-allowed'}`}
+                              className={`flex-shrink-0 p-1 rounded-md transition-colors ${sortBy === 'display_order' && !searchQuery ? 'cursor-grab admin-text-muted hover:admin-text-accent hover:admin-bg-primary' : 'opacity-20 cursor-not-allowed'}`}
                               title={sortBy !== 'display_order' ? "Sort by Custom Order to drag" : "Drag to reorder"}
                             >
                               <GripVertical className="w-5 h-5" />
                             </div>
 
-                            {/* Image Thumbnail */}
                             {category.image ? (
-                              <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#131314] border border-[#333538] flex-shrink-0">
+                              <div className="w-10 h-10 rounded-xl overflow-hidden admin-bg-primary border admin-border flex-shrink-0">
                                 <img src={category.image} alt={category.name} className="w-full h-full object-cover" />
                               </div>
                             ) : (
-                              <div className="w-10 h-10 bg-[#131314] border border-[#333538] rounded-xl flex items-center justify-center flex-shrink-0">
+                              <div className="w-10 h-10 admin-bg-primary border admin-border rounded-xl flex items-center justify-center flex-shrink-0">
                                 <ImageIcon className="w-4 h-4 text-[#565959]" />
                               </div>
                             )}
 
-                            {/* Text Info */}
                             <div className="min-w-0 flex-1">
-                              <h3 className="font-medium text-[#E3E3E3] truncate text-[15px] group-hover:text-[#A8C7FA] transition-colors">{category.name}</h3>
+                              <h3 className="font-medium admin-text-primary truncate text-[15px] group-hover:admin-text-accent transition-colors">{category.name}</h3>
                               {category.description && (
-                                <p className="text-xs text-[#8E9196] truncate hidden sm:block mt-0.5">{category.description}</p>
+                                <p className="text-xs admin-text-muted truncate hidden sm:block mt-0.5">{category.description}</p>
                               )}
                             </div>
                           </div>
 
-                          {/* Product Count Badge */}
                           <div className="col-span-3 sm:col-span-2 text-center">
                             <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase ${
-                              (category.product_count ?? 0) > 0 ? 'bg-[#0B57D0]/10 text-[#A8C7FA] border border-[#0B57D0]/30' : 'bg-[#131314] text-[#8E9196] border border-[#333538]'
+                              (category.product_count ?? 0) > 0 ? 'bg-[#0B57D0]/10 text-[#A8C7FA] border border-[#0B57D0]/30' : 'admin-bg-primary admin-text-muted border admin-border'
                             }`}>
                               {category.product_count || 0} ITEMS
                             </span>
                           </div>
 
-                          <div className="hidden sm:block sm:col-span-3 text-center text-sm text-[#8E9196] whitespace-nowrap">
+                          <div className="hidden sm:block sm:col-span-3 text-center text-sm admin-text-muted whitespace-nowrap">
                             {formatIST(category.updated_at)}
                           </div>
 
-                          {/* Actions */}
                           <div className="col-span-3 sm:col-span-2 flex items-center justify-end gap-1 sm:gap-2">
                             <button
                               onClick={() => {
                                 setEditingCategory(category)
                                 setIsModalOpen(true)
                               }}
-                              className="p-2 text-[#A8C7FA] hover:bg-[#0B57D0]/20 rounded-full transition-colors cursor-pointer"
+                              className="p-2 admin-text-accent hover:bg-[#0B57D0]/20 rounded-full transition-colors cursor-pointer"
                               title="Edit Category"
                             >
                               <Edit className="w-4 h-4" />
@@ -295,7 +283,11 @@ export default function AdminCategories() {
                             {isSuperAdmin && (
                               <button
                                 onClick={() => setCategoryToDelete(category)}
-                                className="p-2 text-[#F2B8B5] hover:bg-[#8C1D18]/40 rounded-full transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                                className={`p-2 transition-colors rounded-full cursor-pointer ${
+                                  (category.product_count ?? 0) > 0 
+                                    ? 'text-gray-400 dark:text-[#565959] cursor-not-allowed' 
+                                    : 'text-red-500 dark:text-[#F2B8B5] hover:bg-red-100 dark:hover:bg-[#8C1D18]/40'
+                                }`}
                                 disabled={(category.product_count ?? 0) > 0}
                                 title={(category.product_count ?? 0) > 0 ? `Cannot delete: Has ${category.product_count} products mapped` : 'Delete Category'}
                               >
@@ -315,14 +307,13 @@ export default function AdminCategories() {
 
           {filteredCategories.length === 0 && !isLoading && (
             <div className="text-center py-16">
-              <Layers className="w-12 h-12 text-[#333538] mx-auto mb-4" />
-              <p className="text-[#8E9196] font-medium">No categories found matching your criteria.</p>
+              <Layers className="w-12 h-12 admin-text-muted mx-auto mb-4" />
+              <p className="admin-text-muted font-medium">No categories found matching your criteria.</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* 🚨 GEMINI EDIT MODAL 🚨 */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => {
@@ -351,7 +342,6 @@ export default function AdminCategories() {
         />
       </Modal>
 
-      {/* 🚨 2-STEP VERIFICATION DELETE MODAL 🚨 */}
       <AdminConfirmModal
         isOpen={!!categoryToDelete}
         onClose={() => setCategoryToDelete(null)}
@@ -360,7 +350,7 @@ export default function AdminCategories() {
         description={`You are about to completely delete the category "${categoryToDelete?.name}". This action cannot be undone.`}
         confirmText="Delete Category"
         isDestructive={true}
-        requireMatch="DELETE" // 🚨 Enterprise security
+        requireMatch="DELETE"
         isLoading={isSubmitting}
       />
     </>

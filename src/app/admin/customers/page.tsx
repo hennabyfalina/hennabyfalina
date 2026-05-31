@@ -1,5 +1,3 @@
-// src/app/admin/customers/page.tsx
-
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -10,8 +8,6 @@ import CustomerModal from '@/components/admin/CustomerModal'
 import { Users, UserPlus, UserCheck, Search, Filter, Edit } from 'lucide-react'
 import { formatCurrency, formatCompactIndianCurrency } from '@/lib/utils'
 import { showToast } from '@/components/ui/Toast'
-
-// 🚨 DRY CONSTANTS 🚨
 import { CUSTOMER_SORT_OPTIONS } from '@/lib/constants'
 
 interface Customer {
@@ -30,16 +26,10 @@ export default function AdminCustomers() {
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('newest')
-  
-  // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>(undefined)
 
   const supabase = createClient()
-
-  useEffect(() => {
-    loadCustomers()
-  }, [])
 
   const loadCustomers = async () => {
     setIsLoading(true)
@@ -52,7 +42,6 @@ export default function AdminCustomers() {
       if (error) throw error
       if (!users) { setCustomers([]); return }
 
-      // Get order stats
       const customersWithStats = await Promise.all(
         users.map(async (user) => {
           const { data: orders } = await supabase
@@ -76,7 +65,10 @@ export default function AdminCustomers() {
     }
   }
 
-  // Filter & Sort Logic
+  useEffect(() => {
+    loadCustomers()
+  }, [])
+
   const filteredCustomers = customers.filter(c => 
     c.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
     c.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -92,7 +84,6 @@ export default function AdminCustomers() {
     return 0
   })
 
-  // Metrics
   const thirtyDaysAgo = new Date()
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
   const newCustomers = customers.filter(c => new Date(c.created_at) >= thirtyDaysAgo).length
@@ -110,11 +101,10 @@ export default function AdminCustomers() {
     <>
       <div className="flex flex-col gap-6">
         
-        {/* 🚨 HEADER 🚨 */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-[28px] font-medium text-[#E3E3E3] tracking-tight leading-tight">Customers</h1>
-            <p className="text-sm text-[#C4C7C5] mt-1">Manage accounts, shipping details, and order history.</p>
+            <h1 className="text-[28px] font-medium admin-text-primary tracking-tight leading-tight">Customers</h1>
+            <p className="text-sm admin-text-secondary mt-1">Manage accounts, shipping details, and order history.</p>
           </div>
           <button
             onClick={() => { setSelectedCustomer(undefined); setIsModalOpen(true); }}
@@ -124,94 +114,91 @@ export default function AdminCustomers() {
           </button>
         </div>
 
-        {/* 🚨 STATS GRID 🚨 */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatsCard title="Total Accounts" value={customers.length} icon={<Users className="w-5 h-5" />} />
           <StatsCard title="New This Month" value={newCustomers} icon={<UserPlus className="w-5 h-5 text-green-400" />} />
-          <StatsCard title="Active Buyers" value={activeCustomers} icon={<UserCheck className="w-5 h-5 text-[#A8C7FA]" />} />
+          <StatsCard title="Active Buyers" value={activeCustomers} icon={<UserCheck className="w-5 h-5 admin-text-accent" />} />
         </div>
 
-        {/* 🚨 FLOATING SEARCH & FILTERS 🚨 */}
-        <div className="flex flex-col md:flex-row gap-3 bg-[#1E1F20] p-3 rounded-[24px] border border-[#333538]">
+        <div className="flex flex-col md:flex-row gap-3 admin-bg-card p-3 rounded-[24px] border admin-border">
           <div className="relative flex-1 group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8E9196] group-focus-within:text-[#A8C7FA] transition-colors" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 admin-text-muted group-focus-within:admin-text-accent transition-colors" />
             <input
               type="text"
               placeholder="Search name, email or phone..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-3 pl-10 bg-[#131314] border border-transparent text-[#E3E3E3] placeholder:text-[#8E9196] rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow"
+              className="w-full px-4 py-3 pl-10 admin-bg-primary border border-transparent admin-text-primary placeholder:admin-text-muted rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow"
             />
-            {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8E9196] hover:text-[#E3E3E3]">✕</button>}
+            {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 admin-text-muted hover:admin-text-primary">✕</button>}
           </div>
           
           <div className="relative shrink-0 min-w-[180px]">
-            <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8E9196]" />
+            <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 admin-text-muted" />
             <select
               title="Sort customers"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="w-full px-4 py-3 pl-10 pr-8 appearance-none bg-[#131314] border border-transparent text-[#E3E3E3] rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
+              className="w-full px-4 py-3 pl-10 pr-8 appearance-none admin-bg-primary border border-transparent admin-text-primary rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
             >
               {CUSTOMER_SORT_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value} className="bg-[#1E1F20]">{opt.label}</option>
+                <option key={opt.value} value={opt.value} className="admin-bg-card">{opt.label}</option>
               ))}
             </select>
           </div>
         </div>
 
-        {/* 🚨 ELITE DATA TABLE 🚨 */}
-        <div className="bg-[#1E1F20] rounded-[32px] border border-[#333538] overflow-hidden">
+        <div className="admin-bg-card rounded-[32px] border admin-border overflow-hidden">
           <div className="overflow-x-auto no-scrollbar">
             <table className="w-full min-w-[800px] text-left">
-              <thead className="bg-[#131314]">
+              <thead className="admin-bg-primary">
                 <tr>
-                  <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest">Client Identity</th>
-                  <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest">Contact</th>
-                  <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest">Joined On</th>
-                  <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest">Total Orders</th>
-                  <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest text-right">LTV (Spent)</th>
-                  <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest text-right">Actions</th>
+                  <th className="px-6 py-5 text-xs font-bold admin-text-muted uppercase tracking-widest">Client Identity</th>
+                  <th className="px-6 py-5 text-xs font-bold admin-text-muted uppercase tracking-widest">Contact</th>
+                  <th className="px-6 py-5 text-xs font-bold admin-text-muted uppercase tracking-widest">Joined On</th>
+                  <th className="px-6 py-5 text-xs font-bold admin-text-muted uppercase tracking-widest">Total Orders</th>
+                  <th className="px-6 py-5 text-xs font-bold admin-text-muted uppercase tracking-widest text-right">LTV (Spent)</th>
+                  <th className="px-6 py-5 text-xs font-bold admin-text-muted uppercase tracking-widest text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#333538]">
+              <tbody className="divide-y admin-border">
                 {sortedCustomers.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-16 text-center">
-                      <Users className="w-12 h-12 text-[#333538] mx-auto mb-4" />
-                      <p className="text-[#8E9196] font-medium">No customers found.</p>
+                      <Users className="w-12 h-12 admin-text-muted mx-auto mb-4" />
+                      <p className="admin-text-muted font-medium">No customers found.</p>
                     </td>
                   </tr>
                 ) : (
                   sortedCustomers.map((customer) => (
-                    <tr key={customer.id} onClick={() => { setSelectedCustomer(customer); setIsModalOpen(true); }} className="hover:bg-[#282A2C] transition-colors cursor-pointer group">
+                    <tr key={customer.id} onClick={() => { setSelectedCustomer(customer); setIsModalOpen(true); }} className="hover:admin-bg-elevated transition-colors cursor-pointer group">
                       <td className="px-6 py-5">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-[#131314] border border-[#333538] flex items-center justify-center text-[#A8C7FA] font-bold text-sm">
+                          <div className="w-10 h-10 rounded-full admin-bg-primary border admin-border flex items-center justify-center admin-text-accent font-bold text-sm">
                             {customer.name?.charAt(0).toUpperCase() || 'U'}
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-[#E3E3E3] group-hover:text-[#A8C7FA] transition-colors">{customer.name || 'Unnamed User'}</p>
-                            <p className="text-xs text-[#8E9196] mt-0.5">{customer.email}</p>
+                            <p className="text-sm font-medium admin-text-primary group-hover:admin-text-accent transition-colors">{customer.name || 'Unnamed User'}</p>
+                            <p className="text-xs admin-text-muted mt-0.5">{customer.email}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-5 text-sm text-[#C4C7C5] font-mono">{customer.phone || '—'}</td>
-                      <td className="px-6 py-5 text-sm text-[#C4C7C5]">{new Date(customer.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                      <td className="px-6 py-5 text-sm admin-text-secondary font-mono">{customer.phone || '—'}</td>
+                      <td className="px-6 py-5 text-sm admin-text-secondary">{new Date(customer.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
                       <td className="px-6 py-5">
-                        <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold ${customer.total_orders > 0 ? 'bg-[#214332]/30 text-[#93D7A4] border border-[#214332]' : 'bg-[#282A2C] text-[#8E9196] border border-[#333538]'}`}>
+                        <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold ${customer.total_orders > 0 ? 'bg-[#214332]/30 text-[#93D7A4] border border-[#214332]' : 'admin-bg-elevated admin-text-muted border admin-border'}`}>
                           {customer.total_orders} ORDERS
                         </span>
-                      </td>
-                      <td className="px-6 py-5 text-right font-medium text-[#E3E3E3]">
+                       </td>
+                      <td className="px-6 py-5 text-right font-medium admin-text-primary">
                         {customer.total_spent > 0 ? formatCompactIndianCurrency(customer.total_spent) : '—'}
                       </td>
                       <td className="px-6 py-5 text-right">
-                         <button className="p-2 text-[#A8C7FA] hover:bg-[#0B57D0]/20 rounded-full transition-colors cursor-pointer">
+                         <button className="p-2 admin-text-accent hover:bg-[#0B57D0]/20 rounded-full transition-colors cursor-pointer">
                            <Edit className="w-4 h-4" />
                          </button>
-                      </td>
-                    </tr>
+                       </td>
+                     </tr>
                   ))
                 )}
               </tbody>

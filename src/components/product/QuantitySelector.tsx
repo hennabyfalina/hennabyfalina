@@ -2,6 +2,7 @@
 
 import { Minus, Plus, Edit2, AlertCircle } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 interface QuantitySelectorProps {
   quantity: number
@@ -21,6 +22,11 @@ export default function QuantitySelector({
   const [showModal, setShowModal] = useState(false)
   const [inputValue, setInputValue] = useState<string>(quantity.toString())
   const inputRef = useRef<HTMLInputElement>(null)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Enterprise Scroll Lock
   // This completely stops the background page from scrolling while the modal is open
@@ -112,7 +118,7 @@ export default function QuantitySelector({
           <Minus className="w-3.5 h-3.5" strokeWidth={2.5} />
         </button>
         
-        <div className="min-w-[24px] text-center font-bold text-sm text-gray-900 mx-1">
+        <div className="min-w-[24px] text-center font-bold text-sm text-gray-900 mx-1" suppressHydrationWarning>
           {quantity}
         </div>
         
@@ -139,9 +145,9 @@ export default function QuantitySelector({
       </div>
 
       {/* Manual Input Modal */}
-      {showModal && (
+      {showModal && mounted && createPortal(
         <div 
-          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200" 
+          className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200" 
           onClick={handleModalClose}
         >
           <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-5 animate-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
@@ -194,7 +200,8 @@ export default function QuantitySelector({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )

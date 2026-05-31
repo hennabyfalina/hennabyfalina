@@ -13,12 +13,11 @@ interface Product {
   images?: string[]
   original_price?: number
   selling_price?: number
-  bulk_price?: number | null
-  bulk_min_quantity?: number | null
   description?: string | null
-  stock?: number  // ✅ Make sure this is included
+  stock?: number  
   rating?: number | null
   review_count?: number | null
+  pricing_tiers?: any[]
 }
 
 interface SaveViewedProductProps {
@@ -34,10 +33,10 @@ export default function SaveViewedProduct({ product }: SaveViewedProductProps) {
       // Remove duplicate if product already exists
       recent = recent.filter((p: Product) => p.id !== product.id)
 
-      // ✅ Ensure stock is explicitly saved with a fallback
+      // Ensure stock is explicitly saved with a fallback
       const productToSave = { 
         ...product, 
-        stock: product.stock ?? 0  // Make sure stock is saved (0 if undefined)
+        stock: product.stock ?? 0 
       }
 
       // Add new product to the beginning of the array
@@ -49,10 +48,8 @@ export default function SaveViewedProduct({ product }: SaveViewedProductProps) {
       // Save back to localStorage
       localStorage.setItem('razack_recently_viewed', JSON.stringify(recent))
       
-      // Debug: log to verify stock is saved
-      console.log('[SaveViewedProduct] Saved product:', productToSave.id, 'stock:', productToSave.stock)
-    } catch (error) {
-      console.error('Error saving recently viewed product:', error)
+    } catch (e) {
+      console.error('Failed to save recently viewed product', e)
     }
   }, [product])
 

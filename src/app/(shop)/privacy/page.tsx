@@ -7,6 +7,9 @@ import { siteConfig } from '@/config/site'
 export const metadata = {
   title: `Privacy Policy | ${siteConfig.name}`,
   description: `Learn how ${siteConfig.name} collects, uses, and protects your personal information.`,
+  alternates: {
+    canonical: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/privacy`,
+  },
 }
 
 export default function PrivacyPage() {
@@ -113,7 +116,7 @@ export default function PrivacyPage() {
 
           {/* Children's Privacy */}
           <section>
-            <h2 className="text-xl font-bold text-gray-900 mb-3">Children's Privacy</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">Children&apos;s Privacy</h2>
             <p className="text-sm text-gray-700 leading-relaxed">
               Our website is not intended for children under 13. We do not knowingly collect personal 
               information from children under 13.

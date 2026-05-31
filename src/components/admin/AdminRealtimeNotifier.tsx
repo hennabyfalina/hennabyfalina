@@ -12,13 +12,16 @@ export default function AdminRealtimeNotifier() {
   useEffect(() => {
     const checkNewOrders = async () => {
       try {
+        // Check if online before attempting fetch to prevent TypeError: Failed to fetch
+        if (typeof window !== 'undefined' && !window.navigator.onLine) return
+
         // Fetch the latest 10 orders to catch any rapid payment transitions
         const res = await fetch('/api/admin/orders?limit=10', {
           cache: 'no-store' // Bypass browser cache
         })
-        
+
         if (!res.ok) return
-        
+
         const orders = await res.json()
         if (orders && Array.isArray(orders)) {
           let shouldNotify = false

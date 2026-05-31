@@ -2,22 +2,34 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { CheckCircle2, Truck, UploadCloud, AlertCircle, Eye, Trash2 } from 'lucide-react'
-import { PRINTING_TIERS } from '@/config/b2b-rules'
-import { uploadB2BArtwork, getSignedB2BUrl, deleteB2BArtwork } from '@/lib/supabase/b2b-storage'
+import { uploadB2BArtwork, deleteB2BArtwork } from '@/lib/supabase/b2b-storage'
 import { useAuth } from '@/hooks/useAuth'
 import { showToast } from '@/components/ui/Toast'
 import PreviewModal from '@/components/ui/PreviewModal'
-import { useEffect } from 'react'
-import { useProductDraftStore } from '@/store/productDraft.store'
 import { useCartStore } from '@/store/cart.store'
+import { compressArtwork } from '@/lib/compression'
+import B2BTermsAgreement from './B2BTermsAgreement'
 
 interface ArtworkFile {
   path: string
   url: string
   name: string
   size: number
+  formattedSize?: string
+}
+
+interface PricingTier {
+  tier_name: string
+  mrp: number
+  selling_price: number
+  min_quantity: number
+  requires_artwork: boolean 
+  delivery_days?: number // 🚨 Added to interface
+  sort_order: number
+  promotional_badge?: string | null
+  promotional_badge_color?: string | null
 }
 
 interface PrintingOptionsProps {
@@ -28,43 +40,42 @@ interface PrintingOptionsProps {
     days: number
     instructions: string
     artworkUrls: string[]
-    artworkSizes?: number[]  // 🆕 Size tracking
+    artworkSizes?: number[]
     artworks: ArtworkFile[]
-    isAgreementChecked: boolean
+    isArtworkRightsChecked?: boolean
+    isPrintTimelineChecked?: boolean
   }
   onChange: (data: any) => void
+  pricingTiers: PricingTier[] 
 }
 
 const MAX_FILES = 3
-const MAX_FILE_SIZE = 15 * 1024 * 1024 // 15MB per file
-const MAX_TOTAL_SIZE = 15 * 1024 * 1024 // 15MB total (changed from 30MB)
+const MAX_FILE_SIZE = 15 * 1024 * 1024 
+const MAX_TOTAL_SIZE = 15 * 1024 * 1024 
 
-export default function PrintingOptions({ b2bState, onChange }: PrintingOptionsProps) {
+export default function PrintingOptions({ b2bState, onChange, pricingTiers }: PrintingOptionsProps) {
   const { user, isLoading } = useAuth()
   const [isUploading, setIsUploading] = useState(false)
   const [previewFile, setPreviewFile] = useState<{ url: string; name: string } | null>(null)
-  const { setRedirectedFlag } = useProductDraftStore()
 
-  const selectedType = b2bState.printingType ?? b2bState.type ?? 'Retail (Readymade)'
+  const selectedType = b2bState.printingType ?? b2bState.type ?? pricingTiers[0]?.tier_name
   const instructions = b2bState.instructions || ''
   const artworks = b2bState.artworks || []
   const artworkSizes = b2bState.artworkSizes || []
-  const isAgreementChecked = b2bState.isAgreementChecked ?? true
+  const isArtworkRightsChecked = b2bState.isArtworkRightsChecked ?? false
+  const isPrintTimelineChecked = b2bState.isPrintTimelineChecked ?? false
 
-  const activeTierConfig = PRINTING_TIERS.find((o) => o.id === selectedType)
-  const isCustomPrint = selectedType.includes('Color')
-
-  // Helper to dynamically assign semantic colors to tags
-  const getTagColor = (tag: string) => {
-    switch (tag) {
-      case 'Best Value': return 'bg-[#007600] text-white' // Green for Savings
-      case 'Fastest': return 'bg-[#007185] text-white'    // Blue for Speed/Trust
-      case 'Popular': return 'bg-[#C7511F] text-white'    // Orange for Attention
-      default: return 'bg-[#C7511F] text-white'
-    }
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
-  // Generate a session ID for anonymous uploads
+  const selectedTierObj = pricingTiers.find(t => t.tier_name === selectedType)
+  const isCustomPrint = selectedTierObj?.requires_artwork ?? false
+
   const getSessionId = () => {
     let sessionId = sessionStorage.getItem('upload_session_id')
     if (!sessionId) {
@@ -81,59 +92,60 @@ export default function PrintingOptions({ b2bState, onChange }: PrintingOptionsP
     }
   }, [user, isLoading])
 
-  const handleAgreementToggle = (checked: boolean) => {
-    onChange({
-      ...b2bState,
-      isAgreementChecked: checked,
-    })
-  }
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (!files.length) return
 
-    // 🆕 Calculate current totals
     const currentFileCount = artworks.length
     const currentTotalSize = artworkSizes.reduce((sum, size) => sum + size, 0)
 
     if (currentFileCount + files.length > MAX_FILES) {
-      showToast(`You can only upload up to ${MAX_FILES} files total. Current: ${currentFileCount}`, 'warning')
+      showToast(`You can only upload up to ${MAX_FILES} files.`, 'warning')
       return
     }
+
+    setIsUploading(true)
 
     const validFiles: { file: File; size: number }[] = []
     let runningTotalSize = currentTotalSize
 
-    for (const file of files) {
-      if (file.size > MAX_FILE_SIZE) {
-        showToast(`"${file.name}" exceeds the 15MB limit.`, 'error')
+    for (const originalFile of files) {
+      const { file: fileToUpload, size: finalSize } = await compressArtwork(originalFile)
+
+      if (finalSize > MAX_FILE_SIZE) {
+        showToast(`"${fileToUpload.name}" is too large.`, 'error')
         continue
       }
-      if (runningTotalSize + file.size > MAX_TOTAL_SIZE) {
-        showToast(`Total upload size cannot exceed 15MB. Current: ${(runningTotalSize / 1024 / 1024).toFixed(2)}MB`, 'error')
+      if (runningTotalSize + finalSize > MAX_TOTAL_SIZE) {
+        showToast(`Total size exceeds 15MB limit.`, 'error')
         break
       }
-      runningTotalSize += file.size
-      validFiles.push({ file, size: file.size })
+      runningTotalSize += finalSize
+      validFiles.push({ file: fileToUpload, size: finalSize })
     }
 
-    if (!validFiles.length) return
+    if (!validFiles.length) {
+      setIsUploading(false)
+      if (e.target) e.target.value = ''
+      return
+    }
 
-    setIsUploading(true)
     try {
       const newArtworks = [...artworks]
       const newSizes = [...artworkSizes]
 
       for (const { file, size } of validFiles) {
-        // Upload to temp folder if not logged in
         const internalPath = await uploadB2BArtwork(file, user?.id || null, getSessionId())
-        const signed = await getSignedB2BUrl(internalPath)
         
-        newArtworks.push({
-          path: internalPath,
-          url: signed || '',
-          name: file.name,
+        // 🚨 PHASE 3: Permanent Proxy URLs (Fixes the "Missing Files" bug on reload)
+        const permanentProxyUrl = `/api/artwork?path=${encodeURIComponent(internalPath)}`
+        
+        newArtworks.push({ 
+          path: internalPath, 
+          url: permanentProxyUrl, 
+          name: file.name, 
           size: size,
+          formattedSize: formatFileSize(size)
         })
         newSizes.push(size)
       }
@@ -159,39 +171,29 @@ export default function PrintingOptions({ b2bState, onChange }: PrintingOptionsP
     const newArtworks = artworks.filter((_, idx) => idx !== indexToRemove)
     const newSizes = artworkSizes.filter((_, idx) => idx !== indexToRemove)
 
-    onChange({
-      ...b2bState,
-      artworkUrls: newArtworks.map((a) => a.path),
-      artworkSizes: newSizes,
-      artworks: newArtworks,
-    })
-
+    onChange({ ...b2bState, artworkUrls: newArtworks.map((a) => a.path), artworkSizes: newSizes, artworks: newArtworks })
     showToast('Artwork removed', 'info')
 
-    // 🚨 FIX: Prevent deleting artwork if it is currently actively used by a Cart Item!
     const cartItems = useCartStore.getState().items
     const isInUseByCart = cartItems.some(item => item.artwork_urls?.includes(artworkToRemove.path))
 
     if (!isInUseByCart) {
-      try {
-        await deleteB2BArtwork(artworkToRemove.path)
-      } catch (err) {
-        console.warn('Failed to delete artwork:', err)
-      }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      try { await deleteB2BArtwork(artworkToRemove.path) } catch (err) {}
     }
   }
 
-  const handleOptionClick = (opt: any) => {
-    const isCustom = opt.id.includes('Color')
-    const newAgreement = isCustom ? false : true
+  const handleOptionClick = (tier: PricingTier) => {
+    const newAgreement = tier.requires_artwork ? false : true
     
     onChange({
       ...b2bState,
-      type: opt.id,
-      printingType: opt.id,
-      minQty: opt.minQty,
-      days: opt.days,
-      isAgreementChecked: newAgreement,
+      type: tier.tier_name,
+      printingType: tier.tier_name,
+      minQty: tier.min_quantity,
+      days: tier.delivery_days ?? 7, // 🚨 Pulls dynamic days from the DB
+      isArtworkRightsChecked: newAgreement,
+      isPrintTimelineChecked: newAgreement,
     })
   }
 
@@ -200,49 +202,49 @@ export default function PrintingOptions({ b2bState, onChange }: PrintingOptionsP
       showToast('Instructions too long (Max 500 chars)', 'error')
       return
     }
-    onChange({
-      ...b2bState,
-      instructions: text,
-    })
+    onChange({ ...b2bState, instructions: text })
   }
-
-  const currentTotalSizeMB = (artworkSizes.reduce((sum, s) => sum + s, 0) / 1024 / 1024).toFixed(2)
 
   return (
     <>
       <div className="flex flex-col gap-4 my-6 bg-white p-4 border border-gray-200 rounded-xl shadow-sm">
-        <h3 className="text-base font-bold text-gray-900 border-b pb-2">Select Customization & Printing</h3>
+        <h3 className="text-base font-bold text-gray-900 border-b pb-2">Select Pricing & Customization</h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {PRINTING_TIERS.map((opt) => {
-            const isSelected = selectedType === opt.id
+        <div className={`grid gap-3 ${
+          pricingTiers.length === 1 
+            ? 'grid-cols-1' 
+            : 'grid-cols-1 sm:grid-cols-2'
+        }`}>
+          {pricingTiers.map((tier) => {
+            const isSelected = selectedType === tier.tier_name
+            const dynamicDays = tier.delivery_days ?? 7 // 🚨 Dynamic Fallback
+            
             return (
               <div
-                key={opt.id}
-                onClick={() => handleOptionClick(opt)}
-                className={`relative flex flex-col p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                  isSelected
-                    ? 'border-[#007185] bg-[#F0F8FF]'
-                    : 'border-gray-200 hover:border-[#007185]/50'
-                }`}
+                key={tier.tier_name}
+                onClick={() => handleOptionClick(tier)}
+                className={`relative flex flex-col p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  isSelected ? 'border-[#007185] bg-[#F0F8FF]' : 'border-gray-200 hover:border-[#007185]/50'
+                } ${pricingTiers.length === 1 ? 'max-w-md' : ''}`}
               >
-                {opt.tag && (
-                  <span className={`absolute -top-2.5 right-2 text-[10px] font-bold px-2 py-0.5 rounded-sm shadow-sm tracking-wide ${getTagColor(opt.tag)}`}>
-                    {opt.tag}
+                {tier.promotional_badge && (
+                  <span className={`absolute -top-2.5 right-2 text-[10px] font-bold px-2 py-0.5 rounded-sm shadow-sm tracking-wide ${tier.promotional_badge_color || 'bg-[#C7511F] text-white'}`}>
+                    {tier.promotional_badge}
                   </span>
                 )}
                 <div className="flex items-center justify-between mb-1">
                   <span className={`font-bold text-sm ${isSelected ? 'text-[#007185]' : 'text-gray-900'}`}>
-                    {opt.title}
+                    {tier.tier_name}
                   </span>
                   {isSelected && <CheckCircle2 className="w-5 h-5 text-[#007185]" />}
                 </div>
                 <div className="text-xs text-gray-600 mb-1">
-                  Min. Order: <span className="font-bold text-gray-900">{opt.minQty} qty</span>
+                  Min. Order: <span className="font-bold text-gray-900">{tier.min_quantity} qty</span>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-gray-500 mt-auto pt-1">
                   <Truck className="w-3 h-3" />
-                  <span>Ships in {opt.days} days</span>
+                  {/* 🚨 DYNAMIC TEXT RENDERED HERE */}
+                  <span>Ships in {dynamicDays} {dynamicDays === 1 ? 'day' : 'days'}</span>
                 </div>
               </div>
             )
@@ -250,141 +252,77 @@ export default function PrintingOptions({ b2bState, onChange }: PrintingOptionsP
         </div>
 
         {isCustomPrint && (
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 animate-in fade-in slide-in-from-top-2">
             <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-[#C7511F]" />
-              Custom Printing Requirements
+              Custom Requirements for {selectedType}
             </h4>
-
-            {activeTierConfig?.requiresArtwork && (
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-semibold text-gray-700">Upload Logo/Artwork *</label>
-                  <div className="text-right">
-                    <span className="text-[10px] text-gray-500 font-medium">
-                      {artworks.length}/{MAX_FILES} Files
+            
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-semibold text-gray-700">Upload Logo/Artwork *</label>
+                <div className="text-right text-[10px] text-gray-500 font-medium">
+                    <span className={artworkSizes.reduce((a, b) => a + b, 0) > MAX_TOTAL_SIZE * 0.9 ? 'text-orange-600' : ''}>
+                      {formatFileSize(artworkSizes.reduce((a, b) => a + b, 0))} / {formatFileSize(MAX_TOTAL_SIZE)}
                     </span>
-                    {artworks.length > 0 && (
-                      <span className="text-[10px] text-gray-500 ml-2">
-                        ({currentTotalSizeMB} MB / 15 MB)
-                      </span>
+                    <span className="mx-1.5">|</span>
+                    {artworks.length}/{MAX_FILES} Files
+                </div>
+              </div>
+
+              {artworks.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {artworks.map((file, idx) => (
+                    <div key={idx} className="w-full bg-white border border-green-300 rounded-lg p-2.5 flex items-center gap-3 shadow-sm">
+                      <div className="w-8 h-8 bg-green-50 rounded-md flex items-center justify-center shrink-0">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-green-700 leading-tight truncate">{file.name}</p>
+                        <p className="text-[10px] text-green-600/70 font-medium">{file.formattedSize || formatFileSize(file.size)}</p>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0 border-l pl-2 ml-1 border-gray-100">
+                        <button type="button" onClick={() => setPreviewFile({ url: file.url, name: file.name })} className="p-1.5 text-[#007185] hover:bg-[#F0F8FF] rounded-md transition-colors cursor-pointer"><Eye className="w-4 h-4" /></button>
+                        <button type="button" onClick={() => handleRemoveArtwork(idx)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors cursor-pointer"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {artworks.length < MAX_FILES && (
+                <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-white hover:bg-gray-50 transition-colors shadow-sm">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    {isUploading ? (
+                      <span className="text-xs font-semibold text-[#007185]">Securely Uploading...</span>
+                    ) : (
+                      <>
+                        <UploadCloud className="w-5 h-5 text-gray-400 mb-1" />
+                        <p className="text-xs text-gray-600 mb-1"><span className="font-semibold text-[#007185]">Click to add</span> logo</p>
+                        <p className="text-[9px] text-gray-400 uppercase tracking-widest">Max 15MB total</p>
+                      </>
                     )}
                   </div>
-                </div>
-
-                {artworks.length > 0 && (
-                  <div className="space-y-2 mb-3">
-                    {artworks.map((file, idx) => (
-                      <div
-                        key={idx}
-                        className="w-full bg-white border border-green-300 rounded-lg p-2.5 flex items-center gap-3 shadow-sm transition-all"
-                      >
-                        <div className="w-8 h-8 bg-green-50 rounded-md flex items-center justify-center shrink-0">
-                          <CheckCircle2 className="w-4 h-4 text-green-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-green-700 leading-tight truncate">{file.name}</p>
-                          <p className="text-[9px] text-gray-500 mt-0.5">
-                            {(file.size / 1024 / 1024).toFixed(2)} MB
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0 border-l pl-2 ml-1 border-gray-100">
-                          <button
-                            type="button"
-                            onClick={() => setPreviewFile({ url: file.url, name: file.name })}
-                            className="p-1.5 text-[#007185] hover:bg-[#F0F8FF] rounded-md transition-colors"
-                            title="Preview"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveArtwork(idx)}
-                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                            title="Delete File"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {artworks.length < MAX_FILES && (
-                  <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-white hover:bg-gray-50 transition-colors shadow-sm">
-                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                      {isUploading ? (
-                        <div className="flex items-center gap-2">
-                          <div className="w-5 h-5 border-2 border-[#007185] border-t-transparent rounded-full animate-spin" />
-                          <span className="text-xs font-semibold text-[#007185]">Securely Uploading...</span>
-                        </div>
-                      ) : (
-                        <>
-                          <UploadCloud className="w-5 h-5 text-gray-400 mb-1" />
-                          <p className="text-xs text-gray-600 mb-1">
-                            <span className="font-semibold text-[#007185]">Click to add</span> file
-                          </p>
-                          <p className="text-[9px] font-medium text-gray-400 uppercase tracking-wider">
-                            PDF, PNG, JPG (Max 15MB per file, 15MB total)
-                          </p>
-                        </>
-                      )}
-                    </div>
-                    <input
-                      type="file"
-                      multiple
-                      className="hidden"
-                      accept=".pdf,.png,.jpg,.jpeg"
-                      onChange={handleFileUpload}
-                      disabled={isUploading}
-                    />
-                  </label>
-                )}
-              </div>
-            )}
+                  <input type="file" multiple className="hidden" accept=".pdf,.png,.jpg,.jpeg" onChange={handleFileUpload} disabled={isUploading} />
+                </label>
+              )}
+            </div>
 
             <div className="mb-4">
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Color Codes & Special Instructions (Optional)
-              </label>
-              <textarea
-                className="w-full text-sm p-3 border border-gray-300 rounded-md focus:ring-[#007185] focus:border-[#007185] shadow-sm"
-                rows={2}
-                placeholder="E.g., Pantone 300C. Center the logo on the front..."
-                value={instructions}
-                onChange={(e) => handleInstructionsChange(e.target.value)}
-              />
-              <div className="text-right mt-1">
-                <span className={`text-[10px] ${instructions.length > 450 ? 'text-red-500 font-bold' : 'text-gray-400'}`}>
-                  {instructions.length}/500
-                </span>
-              </div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Color Codes & Instructions (Optional)</label>
+              <textarea className="w-full text-sm p-3 border border-gray-300 rounded-md focus:ring-[#007185] focus:border-[#007185]" rows={2} placeholder="E.g., Pantone 300C..." value={instructions} onChange={(e) => handleInstructionsChange(e.target.value)} />
             </div>
 
-            <div className="flex items-start gap-2 bg-[#FFF8E1] p-3 rounded-md border border-[#FCD200]">
-              <input
-                type="checkbox"
-                id="b2b-agreement"
-                className="mt-0.5 w-4 h-4 text-[#007185] border-gray-300 rounded cursor-pointer"
-                checked={isAgreementChecked}
-                onChange={(e) => handleAgreementToggle(e.target.checked)}
-              />
-              <label htmlFor="b2b-agreement" className="text-xs text-gray-800 leading-tight cursor-pointer">
-                <strong>I agree:</strong> 100% refund is available only <em>before</em> production begins. Custom
-                orders cannot be returned.
-              </label>
-            </div>
+            <B2BTermsAgreement
+              isArtworkRightsChecked={isArtworkRightsChecked}
+              isPrintTimelineChecked={isPrintTimelineChecked}
+              onChange={(key, value) => onChange({ ...b2bState, [key]: value })}
+            />
           </div>
         )}
       </div>
 
-      <PreviewModal
-        isOpen={!!previewFile}
-        onClose={() => setPreviewFile(null)}
-        fileUrl={previewFile?.url || null}
-        fileName={previewFile?.name}
-      />
+      <PreviewModal isOpen={!!previewFile} onClose={() => setPreviewFile(null)} fileUrl={previewFile?.url || null} fileName={previewFile?.name} />
     </>
   )
 }

@@ -1,13 +1,14 @@
 // src/components/checkout/AddressForm.tsx
 
 'use client'
-
-import { useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useState, useEffect } from 'react'
 import { Trash2 } from 'lucide-react'
 import PhoneInput from '@/components/ui/PhoneInput'
-import { INDIAN_STATES } from '@/lib/states' // 🚨 Clean Reusable Import
+import { INDIAN_STATES } from '@/lib/states'
 
 export interface AddressFormData {
+  fullName: string
   name: string
   phone: string
   addressLine1: string
@@ -27,6 +28,7 @@ interface AddressFormProps {
   shippingMethod: 'delivery' | 'pickup'
   disabled?: boolean
   onClear?: () => void
+  hideTitle?: boolean
 }
 
 export default function AddressForm({
@@ -37,9 +39,19 @@ export default function AddressForm({
   shippingMethod,
   disabled = false,
   onClear,
+  hideTitle = false,
 }: AddressFormProps) {
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    if (showClearConfirm) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => { document.body.style.overflow = 'unset' }
+  }, [showClearConfirm])
 
   const inputClass = "w-full px-3 py-2.5 sm:py-3 bg-white border border-[#D5D9D9] text-[#0F1111] rounded-sm focus:outline-none focus:border-[#FF9900] focus:ring-1 focus:ring-[#FF9900] transition-shadow text-[15px] placeholder:text-[#565959] disabled:bg-gray-50 disabled:cursor-not-allowed shadow-sm"
   const errorInputClass = "w-full px-3 py-2.5 sm:py-3 bg-white border border-red-500 text-[#0F1111] rounded-sm focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-shadow text-[15px] placeholder:text-[#565959] disabled:bg-gray-50 disabled:cursor-not-allowed shadow-sm"
@@ -64,8 +76,7 @@ export default function AddressForm({
 
   const validateAddressLine2 = (address: string): string => {
     if (shippingMethod !== 'delivery') return ''
-    if (!address.trim()) return 'Area, Street, Sector, Village is required'
-    if (address.trim().length < 3) return 'Must be at least 3 characters'
+    if (address.trim().length > 0 && address.trim().length < 3) return 'Must be at least 3 characters'
     return ''
   }
 
@@ -135,7 +146,15 @@ export default function AddressForm({
   }
 
   const handleClearAll = () => {
-    if (onClear) onClear()
+    onChange('name', '')
+    onChange('phone', '')
+    onChange('pincode', '')
+    onChange('addressLine1', '')
+    onChange('addressLine2', '')
+    onChange('city', '')
+    onChange('state', '')
+    onChange('landmark', '')
+    onChange('delivery_instructions', '')
     setErrors({})
     setShowClearConfirm(false)
   }
@@ -144,28 +163,31 @@ export default function AddressForm({
     <div style={{ colorScheme: 'light' }}>
       <div className="space-y-4">
         <div className="bg-white p-5 rounded-sm border border-[#D5D9D9]">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-[#0F1111]">
-              {shippingMethod === 'delivery' ? 'Delivery Address' : 'Pickup Contact Details'}
-            </h3>
-            <button
-              type="button"
-              onClick={() => setShowClearConfirm(true)}
-              disabled={disabled}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-sm transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Clear All
-            </button>
-          </div>
+          {!hideTitle && (
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-[#0F1111]">
+                {shippingMethod === 'delivery' ? 'Delivery Address' : 'Pickup Contact Details'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowClearConfirm(true)}
+                disabled={disabled}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-sm transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Clear All
+              </button>
+            </div>
+          )}
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Name - Always required */}
             <div className="col-span-1 md:col-span-2">
               <label htmlFor="full-name" className={labelClass}>Full name (First and Last name) <span className="text-red-600">*</span></label>
               <input 
                 id="full-name" 
                 type="text" 
-                value={formData.name} 
+                value={formData.name || ''} 
                 onChange={(e) => handleNameChange(e.target.value)} 
                 disabled={disabled} 
                 required 
@@ -175,6 +197,7 @@ export default function AddressForm({
               {errors.name && <p className={errorClass}>{errors.name}</p>}
             </div>
 
+            {/* Phone - Always required */}
             <div className="col-span-1 md:col-span-2">
               <label htmlFor="mobile-number" className={labelClass}>Mobile number <span className="text-red-600">*</span></label>
               <PhoneInput
@@ -187,13 +210,14 @@ export default function AddressForm({
               {errors.phone && <p className={errorClass}>{errors.phone}</p>}
             </div>
 
+            {/* Store Pickup: Only Name, Phone, Pincode */}
             {shippingMethod === 'pickup' && (
               <div className="col-span-1 md:col-span-2">
                 <label htmlFor="pincode" className={labelClass}>Pincode <span className="text-red-600">*</span></label>
                 <input 
                   id="pincode" 
                   type="text" 
-                  value={formData.pincode} 
+                  value={formData.pincode || ''} 
                   onChange={(e) => handlePincodeChange(e.target.value)} 
                   disabled={disabled} 
                   required 
@@ -205,6 +229,7 @@ export default function AddressForm({
               </div>
             )}
 
+            {/* Home Delivery: Full address form */}
             {shippingMethod === 'delivery' && (
               <>
                 <div className="col-span-1 md:col-span-2">
@@ -212,7 +237,7 @@ export default function AddressForm({
                   <input 
                     id="address-line-1" 
                     type="text" 
-                    value={formData.addressLine1} 
+                    value={formData.addressLine1 || ''} 
                     onChange={(e) => handleAddressLine1Change(e.target.value)} 
                     disabled={disabled} 
                     required 
@@ -223,14 +248,13 @@ export default function AddressForm({
                 </div>
 
                 <div className="col-span-1 md:col-span-2">
-                  <label htmlFor="address-line-2" className={labelClass}>Area, Street, Sector, Village <span className="text-red-600">*</span></label>
+                  <label htmlFor="address-line-2" className={labelClass}>Area, Street, Sector, Village</label>
                   <input 
                     id="address-line-2" 
                     type="text" 
-                    value={formData.addressLine2} 
+                    value={formData.addressLine2 || ''} 
                     onChange={(e) => handleAddressLine2Change(e.target.value)} 
                     disabled={disabled} 
-                    required
                     className={errors.addressLine2 ? errorInputClass : inputClass} 
                     placeholder="Area, Street, Sector, Village" 
                   />
@@ -242,7 +266,7 @@ export default function AddressForm({
                   <input 
                     id="city" 
                     type="text" 
-                    value={formData.city} 
+                    value={formData.city || ''} 
                     onChange={(e) => handleCityChange(e.target.value)} 
                     disabled={disabled} 
                     required 
@@ -256,7 +280,7 @@ export default function AddressForm({
                   <label htmlFor="state" className={labelClass}>State <span className="text-red-600">*</span></label>
                   <select
                     id="state"
-                    value={formData.state}
+                    value={formData.state || ''}
                     onChange={(e) => handleStateChange(e.target.value)}
                     disabled={disabled}
                     required
@@ -272,12 +296,12 @@ export default function AddressForm({
                   {errors.state && <p className={errorClass}>{errors.state}</p>}
                 </div>
 
-                 <div className="col-span-1 md:col-span-2">
+                <div className="col-span-1 md:col-span-2">
                   <label htmlFor="pincode" className={labelClass}>Pincode <span className="text-red-600">*</span></label>
                   <input 
                     id="pincode" 
                     type="text" 
-                    value={formData.pincode} 
+                    value={formData.pincode || ''} 
                     onChange={(e) => handlePincodeChange(e.target.value)} 
                     disabled={disabled} 
                     required 
@@ -294,14 +318,14 @@ export default function AddressForm({
 
         {shippingMethod === 'delivery' && (
           <div className="bg-white p-5 rounded-sm border border-[#D5D9D9]">
-            <h3 className="text-lg font-bold text-[#0F1111] mb-4">Delivery Instructions  <span className="text-gray-500 font-normal">(Optional)</span> </h3>
+            <h3 className="text-lg font-bold text-[#0F1111] mb-4">Delivery Instructions <span className="text-gray-500 font-normal">(Optional)</span></h3>
             <div className="space-y-4">
               <div>
                 <label htmlFor="landmark" className="block text-[15px] font-bold text-[#0F1111] mb-1.5">Landmark</label>
                 <input 
                   id="landmark" 
                   type="text" 
-                  value={formData.landmark} 
+                  value={formData.landmark || ''} 
                   onChange={(e) => onChange('landmark', e.target.value)} 
                   disabled={disabled} 
                   className={inputClass} 
@@ -312,7 +336,7 @@ export default function AddressForm({
                 <label htmlFor="delivery-instructions" className="block text-[15px] font-bold text-[#0F1111] mb-1.5">Preferences</label>
                 <textarea 
                   id="delivery-instructions"
-                  value={formData.delivery_instructions} 
+                  value={formData.delivery_instructions || ''} 
                   onChange={(e) => onChange('delivery_instructions', e.target.value)} 
                   disabled={disabled}
                   rows={2} 
@@ -325,8 +349,8 @@ export default function AddressForm({
         )}
       </div>
 
-      {showClearConfirm && (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+      {showClearConfirm && createPortal(
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="relative w-full max-w-sm bg-white rounded-sm shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="p-5 text-center">
               <div className="w-12 h-12 mx-auto mb-4 bg-red-50 rounded-full flex items-center justify-center">
@@ -334,25 +358,26 @@ export default function AddressForm({
               </div>
               <h3 className="text-lg font-bold text-gray-900 mb-2">Clear Address Form?</h3>
               <p className="text-sm text-gray-600 mb-6">
-                This will clear all address details you've entered. This action cannot be undone.
+                This will clear all address details you&apos;ve entered. This action cannot be undone.
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowClearConfirm(false)}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-sm hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-sm hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleClearAll}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-sm transition-colors"
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-sm transition-colors cursor-pointer"
                 >
                   Clear All
                 </button>
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

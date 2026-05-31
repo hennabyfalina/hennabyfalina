@@ -14,19 +14,18 @@ import Container from '@/components/ui/Container'
 import QuantitySelector from '@/components/product/QuantitySelector'
 import RecentlyViewed from '@/components/product/RecentlyViewed'
 import CartRecommendations from '@/components/cart/CartRecommendations'
-import Loader from '@/components/ui/Loader'
+import CartSkeleton from '@/components/ui/CartSkeleton'
 import { formatCurrency, numberToIndianWords } from '@/lib/utils'
 import { getProductImageUrl } from '@/lib/supabase/storage'
-import { Trash2, ShoppingBag, XCircle, Package, Box, ShieldCheck, Truck, CheckCircle2, ExternalLink, AlertTriangle } from 'lucide-react'
+import { Trash2, ShoppingBag, XCircle, Package, Box, ShieldCheck, Truck, CheckCircle2, ExternalLink, AlertTriangle, Heart } from 'lucide-react'
+import { deleteB2BArtwork } from '@/lib/supabase/b2b-storage'
 import { SHIPPING_THRESHOLD, SHIPPING_COST } from '@/lib/constants'
 import { showToast } from '@/components/ui/Toast'
-
-// B2B & Tax Imports
-import { B2B_CONSTANTS, PRINTING_TIERS } from '@/config/b2b-rules'
 import { calculateTaxBreakdown } from '@/lib/tax'
-import { getSignedB2BUrl } from '@/lib/supabase/b2b-storage' 
 import PreviewModal from '@/components/ui/PreviewModal' 
 import StarRating from '@/components/product/StarRating'
+import { broadcast } from '@/lib/broadcast'
+import StickyCartBar from '@/components/cart/StickyCartBar'
 
 export default function CartPage() {
   const router = useRouter()
@@ -43,12 +42,13 @@ export default function CartPage() {
   const [isCheckingOut, setIsCheckingOut] = useState(false)
   const [paymentFailed, setPaymentFailed] = useState(false)
 
-  // Preview Modal State
   const [previewModalState, setPreviewModalState] = useState({ isOpen: false, url: '', name: '' })
   const [isFetchingPreview, setIsFetchingPreview] = useState<string | null>(null)
+  const [currentTimestamp, setCurrentTimestamp] = useState<number | null>(null)
   
   useEffect(() => {
     setMounted(true)
+    setCurrentTimestamp(Date.now())
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
       setPaymentFailed(params.get('payment_failed') === 'true')
@@ -56,19 +56,7 @@ export default function CartPage() {
   }, [])
 
   if (!mounted) {
-    return (
-      <div className="flex-1 min-h-[60vh] bg-[#ffffff] flex items-center justify-center" suppressHydrationWarning>
-        <Loader />
-      </div>
-    )
-  }
-
-  const calculateDiscount = (originalPrice: number, currentPrice: number) => {
-    if (originalPrice > currentPrice) {
-      const discount = ((originalPrice - currentPrice) / originalPrice) * 100
-      return Math.round(discount)
-    }
-    return 0
+    return <CartSkeleton />
   }
 
   const handleViewArtwork = async (internalPath: string) => {
@@ -87,12 +75,29 @@ export default function CartPage() {
     }
   }
 
+  // Delete artwork files associated with a cart item
+  const deleteArtworkForItem = async (item: any) => {
+    if (!item.artwork_urls || item.artwork_urls.length === 0) return
+
+    // Delete each artwork file from Supabase
+    await Promise.all(
+      item.artwork_urls.map(async (path: string) => {
+        try {
+          await deleteB2BArtwork(path)
+        } catch (err) {
+          console.error(`Failed to delete artwork ${path}:`, err)
+        }
+      })
+    )
+  }
+
+  // 🚨 SMART DISPATCH CALCULATION: Scans tiers for max delivery days
   const maxDispatchDays = items.length > 0 
     ? Math.max(...items.map(item => {
-        const tier = PRINTING_TIERS.find(t => t.id === item.printing_type)
-        return tier ? tier.days : B2B_CONSTANTS.STANDARD_DELIVERY_DAYS
+        const tier = item.pricing_tiers?.find(t => t.tier_name === item.printing_type)
+        return tier?.delivery_days ?? 7
       }))
-    : B2B_CONSTANTS.STANDARD_DELIVERY_DAYS
+    : 7
 
   if (items.length === 0) {
     return (
@@ -105,11 +110,7 @@ export default function CartPage() {
                 <Box className="w-16 h-16 text-gray-400 absolute -rotate-12 translate-x-[-20%] translate-y-[-10%]" />
                 <Package className="w-12 h-12 text-gray-300 absolute rotate-12 translate-x-[25%] translate-y-[15%] border-2 border-white rounded-md bg-white" />
                 <div className="absolute bottom-2 right-2 bg-white p-1.5 rounded-sm shadow-sm border border-gray-100">
-                  {paymentFailed ? (
-                    <AlertTriangle className="w-5 h-5 text-red-500" />
-                  ) : (
-                    <ShoppingBag className="w-5 h-5 text-gray-500" />
-                  )}
+                  {paymentFailed ? <AlertTriangle className="w-5 h-5 text-red-500" /> : <ShoppingBag className="w-5 h-5 text-gray-500" />}
                 </div>
               </div>
             </div>
@@ -151,7 +152,20 @@ export default function CartPage() {
   const finalTotal = totalPrice + shippingCost
   const taxBreakdown = calculateTaxBreakdown(totalPrice)
 
-  const handleClearCart = () => {
+  const handleClearCart = async () => {
+    // 🚨 BROADCAST: Notify checkout and other tabs of each deletion
+    for (const item of items) {
+      broadcast.send({
+        type: 'CART_ITEM_DELETED',
+        productId: item.product_id,
+        artworkUrls: item.artwork_urls || []
+      })
+    }
+    
+    // Delete all artwork files
+    await Promise.all(items.map(item => deleteArtworkForItem(item)))
+    
+    // Clear cart store
     clearCart()
     setShowConfirmClear(false)
     showToast('Cart cleared')
@@ -163,7 +177,11 @@ export default function CartPage() {
     setTimeout(() => router.push('/checkout'), 450)
   }
 
+  const totalPriceForSticky = totalPrice
+
   return (
+    <>
+    <StickyCartBar totalPrice={totalPriceForSticky} />
     <div className="min-h-screen bg-[#F0F2F2] py-6 md:py-8">
       <Container className="pb-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -186,11 +204,13 @@ export default function CartPage() {
                 const isSaved = savedProductIds.includes(item.product_id)
                 let imageSrc = '/placeholder-product.svg'
                 if (item.image) {
-                  imageSrc = getProductImageUrl(item.image) // ✅ Use the new helper
+                  imageSrc = getProductImageUrl(item.image)
                 }
 
-                const tier = PRINTING_TIERS.find(t => t.id === item.printing_type)
-                const minQuantity = tier ? tier.minQty : B2B_CONSTANTS.RETAIL_MIN_QTY
+                // 🚨 DYNAMIC TIER PARSING
+                const tier = item.pricing_tiers?.find(t => t.tier_name === item.printing_type)
+                const minQuantity = tier?.min_quantity ?? 1
+                const dynamicDeliveryDays = tier?.delivery_days ?? 7
                 
                 return (
                   <div key={`${item.id}-${item.printing_type}`} className={`flex gap-4 md:gap-6 py-5 ${index !== items.length - 1 ? 'border-b border-gray-200' : ''}`}>
@@ -202,7 +222,7 @@ export default function CartPage() {
                         sizes="(max-width: 768px) 96px, 128px" 
                         className="object-cover mix-blend-multiply"
                         priority={index < 3}
-                      unoptimized={imageSrc.startsWith('http') || imageSrc.includes('supabase')}
+                        unoptimized={imageSrc.startsWith('http') || imageSrc.includes('supabase')}
                         onError={(e) => {
                           const target = e.target as HTMLImageElement
                           target.src = '/placeholder-product.svg'
@@ -248,22 +268,28 @@ export default function CartPage() {
                             </div>
                           )}
                           
-                          <p className="text-xs text-green-700 mt-1.5 font-medium">In stock</p>
+                          <div className="mt-2 text-xs text-green-700 flex flex-col gap-0.5">
+                            <span className="font-medium flex items-center gap-1">
+                              <Truck className="w-3 h-3" /> Factory Dispatched
+                            </span>
+                            <span className="text-gray-600">
+                              Estimated Delivery by <span className="font-bold">{currentTimestamp ? new Date(currentTimestamp + dynamicDeliveryDays * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' }) : '...'}</span>
+                            </span>
+                          </div>
+                          <p className="text-xs text-green-700 mt-1 font-medium">In stock</p>
                           
-                          {/* CLEAN B2B METADATA UI */}
                           {item.printing_type && item.printing_type !== 'None' && item.printing_type !== 'Retail (Readymade)' && (
-                            <div className="mt-2 text-xs sm:text-[13px] text-gray-700 bg-blue-50/50 p-2 sm:p-3 rounded-md border border-blue-100/50 space-y-1.5 sm:space-y-2">
+                            <div className="mt-2 text-xs sm:text-[13px] text-gray-700 bg-blue-50/50 p-2 sm:p-3 rounded-md border border-blue-100/50 space-y-1.5 sm:space-y-2 w-fit max-w-full">
                               <p>
-                                <span className="font-bold text-gray-900">Customization:</span> {tier?.title || item.printing_type}
+                                <span className="font-bold text-gray-900">Customization:</span> {tier?.tier_name || item.printing_type}
                               </p>
                               
                               {item.printing_instructions && (
                                 <p className="text-gray-700 italic leading-relaxed line-clamp-3 sm:line-clamp-none" title={item.printing_instructions}>
-                                  <span className="font-semibold not-italic text-gray-900">Notes:</span> "{item.printing_instructions}"
+                                  <span className="font-semibold not-italic text-gray-900">Notes:</span> &quot;{item.printing_instructions}&quot;
                                 </p>
                               )}
 
-                              {/* UPGRADED TO HANDLE ARRAY OF FILES */}
                               {item.artwork_urls && item.artwork_urls.length > 0 && (
                                 <div className="mt-1 flex flex-wrap gap-2 pt-0.5">
                                   {item.artwork_urls.map((url, idx) => (
@@ -285,15 +311,6 @@ export default function CartPage() {
                             </div>
                           )}
                           
-                          <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                            {item.bulk_price && item.bulk_min_quantity && item.quantity >= item.bulk_min_quantity && (
-                              <div className="inline-flex items-center gap-1 text-[10px] xs:text-xs bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-sm animate-in zoom-in duration-300 whitespace-nowrap">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-green-600 animate-pulse" />
-                                <span className="font-bold text-green-700">Bulk Price Applied!</span>
-                                <span className="text-green-600 font-medium hidden sm:inline">{formatCurrency(item.bulk_price)}/item</span>
-                              </div>
-                            )}
-                          </div>
                         </div>
                         
                         <div className="hidden sm:block text-right shrink-0 ml-2">
@@ -314,7 +331,15 @@ export default function CartPage() {
                       <div className="mt-auto pt-3 sm:pt-4 flex flex-wrap items-center gap-3 sm:gap-6">
                         <QuantitySelector
                           quantity={item.quantity}
-                          onQuantityChange={(q) => updateQuantity(item.id, q)}
+                          onQuantityChange={(q) => {
+                            updateQuantity(item.id, q);
+                            // 🚨 BROADCAST: Notify checkout and other tabs of quantity change
+                            broadcast.send({
+                              type: 'CART_ITEM_UPDATED',
+                              productId: item.product_id,
+                              printingType: item.printing_type || 'Retail (Readymade)'
+                            });
+                          }}
                           min={minQuantity} 
                           max={item.stock > 0 ? item.stock : 99999}
                         />
@@ -322,18 +347,21 @@ export default function CartPage() {
                         <div className="flex items-center gap-3 sm:gap-4 ml-2 sm:ml-0 border-l sm:border-0 border-gray-200 pl-3 sm:pl-0">
                           <button
                             type="button"
-                            onClick={async () => {
+                            onClick={() => {
+                              const willBeSaved = !isSaved
+                              showToast(willBeSaved ? 'Saved to Wishlist' : 'Removed from Wishlist', 'success')
                               try {
-                                await toggleItem(item.product_id)
-                                showToast(isSaved ? 'Removed from Wishlist' : 'Saved to Wishlist')
+                                toggleItem(item.product_id)
                               } catch (error: any) {
                                 if (error.message === 'unauthorized') router.push('/login?next=/cart')
                                 else showToast('Failed to update wishlist')
                               }
                             }}
-                            className="text-xs sm:text-sm font-medium text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer"
+                            className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-[#717273] hover:text-[#C7511F] transition-colors cursor-pointer group"
+                            title={isSaved ? "Remove from Wishlist" : "Save for later"}
                           >
-                            {isSaved ? 'Remove' : 'Save for later'}
+                            <Heart className={`w-4 h-4 transition-all ${isSaved ? 'fill-[#CC0C39] text-[#CC0C39]' : 'group-hover:scale-110'}`} />
+                            <span className="hidden xs:inline">{isSaved ? 'Saved' : 'Save'}</span>
                           </button>
 
                           <span className="text-gray-300">|</span>
@@ -349,7 +377,15 @@ export default function CartPage() {
 
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={async () => {
+                              // 🚨 BROADCAST: Notify checkout and other tabs of deletion (regardless of artwork)
+                              broadcast.send({
+                                type: 'CART_ITEM_DELETED',
+                                productId: item.product_id,
+                                artworkUrls: item.artwork_urls || []
+                              })
+                              
+                              await deleteArtworkForItem(item)
                               removeItem(item.id)
                               showToast('Item removed')
                             }}
@@ -374,7 +410,7 @@ export default function CartPage() {
 
           {/* Right Column: Order Summary */}
           <div className="lg:col-span-4 space-y-4">
-            <div className="bg-white p-5 md:p-6 rounded-md border border-gray-200 shadow-sm lg:sticky lg:top-24">
+            <div id="order-summary-section" className="bg-white p-5 md:p-6 rounded-md border border-gray-200 shadow-sm lg:sticky lg:top-24">
               
               <div className="flex items-center gap-3 mb-5 p-3 bg-gray-50 border border-gray-100 rounded-lg">
                 <div className="bg-white p-2 rounded-full shadow-sm shrink-0 border border-gray-100">
@@ -435,7 +471,7 @@ export default function CartPage() {
                 </div>
                 
                 {finalTotal > 0 && (
-                  <div className="text-right text-[11px] text-gray-500 mt-1 italic">
+                  <div className="text-right text-[15px] text-gray-500 mt-1.5 italic">
                     {numberToIndianWords(finalTotal)}
                   </div>
                 )}
@@ -490,5 +526,6 @@ export default function CartPage() {
         fileName={previewModalState.name} 
       />
     </div>
+    </>
   )
 }

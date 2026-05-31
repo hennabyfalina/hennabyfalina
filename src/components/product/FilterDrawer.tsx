@@ -1,3 +1,5 @@
+// src/components/product/FilterDrawer.tsx
+
 'use client'
 
 import { createPortal } from 'react-dom'
@@ -14,7 +16,7 @@ interface FilterDrawerProps {
   maxPrice: string
   rating?: string
   discount?: string
-  bulk?: string
+  wholesale?: string
   inStock?: string
   updateFilters: (updates: Record<string, string | null>) => void
   clearFilters: () => void
@@ -50,7 +52,7 @@ export default function FilterDrawer({ isOpen, onClose, ...filterProps }: Filter
         <div className="mt-4 pt-4 border-t border-gray-100 shrink-0">
           <button 
             onClick={onClose}
-            className="w-full py-3 bg-[#f0c14b] hover:bg-[#edd38b] border border-[#a88734] text-gray-900 rounded-sm font-bold text-sm transition-colors shadow-sm cursor-pointer"
+            className="w-full py-3 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-full text-sm font-bold text-[#0F1111] transition-colors shadow-sm cursor-pointer"
           >
             Show Results
           </button>

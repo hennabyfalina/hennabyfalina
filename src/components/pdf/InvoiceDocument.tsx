@@ -114,14 +114,13 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   totalsBox: {
-    width: 250, // Slightly wider to accommodate split layout
+    width: 250,
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 4,
   },
-  // 🚨 Enterprise Currency Alignment
   amountContainer: {
     flexDirection: 'row',
     width: 100, 
@@ -190,7 +189,6 @@ const styles = StyleSheet.create({
   }
 })
 
-// Helper to format just the number without the currency symbol
 const formatJustNumber = (amount: number) => {
   return new Intl.NumberFormat('en-IN', {
     minimumFractionDigits: 2,
@@ -249,7 +247,6 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
     watermarkColor = '#15803d' 
   }
 
-  // Pre-process address lines to prevent overlap
   const line1 = order.addresses?.address || order.addresses?.address_line1 || ''
   const line2 = order.addresses?.address_line2 || ''
   const cityPin = `${order.addresses?.city || ''} - ${order.addresses?.pincode || ''}`
@@ -308,7 +305,6 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
             <Text style={styles.addressValue}>{order.addresses?.name}</Text>
           </View>
           
-          {/* 🚨 RESTRUCTURED ENTERPRISE ADDRESS BLOCK (No Overlaps) 🚨 */}
           {!isStorePickup ? (
             <View style={styles.addressRow}>
               <Text style={styles.addressLabel}>Address:</Text>
@@ -363,10 +359,6 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
               <View style={styles.col2}>
                 <Text style={[styles.text, { fontFamily: 'Helvetica-Bold' }]}>{item.products?.name}</Text>
                 
-                {item.is_bulk_pricing && (
-                  <Text style={{ fontSize: 8, color: '#15803d', marginTop: 2 }}>[Bulk Wholesale Price Applied]</Text>
-                )}
-
                 {item.printing_type && item.printing_type !== 'None' && item.printing_type !== 'Retail (Readymade)' && (
                   <Text style={{ fontSize: 8, color: '#4b5563', marginTop: 2 }}>
                     Print: {item.printing_type} {(item.artwork_urls && item.artwork_urls.length > 0) ? `[${item.artwork_urls.length} File(s) Uploaded]` : ''}
@@ -400,7 +392,6 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
           </View>
 
           <View style={styles.totalsBox}>
-            {/* 🚨 Split Currency Rendering 🚨 */}
             <View style={styles.totalRow}>
               <Text style={[styles.text, { fontFamily: 'Helvetica-Bold' }]}>Taxable Value (Base):</Text>
               <View style={styles.amountContainer}>

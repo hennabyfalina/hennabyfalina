@@ -8,9 +8,9 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: '*',
-      allow: ['/', '/products', '/wholesale', '/custom-order', '/contact', '/faq', '/returns-refunds', '/support'],
-      disallow: ['/api/', '/checkout/', '/profile/', '/admin/', '/_next/'],
+      allow: ['/', '/products', '/wholesale', '/custom-order', '/contact', '/faq', '/returns-refunds', '/support', '/privacy', '/terms'],
+      disallow: ['/api/', '/auth/', '/cart/', '/checkout/', '/profile/', '/admin/', '/_next/', '/*?*sort='],
     },
-    sitemap: `${baseUrl}/sitemap.xml`,
+    sitemap: 'https://razackpackagingcentre.com/sitemap.xml',
   }
 }

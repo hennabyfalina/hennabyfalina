@@ -9,6 +9,7 @@ import SaveViewedProduct from '@/components/product/SaveViewedProduct'
 import { siteConfig } from '@/config/site'
 import dynamic from 'next/dynamic'
 import ProductInteractiveSection from '@/components/product/ProductInteractiveSection'
+import StickyBuyBar from '@/components/product/StickyBuyBar'
 
 const FrequentlyBoughtTogether = dynamic(() => import('@/components/product/FrequentlyBoughtTogether'), {
   loading: () => <div className="w-full h-32 bg-gray-50 animate-pulse rounded-lg mt-8" />
@@ -50,7 +51,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     notFound()
   }
 
-  // Phase 1: Fetch the Frequently Bought Together bundle
+  // Fetch the Frequently Bought Together bundle
   let bundleProducts: any[] = []
   if (product.frequently_bought_together && product.frequently_bought_together.length > 0) {
     bundleProducts = await getProductsByIdsWithSignedUrls(product.frequently_bought_together)
@@ -60,6 +61,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const sellingPrice = product.selling_price ?? product.price ?? 0
   const regularPrice = product.price ?? 0
   const discountPercentage = regularPrice > sellingPrice ? Math.round(((regularPrice - sellingPrice) / regularPrice) * 100) : 0
+
+  // Determine the baseline tier for the sticky bar logic
+  const tiers = product.pricing_tiers || []
+  const defaultTier = tiers.length > 0 ? tiers[0] : null
+  const minQuantity = defaultTier ? defaultTier.min_quantity : 1
 
   // 🚨 Enterprise JSON-LD Schema (SEO Core)
   const jsonLd: any = {
@@ -94,7 +100,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   }
 
   return (
-    <div className="bg-white min-h-screen pb-12 relative z-0">
+    <div className="bg-white min-h-screen pb-12">
       <script
         id="schema-product"
         type="application/ld+json"
@@ -102,7 +108,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
       />
       
-      {/* Hidden Tracker for Recently Viewed */}
+      <StickyBuyBar
+        product={product} 
+        sellingPrice={sellingPrice} 
+        hasStock={hasStock} 
+        minQuantity={minQuantity} 
+      />
+
       <SaveViewedProduct 
         product={{
           id: product.id,
@@ -112,12 +124,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
           image: product.images?.[0] || '',
           images: product.images || [],
           selling_price: product.selling_price || product.price,
-          bulk_price: product.bulk_price,
-          bulk_min_quantity: product.bulk_min_quantity,
           description: product.description,
           rating: product.rating,
           review_count: product.review_count,
-          stock: product.stock, // Ensure stock is included for accurate tracking
+          stock: product.stock, 
         }}
       />
 
@@ -137,9 +147,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
       <Container className="py-4 md:py-6 max-w-[1500px]">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start relative">
           
-          {/* 🚨 THE FIX: Left Column (Image Gallery) 
-              Removed z-10, added relative, z-[1], and self-start to strictly contain the images
-          */}
           <div className="lg:col-span-5 lg:sticky lg:top-28 relative z-[1] w-full self-start">
             <ProductImageGallery images={product.images || []} productName={product.name} />
           </div>
@@ -158,14 +165,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
         </div>
 
         {/* Frequently Bought Together Bundle */}
-        <div className="mt-10 md:mt-12 relative z-0">
+        <div className="relative z-0">
           <FrequentlyBoughtTogether mainProduct={product as any} bundleProducts={bundleProducts} />
         </div>
 
-        <hr className="border-gray-200 my-10 md:my-16" />
-
         {/* Related Products Carousel */}
-        <div className="relative z-0">
+        <div className="relative z-0 border-t border-gray-200 mt-8">
           <RelatedProducts currentProductId={product.id} categoryId={product.category_id} />
         </div>
       </Container>

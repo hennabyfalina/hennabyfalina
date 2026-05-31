@@ -4,28 +4,48 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { SearchX } from 'lucide-react'
 import FilterSidebar from '@/components/product/FilterSidebar'
 import FilterDrawer from '@/components/product/FilterDrawer'
 import ProductsGrid from '@/components/product/ProductsGrid'
 
 export interface Product {
-  bulk_min_quantity: null
-  rating: number
   id: string
+  min_order_qty: number
   name: string
   slug: string
   description?: string | null
   category_id?: string | null
   price: number
   selling_price?: number | null
-  bulk_price?: number | null
   images: string[]
   stock: number
+  rating: number
+  pricing_tiers?: any[] // The God Mode Tiers
 }
 
 interface ProductsClientViewProps {
   initialProducts: Product[]
   categories: any[]
+}
+
+// 🚨 2. HELPER FUNCTIONS FOR DYNAMIC PRICING MATH
+const getBasePrice = (p: Product) => {
+  if (p.pricing_tiers && p.pricing_tiers.length > 0) return p.pricing_tiers[0].mrp;
+  return p.price; // Legacy fallback
+}
+
+const getSellingPrice = (p: Product) => {
+  if (p.pricing_tiers && p.pricing_tiers.length > 0) return p.pricing_tiers[0].selling_price;
+  return p.selling_price || p.price; // Legacy fallback
+}
+
+const hasBulkTier = (p: Product) => {
+  // 🚨 FIX: Strict logic checking dynamic tiers ONLY
+  if (p.pricing_tiers && p.pricing_tiers.length > 1) {
+    return p.pricing_tiers.some(t => t.min_quantity >= 10 || t.tier_name.toLowerCase().includes('wholesale'))
+  }
+  return false
 }
 
 export default function ProductsClientView({ initialProducts, categories }: ProductsClientViewProps) {
@@ -68,10 +88,10 @@ export default function ProductsClientView({ initialProducts, categories }: Prod
     }
   }
 
+  // 🚨 3. THE UPGRADED FILTER ENGINE
   const filteredProducts = useMemo(() => {
     let result = [...initialProducts]
 
-    // FIX: Match by either ID or Slug to support Navbar links
     if (categoryId && categoryId !== 'all') {
       const targetCategory = categories.find(c => c.id === categoryId || c.slug === categoryId)
       const actualId = targetCategory ? targetCategory.id : categoryId
@@ -86,34 +106,38 @@ export default function ProductsClientView({ initialProducts, categories }: Prod
       )
     }
 
-    if (minPrice) result = result.filter(p => (p.selling_price || p.price) >= parseFloat(minPrice))
-    if (maxPrice) result = result.filter(p => (p.selling_price || p.price) <= parseFloat(maxPrice))
+    // Price Filtering using Dynamic Tiers
+    if (minPrice) result = result.filter(p => getSellingPrice(p) >= parseFloat(minPrice))
+    if (maxPrice) result = result.filter(p => getSellingPrice(p) <= parseFloat(maxPrice))
 
     if (rating) {
       result = result.filter(p => (p.rating ?? 4.5) >= parseFloat(rating))
     }
 
+    // Discount Math using Dynamic Tiers
     if (discount) {
       result = result.filter(p => {
-        const rp = p.price ?? 0
-        const sp = p.selling_price ?? rp
+        const rp = getBasePrice(p)
+        const sp = getSellingPrice(p)
         if (rp <= sp) return false
         const pct = Math.round(((rp - sp) / rp) * 100)
         return pct >= parseInt(discount, 10)
       })
     }
 
+    // Bulk Filtering using Dynamic Tiers
     if (bulk === 'true') {
-      result = result.filter(p => p.bulk_price != null && p.bulk_min_quantity != null)
+      result = result.filter(p => hasBulkTier(p))
     }
 
     if (inStock === 'true') {
       result = result.filter(p => p.stock > 0)
     }
 
+    // Sorting using Dynamic Tiers
     switch (sort) {
-      case 'price_asc': result.sort((a, b) => (a.selling_price || a.price) - (b.selling_price || b.price)); break;
-      case 'price_desc': result.sort((a, b) => (b.selling_price || b.price) - (a.selling_price || a.price)); break;
+      case 'price_asc': result.sort((a, b) => getSellingPrice(a) - getSellingPrice(b)); break;
+      case 'price_desc': result.sort((a, b) => getSellingPrice(b) - getSellingPrice(a)); break;
       case 'name_asc': result.sort((a, b) => a.name.localeCompare(b.name)); break;
       case 'newest': default: break;
     }
@@ -164,17 +188,18 @@ export default function ProductsClientView({ initialProducts, categories }: Prod
         <div className="hidden md:flex justify-between items-center bg-white p-3 border border-gray-200 shadow-sm rounded-sm" suppressHydrationWarning>
           <span className="text-sm text-gray-700">
             Showing <span className="font-bold text-gray-900">{filteredProducts.length}</span> results
-            {search && <span> for <span className="text-[#C7511F] font-bold">"{search}"</span></span>}
+            {search && <span> for <span className="text-[#C7511F] font-bold">&quot;{search}&quot;</span></span>}
           </span>
         </div>
 
         {filteredProducts.length === 0 ? (
-          <div className="text-center py-16 bg-white border border-gray-200 rounded-sm shadow-sm">
+          <div className="text-center py-20 bg-white border border-gray-200 rounded-sm shadow-sm flex flex-col items-center">
+            <SearchX className="w-16 h-16 text-gray-200 mb-4" strokeWidth={1.5} />
             <h3 className="text-lg font-bold text-gray-900">
-              {search ? `No results found for "${search}".` : 'No results found.'}
+              {search ? `No results found.` : 'No results found.'}
             </h3>
             {search && <p className="text-sm text-gray-600 mt-2">Try checking your spelling or using more general terms.</p>}
-            <button onClick={clearFilters} className="mt-4 text-sm text-[#007185] font-medium hover:text-[#C7511F] hover:underline">
+            <button onClick={clearFilters} className="mt-4 text-sm text-[#007185] font-medium hover:text-[#C7511F] hover:underline cursor-pointer">
               {pathname === '/search' ? 'Clear search and view all products' : 'Clear all filters'}
             </button>
           </div>

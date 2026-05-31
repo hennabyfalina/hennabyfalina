@@ -9,7 +9,7 @@ export default function HeroSection() {
   return (
     <section className="relative w-full bg-white text-gray-900 pt-8 pb-20 sm:pt-16 sm:pb-40 px-4 sm:px-8 flex flex-col items-center text-center overflow-hidden border-b border-gray-200" suppressHydrationWarning>
       {/* Full width background with no gaps */}
-      <div className="absolute inset-0 w-full h-full bg-gradient-to-b from-gray-50 to-white" suppressHydrationWarning></div>
+      <div className="absolute inset-0 w-full h-full bg-white" suppressHydrationWarning></div>
       
       <div className="relative z-10 max-w-4xl mx-auto w-full" suppressHydrationWarning>
         <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.15] mb-4">

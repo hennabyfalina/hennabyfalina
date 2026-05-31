@@ -4,9 +4,15 @@
 
 import { useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
+import { usePathname } from 'next/navigation'
+import { useAdminThemeStore } from '@/store/theme.store'
 
 export default function PWAUpdater() {
   const [isUpdating, setIsUpdating] = useState(false)
+  const pathname = usePathname()
+  const isAdmin = pathname?.startsWith('/admin')
+  const themeStore = useAdminThemeStore()
+  const theme = themeStore?.theme || 'dark'
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
@@ -52,14 +58,14 @@ export default function PWAUpdater() {
   if (!isUpdating) return null
 
   return (
-    <div className="fixed bottom-[90px] left-4 right-4 z-[9999] md:bottom-6 md:w-96 md:left-auto animate-in slide-in-from-bottom-5 fade-in duration-500">
-      <div className="bg-white border border-gray-200 shadow-2xl rounded-xl p-4 flex items-center gap-4">
-        <div className="w-12 h-12 bg-[#F0F8FA] rounded-lg flex items-center justify-center shrink-0">
-          <RefreshCw className="w-6 h-6 text-[#007185] animate-spin" />
+    <div className={`fixed bottom-[90px] left-4 right-4 z-[9999] md:bottom-6 md:w-96 md:left-auto animate-in slide-in-from-bottom-5 fade-in duration-500 ${isAdmin ? `admin-theme-${theme}` : ''}`}>
+      <div className={`${isAdmin ? 'admin-bg-card border admin-border' : 'bg-white border border-gray-200'} shadow-2xl rounded-xl p-4 flex items-center gap-4`}>
+        <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${isAdmin ? 'admin-bg-elevated' : 'bg-[#F0F8FA]'}`}>
+          <RefreshCw className={`w-6 h-6 animate-spin ${isAdmin ? 'admin-text-accent' : 'text-[#007185]'}`} />
         </div>
         <div className="flex-1">
-          <h3 className="text-sm font-bold text-gray-900">App Updated</h3>
-          <p className="text-xs text-gray-500 mt-1">Applying latest changes...</p>
+          <h3 className={`text-sm font-bold ${isAdmin ? 'admin-text-primary' : 'text-gray-900'}`}>App Updated</h3>
+          <p className={`text-xs mt-1 ${isAdmin ? 'admin-text-muted' : 'text-gray-500'}`}>Applying latest changes...</p>
         </div>
       </div>
     </div>

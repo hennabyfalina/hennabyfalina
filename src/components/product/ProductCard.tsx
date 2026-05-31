@@ -5,92 +5,87 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Share2, Heart, Eye } from 'lucide-react'
-import { useQuickViewStore } from '@/store/quickview.store'
-import { getPublicUrl } from '@/lib/supabase/storage'
-import StarRating from '@/components/product/StarRating'
-import AddToCartButton from '@/components/product/AddToCartButton'
+import { Heart, Eye, Share2 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
-import { siteConfig } from '@/config/site'
+import { getPublicUrl } from '@/lib/supabase/storage'
+import { useQuickViewStore } from '@/store/quickview.store'
 import { useWishlistStore } from '@/store/wishlist.store'
 import { showToast } from '@/components/ui/Toast'
-import { B2B_CONSTANTS } from '@/config/b2b-rules'
+import { siteConfig } from '@/config/site'
+import StarRating from './StarRating'
 
-function HighlightMatch({ text, query }: { text: string, query: string }) {
-  if (!query) return <span>{text}</span>;
-  const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const parts = text.split(new RegExp(`(${safeQuery})`, 'gi'));
-  return (
-    <span>
-      {parts.map((part, i) => 
-        part.toLowerCase() === query.toLowerCase() ? (
-          <span key={i} className="bg-yellow-200 text-gray-900 font-bold px-0.5 rounded-sm">{part}</span>
-        ) : (
-          <span key={i}>{part}</span>
-        )
-      )}
-    </span>
-  );
+export interface Product {
+  min_order_qty: number
+  category_id?: string | null
+  id: string
+  name: string
+  slug: string
+  price: number
+  selling_price?: number | null
+  description?: string | null
+  images: string[]
+  stock: number
+  rating?: number | null
+  review_count?: number | null
+  pricing_tiers?: any[]
 }
 
 interface ProductCardProps {
-  product: {
-    id: string
-    name: string
-    slug: string
-    price: number
-    selling_price?: number | null
-    bulk_price?: number | null
-    bulk_min_quantity?: number | null
-    description?: string | null
-    images: string[]
-    stock: number
-    rating?: number | null
-    review_count?: number | null
-  }
+  product: Product
   priority?: boolean
+  productList?: Product[]
+  hideMinOrderBadge?: boolean 
   searchQuery?: string
-  productList?: any[]
 }
 
-export default function ProductCard({ product, priority = false, searchQuery = '', productList = [] }: ProductCardProps) {
+export default function ProductCard({ product, priority = false, productList = [], hideMinOrderBadge = false, searchQuery = '' }: ProductCardProps) {
   const router = useRouter()
-  const { openQuickView } = useQuickViewStore()
-  
+  const openQuickView = useQuickViewStore((state) => state.openQuickView)
+  const { savedProductIds, toggleItem } = useWishlistStore()
+
+  // 🔒 SECURE DYNAMIC CALCULATION: Apply the same minimum target finder
+  const tiers = product.pricing_tiers || []
+  const dynamicMinQuantity = product.min_order_qty ?? 100;
+
+  const isSaved = savedProductIds.includes(product.id)
+
+  const activeTiers = product.pricing_tiers && product.pricing_tiers.length > 0 
+    ? product.pricing_tiers 
+    : [{ mrp: product.price || 0, selling_price: product.selling_price || product.price || 0, min_quantity: 1 }]
+
+  const defaultTier = activeTiers[0]
+  const regularPrice = defaultTier.mrp || product.price || 0
+  const sellingPrice = defaultTier.selling_price || product.selling_price || product.price || 0
+  const retailMin = defaultTier.min_quantity
+
+  const safeStock = product.stock ?? retailMin
+  const isOutOfStock = safeStock < retailMin
+  const hasDiscount = regularPrice > sellingPrice
+  const discountPercent = hasDiscount ? Math.round(((regularPrice - sellingPrice) / regularPrice) * 100) : 0
+
   const rawImage = product.images?.[0]
   const imageUrl = !rawImage 
     ? '/placeholder-product.svg' 
     : (rawImage.startsWith('http') || rawImage.startsWith('/') ? rawImage : getPublicUrl(rawImage))
 
-  // B2B Stock Validation: It is out of stock if we don't even have the minimum retail quantity!
-  const retailMin = B2B_CONSTANTS.RETAIL_MIN_QTY
-  const safeStock = product.stock ?? retailMin
-  const isOutOfStock = safeStock < retailMin
-
-  const sellingPrice = product.selling_price ?? product.price ?? 0
-  const regularPrice = product.price ?? 0
-  const hasDiscount = regularPrice > sellingPrice
-
-  const rating = product.rating ?? 4.5;
-  const reviewCount = product.review_count ?? 128;
-
-  const { savedProductIds, toggleItem } = useWishlistStore()
-  const isSaved = savedProductIds.includes(product.id)
-
   const handleWishlist = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    const willBeSaved = !isSaved
+    showToast(willBeSaved ? 'Saved to Wishlist' : 'Removed from Wishlist', 'success')
     try {
       await toggleItem(product.id)
-      showToast(isSaved ? 'Removed from Wishlist' : 'Saved to Wishlist', 'success')
     } catch (error: any) {
       if (error.message === 'unauthorized') {
-        const currentUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
-        router.push(`/login?next=${currentUrl}`)
-      } else {
-        showToast('Failed to update wishlist', 'error')
+        router.push(`/login?next=${encodeURIComponent(window.location.pathname)}`)
       }
     }
+  }
+
+  const handleQuickView = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    openQuickView(product, productList)
   }
 
   const handleShare = async (e: React.MouseEvent) => {
@@ -101,107 +96,106 @@ export default function ProductCard({ product, priority = false, searchQuery = '
       try { await navigator.share({ title: product.name, url }) } catch (err) {}
     } else {
       navigator.clipboard.writeText(url)
-      alert('Product link copied to clipboard!')
+      showToast('Product link copied!', 'success')
     }
   }
 
   return (
-    <div className="relative bg-white rounded-sm p-4 border border-gray-200 hover:border-gray-300 flex flex-col h-full hover:shadow-[0_8px_25px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 group/card z-10 hover:z-20" suppressHydrationWarning>
+    <div className="group h-full flex flex-col bg-white border border-gray-200 hover:border-gray-300 rounded-md overflow-hidden hover:shadow-[0_6px_16px_rgba(0,0,0,0.1)] transition-all duration-300 w-full cursor-pointer">
       
-      <button 
-        onClick={handleWishlist}
-        className="absolute top-4 right-4 z-10 p-2 bg-white hover:bg-gray-50 border border-[#D5D9D9] rounded-full shadow-sm transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#007185]"
-        title={isSaved ? "Remove from Wishlist" : "Add to Wishlist"}
-      >
-        <Heart className={`w-[18px] h-[18px] transition-colors ${isSaved ? 'fill-red-500 text-red-500' : 'text-gray-500 hover:text-red-500'}`} />
-      </button>
+      {/* PURE WHITE IMAGE BOX */}
+      <Link href={`/product/${product.slug}`} className="relative block aspect-square bg-white p-4">
+        {!hideMinOrderBadge && (
+          <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
+            <span className="bg-[#CC0C39] text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-sm shadow-sm">
+              MIN {dynamicMinQuantity}
+            </span>
+          </div>
+        )}
 
-      <Link href={`/product/${product.slug}`} target="_blank" className="block flex-1 flex flex-col group">
+        {isOutOfStock && (
+          <div className="absolute top-2 left-2 z-10 bg-gray-900/80 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-sm">
+            SOLD OUT
+          </div>
+        )}
         
-        <div className="relative aspect-square bg-[#F8F8F8] rounded-sm overflow-hidden mb-3 p-4 flex items-center justify-center group/image" suppressHydrationWarning>
-          <div className="w-full h-full relative" suppressHydrationWarning>
-            <Image
-              src={imageUrl}
-              alt={product.name}
-              fill
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              className="object-contain mix-blend-multiply group-hover/card:scale-105 transition-transform duration-500"
-              priority={priority}
-              loading={priority ? 'eager' : 'lazy'}
-              unoptimized={imageUrl.startsWith('http') || imageUrl.includes('supabase')}
-            />
-          </div>
-        </div>
-        
-        <div className="flex flex-col flex-1" suppressHydrationWarning>
-          <h3 className="text-[15px] font-medium text-gray-900 group-hover:text-[#C7511F] line-clamp-2 leading-snug mb-1">
-            <HighlightMatch text={product.name} query={searchQuery} />
-          </h3>
+        <button 
+          onClick={handleWishlist}
+          className="absolute top-2 right-2 z-10 p-1.5 bg-white/90 border border-gray-100 rounded-full shadow-md text-gray-400 hover:text-[#CC0C39] transition-all cursor-pointer hover:scale-110 active:scale-95"
+          aria-label="Add to wishlist"
+        >
+          <Heart className={`w-5 h-5 ${isSaved ? 'fill-[#CC0C39] text-[#CC0C39]' : ''}`} />
+        </button>
 
-          <div className="mb-2" suppressHydrationWarning>
-            <StarRating rating={rating} reviewCount={reviewCount} size="sm" />
-          </div>
-
-        {/* 🚨 B2B Transparency Badge 🚨 */}
-        <div className="mb-2" suppressHydrationWarning>
-          <span className="inline-flex text-[10px] font-bold text-[#007185] bg-[#F0F8FF] border border-[#007185]/20 px-1.5 py-0.5 rounded-sm">
-            Min. Order: {retailMin}
-          </span>
-        </div>
-
-          <div className="mt-auto pt-1" suppressHydrationWarning>
-            <div className="flex items-baseline gap-1.5 mb-0.5" suppressHydrationWarning>
-              <span className="text-xl font-bold text-gray-900">{formatCurrency(sellingPrice)}</span>
-            </div>
-            {hasDiscount && (
-              <div className="text-xs text-gray-500 mb-1" suppressHydrationWarning>
-                M.R.P: <span className="line-through">{formatCurrency(regularPrice)}</span>
-                <span className="text-gray-900 ml-1">({Math.round(((regularPrice - sellingPrice) / regularPrice) * 100)}% off)</span>
-              </div>
-            )}
-            
-            <div className="text-xs text-gray-900 mt-1" suppressHydrationWarning>
-              FREE Delivery by <span className="font-bold">{siteConfig.shortName}</span>
-            </div>
-
-            {/* Stock Alerts */}
-            {isOutOfStock && (
-            <span className="text-xs font-bold text-[#B12704] block mt-1">Currently unavailable.</span>
-            )}
-
-          </div>
-        </div>
+        <Image 
+          src={imageUrl} 
+          alt={product.name} 
+          fill 
+          sizes="(max-width: 768px) 100vw, 300px"
+          className="object-contain p-2 group-hover:scale-105 transition-transform duration-500" 
+          priority={priority}
+          unoptimized={imageUrl.startsWith('http') || imageUrl.includes('supabase')}
+        />
       </Link>
 
-      <div className="mt-3 flex items-center gap-2" suppressHydrationWarning>
-        <div className="flex-1 min-w-0" suppressHydrationWarning>
-          {/* B2B Quantity Forcing */}
-          <AddToCartButton 
-            product={product as any} 
-            quantity={retailMin}
-            minQuantity={retailMin}
-            requireCustomizationChoice={true}
-            className="w-full h-9 text-sm font-medium bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-full shadow-sm"
-          />
+      <div className="p-4 sm:p-5 flex flex-col flex-grow bg-white">
+        <Link href={`/product/${product.slug}`}>
+          <h3 className="text-[16px] font-medium text-[#007185] hover:text-[#C7511F] hover:underline line-clamp-2 leading-snug mb-1.5 transition-colors cursor-pointer">
+            {product.name}
+          </h3>
+        </Link>
+        
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className="text-sm font-normal text-[#0F1111]">{product.rating ?? 4.5}</span>
+          <StarRating rating={product.rating ?? 4.5} reviewCount={product.review_count ?? 128} size="sm" hideReviewCount />
+          <span className="text-sm text-[#007185] hover:text-[#C7511F] cursor-pointer">
+            ({product.review_count ?? 128})
+          </span>
         </div>
-        <button
-          onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            openQuickView(product as any, productList)
-          }}
-          className="w-9 h-9 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-full border border-[#D5D9D9] shadow-sm transition-colors shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#007185]"
-          title="Quick View"
-        >
-          <Eye className="w-[18px] h-[18px]" />
-        </button>
-        <button 
-          onClick={handleShare}
-          className="w-9 h-9 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-full border border-[#D5D9D9] shadow-sm transition-colors shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#007185]"
-          title="Share this product"
-        >
-          <Share2 className="w-[18px] h-[18px]" />
-        </button>
+        
+        <div className="mt-auto">
+          <div className="text-2xl font-bold text-[#0F1111] leading-none mb-1.5">
+            {formatCurrency(sellingPrice)}
+          </div>
+          {hasDiscount && (
+            <div className="text-[13px] text-[#565959] mb-1.5">
+              M.R.P: <span className="line-through">{formatCurrency(regularPrice)}</span> <span className="text-[#CC0C39]">({discountPercent}% off)</span>
+            </div>
+          )}
+          <div className="text-[12px] text-[#0F1111] flex items-center gap-1">
+            FREE Delivery by <span className="font-bold">{siteConfig.shortName}</span>
+          </div>
+        </div>
+
+        {/* PRO ACTION ROW */}
+        <div className="mt-4 flex items-center gap-2">
+          <button 
+            onClick={(e) => {
+              e.preventDefault()
+              router.push(`/product/${product.slug}`)
+            }}
+            disabled={isOutOfStock}
+            className="flex-1 h-9 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-full text-[11px] sm:text-[13px] font-bold transition-all shadow-sm active:scale-[0.98] cursor-pointer disabled:opacity-60 whitespace-nowrap px-1 sm:px-2"
+          >
+            View Options
+          </button>
+          
+          <button 
+            onClick={handleQuickView}
+            className="w-9 h-9 flex items-center justify-center bg-white border border-[#D5D9D9] hover:bg-gray-50 text-gray-700 rounded-full transition-all shadow-sm shrink-0 cursor-pointer active:scale-95"
+            title="Quick View"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+
+          <button 
+            onClick={handleShare}
+            className="w-9 h-9 flex items-center justify-center bg-white border border-[#D5D9D9] hover:bg-gray-50 text-gray-700 rounded-full transition-all shadow-sm shrink-0 cursor-pointer active:scale-95"
+            title="Share Product"
+          >
+            <Share2 className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </div>
   )

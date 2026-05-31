@@ -2,7 +2,6 @@
 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import { B2B_CONSTANTS } from '@/config/b2b-rules'
 import type { CartItem } from '@/store/cart.store'
 
 export interface ArtworkFile {
@@ -15,14 +14,16 @@ export interface ArtworkFile {
 export interface ProductDraft {
   printingType: string
   instructions: string
-  artworkUrls: string[]      // array of paths (for storing in cart/order)
-  artworkSizes?: number[]    // size tracking for 15MB limit
-  artworks: ArtworkFile[]    // full metadata (for UI preview)
-  isAgreementChecked: boolean
+  artworkUrls: string[]      
+  artworkSizes?: number[]    
+  artworks: ArtworkFile[]    
+  isArtworkRightsChecked: boolean
+  isPrintTimelineChecked: boolean
   minQty: number
   days: number
-  redirectedForLogin?: boolean  // flag to show friendly message after login
-  hydratedFromCart?: boolean    // flag to track source
+  redirectedForLogin?: boolean  
+  hydratedFromCart?: boolean
+  lastUpdated: number
 }
 
 interface ProductDraftState {
@@ -30,31 +31,37 @@ interface ProductDraftState {
   getDraft: (productId: string) => ProductDraft | undefined
   setDraft: (productId: string, draft: ProductDraft) => void
   clearDraft: (productId: string) => void
+  clearDraftIfExists: (productId: string) => void
   setRedirectedFlag: (productId: string, value: boolean) => void
   hydrateFromCart: (productId: string, cartItem: CartItem) => void
+  cleanupOldDrafts: (maxAgeMinutes?: number) => void
 }
 
 export const useProductDraftStore = create<ProductDraftState>()(
   persist(
     (set, get) => ({
       drafts: {},
-
       getDraft: (productId) => get().drafts[productId],
-
       setDraft: (productId, draft) =>
         set((state) => ({
           drafts: {
             ...state.drafts,
-            [productId]: draft,
+            [productId]: { ...draft, lastUpdated: Date.now() },
           },
         })),
-
       clearDraft: (productId) =>
         set((state) => {
           const { [productId]: _, ...rest } = state.drafts
           return { drafts: rest }
         }),
-
+      clearDraftIfExists: (productId) =>
+        set((state) => {
+          if (state.drafts[productId]) {
+            const { [productId]: _, ...rest } = state.drafts
+            return { drafts: rest }
+          }
+          return state
+        }),
       setRedirectedFlag: (productId, value) =>
         set((state) => {
           const existing = state.drafts[productId]
@@ -66,9 +73,7 @@ export const useProductDraftStore = create<ProductDraftState>()(
             },
           }
         }),
-
       hydrateFromCart: (productId, cartItem) => {
-        // 🚀 Reconstruct the artworks array for UI preview
         const reconstructedArtworks = (cartItem.artwork_urls || []).map((path, idx) => ({
           path: path,
           url: `/api/artwork?path=${encodeURIComponent(path)}`,
@@ -82,20 +87,35 @@ export const useProductDraftStore = create<ProductDraftState>()(
           artworkUrls: cartItem.artwork_urls || [],
           artworkSizes: cartItem.artwork_sizes || [],
           artworks: reconstructedArtworks,
-          isAgreementChecked: true,
-          minQty: cartItem.quantity >= B2B_CONSTANTS.WHOLESALE_MIN_QTY
-            ? B2B_CONSTANTS.WHOLESALE_MIN_QTY
-            : B2B_CONSTANTS.RETAIL_MIN_QTY,
-          days: B2B_CONSTANTS.STANDARD_DELIVERY_DAYS,
+          isArtworkRightsChecked: true,
+          isPrintTimelineChecked: true,
+          minQty: cartItem.quantity >= 1000 ? 1000 : 100, // Safe default fallback
+          days: 7, // Safe default fallback
           hydratedFromCart: true,
+          lastUpdated: Date.now()
         }
         set((state) => ({
           drafts: { ...state.drafts, [productId]: draft },
         }))
       },
+      cleanupOldDrafts: (maxAgeMinutes = 60) => {
+        const now = Date.now()
+        const maxAge = maxAgeMinutes * 60 * 1000
+        set((state) => {
+          const newDrafts = { ...state.drafts }
+          let changed = false
+          for (const [id, draft] of Object.entries(newDrafts)) {
+            if (draft.lastUpdated && now - draft.lastUpdated > maxAge) {
+              delete newDrafts[id]
+              changed = true
+            }
+          }
+          return changed ? { drafts: newDrafts } : state
+        })
+      },
     }),
     {
-      name: 'razack-product-drafts', // localStorage key
+      name: 'razack-product-drafts',
       storage: createJSONStorage(() => localStorage),
     }
   )

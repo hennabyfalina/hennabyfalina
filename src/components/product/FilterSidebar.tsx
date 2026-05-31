@@ -14,25 +14,24 @@ interface FilterSidebarProps {
   maxPrice: string
   rating?: string
   discount?: string
-  bulk?: string
+  wholesale?: string
   inStock?: string
   updateFilters: (updates: Record<string, string | null>) => void
   clearFilters: () => void
 }
 
 export default function FilterSidebar({
-  categories, currentCategory, minPrice, maxPrice, rating, discount, bulk, inStock, updateFilters, clearFilters
+  categories, currentCategory, minPrice, maxPrice, rating, discount, wholesale, inStock, updateFilters, clearFilters
 }: FilterSidebarProps) {
   
   const searchParams = useSearchParams()
   const activeRating = rating || (searchParams ? searchParams.get('rating') : '') || ''
   const activeDiscount = discount || (searchParams ? searchParams.get('discount') : '') || ''
-  const activeBulk = bulk || (searchParams ? searchParams.get('bulk') : '') || ''
+  const activeWholesale = wholesale || (searchParams ? searchParams.get('wholesale') : '') || '' // 🚨 FIX
   const activeInStock = inStock || (searchParams ? searchParams.get('inStock') : '') || ''
 
-  const hasActiveFilters = currentCategory || minPrice || maxPrice || activeRating || activeDiscount || activeBulk || activeInStock
+  const hasActiveFilters = currentCategory || minPrice || maxPrice || activeRating || activeDiscount || activeWholesale || activeInStock
 
-  // Local state for custom price fields to prevent keystroke lag
   const [localMin, setLocalMin] = useState(minPrice || '')
   const [localMax, setLocalMax] = useState(maxPrice || '')
 
@@ -47,117 +46,58 @@ export default function FilterSidebar({
   }
 
   return (
-    <div className="space-y-5" suppressHydrationWarning>
-      <div className="flex items-center justify-between pb-2 border-b border-gray-200" suppressHydrationWarning>
-        <h2 className="text-base font-bold text-gray-900">Filters</h2>
-        {hasActiveFilters && (
-          <button onClick={clearFilters} className="text-xs text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer">
+    <div className="flex flex-col gap-6" suppressHydrationWarning>
+      
+      {hasActiveFilters && (
+        <div className="flex items-center justify-between pb-4 border-b border-gray-200">
+          <span className="text-sm font-bold text-gray-900">Filters Applied</span>
+          <button onClick={clearFilters} className="text-xs font-medium text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer">
             Clear All
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
-      <div className="space-y-2" suppressHydrationWarning>
-        <h3 className="text-sm font-bold text-gray-900">Category</h3>
-        <div className="space-y-1.5 max-h-60 overflow-y-auto overscroll-contain no-scrollbar" suppressHydrationWarning>
-          <label className="flex items-center gap-2 cursor-pointer group">
-            <input 
-              type="checkbox"
+      {/* Categories */}
+      <div className="space-y-3">
+        <h3 className="font-bold text-gray-900 text-sm tracking-wide">Category</h3>
+        <div className="flex flex-col gap-2 max-h-48 overflow-y-auto no-scrollbar pr-2">
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <input
+              type="radio"
+              name="category"
               checked={!currentCategory || currentCategory === 'all'}
-              onChange={() => updateFilters({ category: 'all' })}
-              className="w-4 h-4 text-[#e77600] border-gray-300 rounded-sm focus:ring-[#e77600] cursor-pointer"
+              onChange={() => updateFilters({ category: null })}
+              className="w-4 h-4 text-[#007185] border-gray-300 focus:ring-[#007185] cursor-pointer"
             />
-            <span className={`text-sm ${(!currentCategory || currentCategory === 'all') ? 'text-gray-900 font-bold' : 'text-gray-700'}`}>
+            <span className={`text-sm ${!currentCategory || currentCategory === 'all' ? 'font-bold text-[#007185]' : 'text-gray-600 group-hover:text-gray-900'}`}>
               All Categories
             </span>
           </label>
-
-          {categories.map((cat) => {
-            // FIX: Check if active by ID OR Slug
-            const isActive = currentCategory === cat.id || currentCategory === cat.slug;
-            
-            return (
-              <label key={cat.id} className="flex items-center gap-2 cursor-pointer group">
-                <input 
-                  type="checkbox"
-                  checked={isActive}
-                  onChange={() => updateFilters({ category: isActive ? 'all' : cat.slug })}
-                  className="w-4 h-4 text-[#e77600] border-gray-300 rounded-sm focus:ring-[#e77600] cursor-pointer"
-                />
-                <span className={`text-sm flex-1 ${isActive ? 'text-gray-900 font-bold' : 'text-gray-900 group-hover:text-[#e77600]'}`}>
-                  {cat.name} <span className="text-gray-500 font-normal">({cat.count})</span>
-                </span>
-              </label>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Availability Filter */}
-      <div className="space-y-2 pt-4 border-t border-gray-200" suppressHydrationWarning>
-        <h3 className="text-sm font-bold text-gray-900">Availability</h3>
-        <label className="flex items-center gap-2 cursor-pointer group mb-1">
-          <input
-            type="checkbox"
-            checked={activeInStock === 'true'}
-            onChange={() => updateFilters({ inStock: activeInStock === 'true' ? null : 'true' })}
-            className="w-4 h-4 text-[#e77600] border-gray-300 rounded-sm focus:ring-[#e77600] cursor-pointer"
-          />
-          <span className={`text-sm ${activeInStock === 'true' ? 'text-gray-900 font-bold' : 'text-gray-900 group-hover:text-[#e77600]'}`}>
-            Exclude Out of Stock
-          </span>
-        </label>
-      </div>
-
-      {/* Customer Reviews Filter */}
-      <div className="space-y-2 pt-4 border-t border-gray-200" suppressHydrationWarning>
-        <h3 className="text-sm font-bold text-gray-900">Customer Reviews</h3>
-        <div className="space-y-1.5" suppressHydrationWarning>
-          {[5, 4, 3, 2, 1].map((stars) => (
-            <button
-              key={stars}
-              onClick={() => updateFilters({ rating: activeRating === stars.toString() ? null : stars.toString() })}
-              className="flex items-center gap-1.5 group w-full text-left focus:outline-none cursor-pointer"
-            >
-              <div className="flex text-[#FFA41C]" suppressHydrationWarning>
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className={`w-4 h-4 ${i < stars ? 'fill-current' : 'text-gray-300'} ${activeRating === stars.toString() ? 'drop-shadow-sm' : ''}`} />
-                ))}
-              </div>
-              <span className={`text-sm ${activeRating === stars.toString() ? 'text-[#e77600] font-bold' : 'text-gray-900 group-hover:text-[#e77600]'}`}>{stars === 5 ? '5.0' : `${stars}.0 above`}</span>
-            </button>
+          {categories.map((category) => (
+            <label key={category.id} className="flex items-center gap-3 cursor-pointer group">
+              <input
+                type="radio"
+                name="category"
+                checked={currentCategory === category.id || currentCategory === category.slug}
+                onChange={() => updateFilters({ category: category.slug || category.id })}
+                className="w-4 h-4 text-[#007185] border-gray-300 focus:ring-[#007185] cursor-pointer"
+              />
+              <span className={`text-sm flex-1 ${currentCategory === category.id || currentCategory === category.slug ? 'font-bold text-[#007185]' : 'text-gray-600 group-hover:text-gray-900'}`}>
+                {category.name}
+              </span>
+              <span className="text-xs text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-sm">{category.count}</span>
+            </label>
           ))}
         </div>
       </div>
 
-      {/* Price Filter with Lag Fix */}
-      <div className="space-y-2 pt-4 border-t border-gray-200" suppressHydrationWarning>
-        <h3 className="text-sm font-bold text-gray-900">Price</h3>
-        <div className="space-y-2 mb-3" suppressHydrationWarning>
-          {[
-            { label: 'Under ₹500', min: null, max: '500' },
-            { label: '₹500 - ₹1,000', min: '500', max: '1000' },
-            { label: '₹1,000 - ₹5,000', min: '1000', max: '5000' },
-            { label: 'Over ₹5,000', min: '5000', max: null },
-          ].map((range, idx) => {
-            const isActive = minPrice === (range.min || '') && maxPrice === (range.max || '');
-            return (
-              <button
-                key={idx}
-                onClick={() => {
-                  setLocalMin(range.min || '')
-                  setLocalMax(range.max || '')
-                  updateFilters({ min: range.min, max: range.max })
-                }}
-                className={`block text-sm text-left w-full focus:outline-none cursor-pointer ${isActive ? 'text-[#e77600] font-bold' : 'text-gray-900 hover:text-[#e77600]'}`}
-              >
-                {range.label}
-              </button>
-            )
-          })}
-        </div>
-        <form onSubmit={handlePriceSubmit} className="flex items-center gap-2 mt-2">
-          <div className="flex items-center gap-1 bg-white border border-gray-300 rounded-sm px-2 focus-within:border-[#e77600] focus-within:ring-1 focus-within:ring-[#e77600] shadow-sm flex-1" suppressHydrationWarning>
+      <hr className="border-gray-200" />
+
+      {/* Price */}
+      <div className="space-y-3">
+        <h3 className="font-bold text-gray-900 text-sm tracking-wide">Price</h3>
+        <form onSubmit={handlePriceSubmit} className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-white border border-gray-300 rounded-sm px-2 focus-within:border-[#007185] focus-within:ring-1 focus-within:ring-[#007185] shadow-sm flex-1" suppressHydrationWarning>
             <span className="text-gray-500 text-sm">₹</span>
             <input
               type="number"
@@ -168,7 +108,7 @@ export default function FilterSidebar({
             />
           </div>
           <span className="text-gray-400">-</span>
-          <div className="flex items-center gap-1 bg-white border border-gray-300 rounded-sm px-2 focus-within:border-[#e77600] focus-within:ring-1 focus-within:ring-[#e77600] shadow-sm flex-1" suppressHydrationWarning>
+          <div className="flex items-center gap-1 bg-white border border-gray-300 rounded-sm px-2 focus-within:border-[#007185] focus-within:ring-1 focus-within:ring-[#007185] shadow-sm flex-1" suppressHydrationWarning>
             <span className="text-gray-500 text-sm">₹</span>
             <input
               type="number"
@@ -178,11 +118,89 @@ export default function FilterSidebar({
               className="w-full py-1.5 text-sm focus:outline-none bg-transparent"
             />
           </div>
-          <button type="submit" className="px-3 py-1.5 bg-white border border-gray-300 rounded-sm text-sm font-bold text-gray-700 hover:bg-gray-50 shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-[#e77600] cursor-pointer">
+          <button type="submit" className="px-3 py-1.5 bg-white border border-gray-300 rounded-sm text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm cursor-pointer">
             Go
           </button>
         </form>
       </div>
+
+      <hr className="border-gray-200" />
+
+      {/* Availability */}
+      <div className="space-y-3">
+        <h3 className="font-bold text-gray-900 text-sm tracking-wide">Availability</h3>
+        <div className="flex flex-col gap-3">
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={activeInStock === 'true'}
+              onChange={(e) => updateFilters({ inStock: e.target.checked ? 'true' : null })}
+              className="w-4 h-4 text-[#007185] border-gray-300 rounded-sm focus:ring-[#007185] cursor-pointer"
+            />
+            <span className="text-sm text-gray-600 group-hover:text-gray-900">Include Out of Stock</span>
+          </label>
+          {/* 🚨 FIX: Wholesale URL param strictly enforced */}
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={activeWholesale === 'true'}
+              onChange={(e) => updateFilters({ wholesale: e.target.checked ? 'true' : null })}
+              className="w-4 h-4 text-[#007185] border-gray-300 rounded-sm focus:ring-[#007185] cursor-pointer"
+            />
+            <span className="text-sm text-gray-600 group-hover:text-gray-900 font-medium">Wholesale Options</span>
+          </label>
+        </div>
+      </div>
+
+      <hr className="border-gray-200" />
+
+      {/* Discount */}
+      <div className="space-y-3">
+        <h3 className="font-bold text-gray-900 text-sm tracking-wide">Discount</h3>
+        <div className="flex flex-col gap-2">
+          {[10, 25, 50, 70].map((pct) => (
+            <label key={pct} className="flex items-center gap-3 cursor-pointer group">
+              <input
+                type="radio"
+                name="discount"
+                checked={activeDiscount === pct.toString()}
+                onChange={() => updateFilters({ discount: pct.toString() })}
+                className="w-4 h-4 text-[#007185] border-gray-300 focus:ring-[#007185] cursor-pointer"
+              />
+              <span className={`text-sm ${activeDiscount === pct.toString() ? 'font-bold text-[#007185]' : 'text-gray-600 group-hover:text-gray-900'}`}>
+                {pct}% Off or more
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <hr className="border-gray-200" />
+
+      {/* Customer Reviews */}
+      <div className="space-y-3">
+        <h3 className="font-bold text-gray-900 text-sm tracking-wide">Customer Reviews</h3>
+        <div className="flex flex-col gap-2">
+          {[4, 3, 2, 1].map((stars) => (
+            <label key={stars} className="flex items-center gap-2 cursor-pointer group hover:bg-gray-50 p-1 -ml-1 rounded transition-colors">
+              <input
+                type="radio"
+                name="rating"
+                checked={activeRating === stars.toString()}
+                onChange={() => updateFilters({ rating: stars.toString() })}
+                className="w-4 h-4 text-[#007185] border-gray-300 focus:ring-[#007185] cursor-pointer mt-0.5 shrink-0"
+              />
+              <div className="flex items-center gap-1.5">
+                <Star className="w-4 h-4 fill-[#FFA41C] text-[#FFA41C]" />
+                <span className={`text-sm ${activeRating === stars.toString() ? 'font-bold text-[#007185]' : 'text-gray-600 group-hover:text-gray-900'}`}>
+                  {stars}.0 Above
+                </span>
+              </div>
+            </label>
+          ))}
+        </div>
+      </div>
+
     </div>
   )
 }

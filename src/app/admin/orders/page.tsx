@@ -1,5 +1,3 @@
-// src/app/admin/orders/page.tsx
-
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -32,10 +30,6 @@ export default function AdminOrders() {
   const [searchQuery, setSearchQuery] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
-
-  useEffect(() => {
-    loadOrders()
-  }, [statusFilter, paymentMethodFilter, searchQuery])
 
   const loadOrders = async (forceRefreshGlobal = false) => {
     setIsLoading(true)
@@ -78,6 +72,10 @@ export default function AdminOrders() {
     }
   }
 
+  useEffect(() => {
+    loadOrders()
+  }, [statusFilter, paymentMethodFilter, searchQuery])
+
   const handleOrderUpdate = () => {
     loadOrders(true)
   }
@@ -112,13 +110,11 @@ export default function AdminOrders() {
     <>
       <div className="flex flex-col gap-6">
         
-        {/* Header Section */}
         <div>
-          <h1 className="text-[28px] font-medium text-[#E3E3E3] tracking-tight leading-tight">Orders</h1>
-          <p className="text-sm text-[#C4C7C5] mt-1">Manage, track, and update customer fulfillments.</p>
+          <h1 className="text-[28px] font-medium admin-text-primary tracking-tight leading-tight">Orders</h1>
+          <p className="text-sm admin-text-secondary mt-1">Manage, track, and update customer fulfillments.</p>
         </div>
 
-        {/* Gemini-Inspired Stats Grid [cite: 17] */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {[
             { title: "Total Orders", value: stats.total || 0, icon: <ShoppingBag className="w-5 h-5" /> },
@@ -127,40 +123,39 @@ export default function AdminOrders() {
             { title: "Delivered", value: stats.delivered || 0, icon: <CheckCircle2 className="w-5 h-5 text-green-400" /> },
             { title: "Cancelled", value: stats.cancelled || 0, icon: <XOctagon className="w-5 h-5" /> },
           ].map((stat, idx) => (
-            <div key={idx} className="bg-[#1E1F20] rounded-[24px] p-5 border border-transparent hover:bg-[#282A2C] transition-colors">
+            <div key={idx} className="admin-bg-card rounded-[24px] p-5 border border-transparent hover:admin-bg-elevated transition-colors">
               <div className="flex justify-between items-start mb-3">
-                <h3 className="text-xs font-medium text-[#C4C7C5]">{stat.title}</h3>
-                <div className="text-[#A8C7FA]">{stat.icon}</div>
+                <h3 className="text-xs font-medium admin-text-secondary">{stat.title}</h3>
+                <div className="admin-text-accent">{stat.icon}</div>
               </div>
-              <p className="text-3xl font-normal text-[#E3E3E3]">{stat.value}</p>
+              <p className="text-3xl font-normal admin-text-primary">{stat.value}</p>
             </div>
           ))}
         </div>
 
-        {/* Search and Filters with Pill Geometry [cite: 17, 26] */}
-        <div className="flex flex-col md:flex-row gap-3 bg-[#1E1F20] p-3 rounded-[24px] border border-[#333538]">
+        <div className="flex flex-col md:flex-row gap-3 admin-bg-card p-3 rounded-[24px] border admin-border">
           <div className="relative flex-1 group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8E9196] group-focus-within:text-[#A8C7FA] transition-colors" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 admin-text-muted group-focus-within:admin-text-accent transition-colors" />
             <input
               type="text"
               placeholder="Search order # or customer..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-3 pl-10 bg-[#131314] border border-transparent text-[#E3E3E3] placeholder:text-[#8E9196] rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-text"
+              className="w-full px-4 py-3 pl-10 admin-bg-primary border border-transparent admin-text-primary placeholder:admin-text-muted rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-text"
             />
           </div>
           
           <div className="flex gap-3 overflow-x-auto no-scrollbar">
             <div className="relative shrink-0 min-w-[140px]">
-              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8E9196]" />
+              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 admin-text-muted" />
               <select 
                 value={statusFilter} 
                 title="Filter by order status"
                 onChange={(e) => setStatusFilter(e.target.value)} 
-                className="w-full px-4 py-3 pl-10 pr-8 appearance-none bg-[#131314] border border-transparent text-[#E3E3E3] rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
+                className="w-full px-4 py-3 pl-10 pr-8 appearance-none admin-bg-primary border border-transparent admin-text-primary rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
               >
                 {ORDER_STATUS_FILTERS.map(filter => (
-                  <option key={filter.value} value={filter.value} className="bg-[#1E1F20]">{filter.label}</option>
+                  <option key={filter.value} value={filter.value} className="admin-bg-card">{filter.label}</option>
                 ))}
               </select>
             </div>
@@ -170,41 +165,40 @@ export default function AdminOrders() {
                 value={paymentMethodFilter} 
                 title="Filter by payment method"
                 onChange={(e) => setPaymentMethodFilter(e.target.value)} 
-                className="w-full px-5 py-3 pr-8 appearance-none bg-[#131314] border border-transparent text-[#E3E3E3] rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
+                className="w-full px-5 py-3 pr-8 appearance-none admin-bg-primary border border-transparent admin-text-primary rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
               >
                 {PAYMENT_METHOD_FILTERS.map(filter => (
-                  <option key={filter.value} value={filter.value} className="bg-[#1E1F20]">{filter.label}</option>
+                  <option key={filter.value} value={filter.value} className="admin-bg-card">{filter.label}</option>
                 ))}
               </select>
             </div>
           </div>
         </div>
 
-        {/* Enterprise Orders Table [cite: 11] */}
-        <div className="bg-[#1E1F20] rounded-[32px] border border-[#333538] overflow-hidden">
+        <div className="admin-bg-card rounded-[32px] border admin-border overflow-hidden">
           {isLoading && orders.length > 0 && (
-            <div className="w-full h-1 bg-[#282A2C] overflow-hidden">
+            <div className="w-full h-1 admin-bg-elevated overflow-hidden">
               <div className="h-full bg-[#A8C7FA] animate-pulse w-1/3 rounded-r-full"></div>
             </div>
           )}
           <div className="overflow-x-auto no-scrollbar">
             <table className="w-full min-w-[800px] text-left">
-              <thead className="bg-[#131314]">
+              <thead className="admin-bg-primary">
                 <tr>
-                  <th className="px-6 py-4 text-xs font-medium text-[#8E9196] uppercase tracking-widest">Order #</th>
-                  <th className="px-6 py-4 text-xs font-medium text-[#8E9196] uppercase tracking-widest">Customer</th>
-                  <th className="px-6 py-4 text-xs font-medium text-[#8E9196] uppercase tracking-widest">Date</th>
-                  <th className="px-6 py-4 text-xs font-medium text-[#8E9196] uppercase tracking-widest">Amount</th>
-                  <th className="px-6 py-4 text-xs font-medium text-[#8E9196] uppercase tracking-widest">Method</th>
-                  <th className="px-6 py-4 text-xs font-medium text-[#8E9196] uppercase tracking-widest">Status</th>
-                  <th className="px-6 py-4 text-xs font-medium text-[#8E9196] uppercase tracking-widest">Payment</th>
-                  <th className="px-6 py-4 text-right text-xs font-medium text-[#8E9196] uppercase tracking-widest">Action</th>
+                  <th className="px-6 py-4 text-xs font-medium admin-text-muted uppercase tracking-widest">Order #</th>
+                  <th className="px-6 py-4 text-xs font-medium admin-text-muted uppercase tracking-widest">Customer</th>
+                  <th className="px-6 py-4 text-xs font-medium admin-text-muted uppercase tracking-widest">Date</th>
+                  <th className="px-6 py-4 text-xs font-medium admin-text-muted uppercase tracking-widest">Amount</th>
+                  <th className="px-6 py-4 text-xs font-medium admin-text-muted uppercase tracking-widest">Method</th>
+                  <th className="px-6 py-4 text-xs font-medium admin-text-muted uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-xs font-medium admin-text-muted uppercase tracking-widest">Payment</th>
+                  <th className="px-6 py-4 text-right text-xs font-medium admin-text-muted uppercase tracking-widest">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#333538]">
+              <tbody className="divide-y admin-border">
                 {orders.length === 0 && !isLoading ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-[#8E9196] font-medium">
+                    <td colSpan={8} className="px-6 py-12 text-center admin-text-muted font-medium">
                       No orders found matching your criteria.
                     </td>
                   </tr>
@@ -216,17 +210,17 @@ export default function AdminOrders() {
                         setSelectedOrder(order)
                         setModalOpen(true)
                       }}
-                      className="hover:bg-[#282A2C] transition-colors cursor-pointer group"
+                      className="hover:admin-bg-elevated transition-colors cursor-pointer group"
                     >
                       <td className="px-6 py-5 whitespace-nowrap">
-                        <span className="text-sm font-medium text-[#E3E3E3] group-hover:text-[#A8C7FA] transition-colors">
+                        <span className="text-sm font-medium admin-text-primary group-hover:admin-text-accent transition-colors">
                           {order.order_number}
                         </span>
                       </td>
                       <td className="px-6 py-5">
-                        <span className="text-sm text-[#C4C7C5] line-clamp-1">{order.users?.name || 'Guest'}</span>
+                        <span className="text-sm admin-text-secondary line-clamp-1">{order.users?.name || 'Guest'}</span>
                       </td>
-                      <td className="px-6 py-5 whitespace-nowrap text-sm text-[#C4C7C5]">
+                      <td className="px-6 py-5 whitespace-nowrap text-sm admin-text-secondary">
                         {new Intl.DateTimeFormat('en-IN', {
                           timeZone: 'Asia/Kolkata',
                           day: '2-digit',
@@ -238,11 +232,11 @@ export default function AdminOrders() {
                           hour12: true
                         }).format(new Date(order.created_at)).toUpperCase()}
                       </td>
-                      <td className="px-6 py-5 whitespace-nowrap text-sm font-medium text-[#E3E3E3]">
+                      <td className="px-6 py-5 whitespace-nowrap text-sm font-medium admin-text-primary">
                         {formatCurrency(order.total_amount)}
                       </td>
                       <td className="px-6 py-5 whitespace-nowrap">
-                        <span className="capitalize inline-flex px-3 py-1 rounded-full text-[11px] font-bold tracking-wide bg-[#131314] text-[#A8C7FA] border border-[#333538]">
+                        <span className="capitalize inline-flex px-3 py-1 rounded-full text-[11px] font-bold tracking-wide admin-bg-primary admin-text-accent border admin-border">
                           Razorpay {order.payment_method_detail || order.payment_method || 'Standard'}
                         </span>
                       </td>

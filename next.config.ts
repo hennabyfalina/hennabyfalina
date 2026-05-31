@@ -62,11 +62,11 @@ const nextConfig: NextConfig = {
   // Security: Disable X-Powered-By header
   poweredByHeader: false,
   
-  // 🚨 ENTERPRISE LOGGING STRATEGY 🚨
-  // Automatically strip console.log in production to protect secrets and clean up the browser,
-  // but retain error/warn so we can still debug live production issues.
+  // 🚨 ENTERPRISE MAXIMUM LOG SECURE STRATEGY 🚨
+  // Change from configuration object to explicit boolean to completely strip
+  // ALL logs, errors, and warnings out of the compiled code bundle in production.
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
+    removeConsole: process.env.NODE_ENV === 'production',
   },
   
   // Security: CSRF Protection for Server Actions
@@ -119,6 +119,21 @@ const nextConfig: NextConfig = {
         ],
       },
     ];
+  },
+  // Redirect legacy
+  async redirects() {
+    return [
+      {
+        source: '/the-broken-url-google-is-crawling',
+        destination: '/products',
+        permanent: true,
+      },
+      {
+        source: '/privacy.html',
+        destination: '/privacy',
+        permanent: true,
+      },
+    ]
   },
 };
 

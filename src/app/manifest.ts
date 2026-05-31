@@ -12,7 +12,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'High-quality packaging materials for your business needs.',
     start_url: `/`,
     display: 'standalone',
-    background_color: '#eaeded',
+    background_color: '#ffffff',
     theme_color: '#ffffff',
     icons: [
       {

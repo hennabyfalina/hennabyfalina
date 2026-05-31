@@ -1,3 +1,5 @@
+// src/app/(shop)/products/page.tsx
+
 import { Metadata } from 'next'
 import { getProductsWithSignedUrls } from '@/services/product.service'
 import { getCategories } from '@/services/category.service'
@@ -42,17 +44,12 @@ export default async function ProductsPage({
     getCategories()
   ])
 
-  const clientProducts = products.map(product => ({
-    ...product,
-    bulk_min_quantity: null,
-  }))
-
   return (
     <div className="min-h-screen bg-[#F0F2F2]" suppressHydrationWarning>
       <Container className="py-4 md:py-6 max-w-[1500px]">
         <Suspense fallback={<div className="py-20 text-center"></div>}>
           <ProductsClientView 
-            initialProducts={clientProducts} 
+            initialProducts={products as any} 
             categories={categories}
           />
         </Suspense>

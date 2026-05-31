@@ -26,7 +26,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-bold text-gray-900 mb-3">1. Agreement to Terms</h2>
             <p className="text-sm text-gray-700 leading-relaxed">
-              By accessing or using {siteConfig.name}'s website and services, you agree to be bound by these Terms & Conditions. 
+              By accessing or using {siteConfig.name}&apos;s website and services, you agree to be bound by these Terms & Conditions. 
               If you do not agree, please do not use our services.
             </p>
           </section>
@@ -68,22 +68,28 @@ export default function TermsPage() {
             </ul>
           </section>
 
-          {/* Returns and Refunds */}
           <section>
-            <h2 className="text-xl font-bold text-gray-900 mb-3">5. Returns and Refunds</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">5. Order Cancellations & Modifications</h2>
             <ul className="list-disc pl-6 space-y-2 text-sm text-gray-700">
-              <li><strong className="font-semibold">7-Day Replacement Guarantee:</strong> You can request a replacement within 7 days of delivery for defective or damaged products</li>
-              <li>To initiate a return, contact us with your order details and issue description</li>
-              <li>Items must be unused and in original packaging</li>
-              <li>Refunds are processed to original payment method within 7-10 business days</li>
-              <li>Custom or bulk orders may have different return policies - contact us for details</li>
-              <li>Shipping costs for returns are the customer's responsibility unless the item is defective</li>
+              <li><strong className="font-semibold">Pre-Production Modifications:</strong> Customization modifications can be accommodated only if requested <em>before</em> the production cycle begins.</li>
+              <li><strong className="font-semibold">Post-Production Policy:</strong> Once production has commenced, orders cannot be cancelled, modified, or refunded under any circumstances.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">6. Returns, Replacements & Defect Liability</h2>
+            <ul className="list-disc pl-6 space-y-2 text-sm text-gray-700">
+              <li><strong className="font-semibold">Strictly No Cash Refunds:</strong> As a B2B packaging manufacturer, we do not offer cash or bank refunds for customized or standard bulk orders.</li>
+              <li><strong className="font-semibold">Defect Resolution:</strong> In the rare event of a manufacturing defect originating from our facility, we will <strong>repair or replace</strong> the affected products at no additional cost.</li>
+              <li>To initiate a replacement claim, you must notify us within 7 days of delivery with detailed photographic evidence of the defect.</li>
+              <li>Products must remain unused and in their original packaging to qualify for a replacement inspection.</li>
+              <li>Claims for damages caused during third-party transit or improper handling post-delivery will not be entertained.</li>
             </ul>
           </section>
 
           {/* Account Responsibility */}
           <section>
-            <h2 className="text-xl font-bold text-gray-900 mb-3">6. Account Responsibility</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">7. Account Responsibility</h2>
             <p className="text-sm text-gray-700 leading-relaxed">
               You are responsible for maintaining the confidentiality of your account credentials. 
               Notify us immediately of any unauthorized account use. We are not liable for losses 
@@ -93,7 +99,7 @@ export default function TermsPage() {
 
           {/* Prohibited Activities */}
           <section>
-            <h2 className="text-xl font-bold text-gray-900 mb-3">7. Prohibited Activities</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">8. Prohibited Activities</h2>
             <ul className="list-disc pl-6 space-y-2 text-sm text-gray-700">
               <li>Attempting to manipulate prices or order system</li>
               <li>Using automated bots or scripts to place orders</li>
@@ -105,7 +111,7 @@ export default function TermsPage() {
 
           {/* Limitation of Liability */}
           <section>
-            <h2 className="text-xl font-bold text-gray-900 mb-3">8. Limitation of Liability</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">9. Limitation of Liability</h2>
             <p className="text-sm text-gray-700 leading-relaxed">
               {siteConfig.name} shall not be liable for indirect, incidental, or consequential damages 
               arising from the use of our products or services. Our total liability shall not exceed the amount 
@@ -115,7 +121,7 @@ export default function TermsPage() {
 
           {/* Intellectual Property */}
           <section>
-            <h2 className="text-xl font-bold text-gray-900 mb-3">9. Intellectual Property</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">10. Intellectual Property</h2>
             <p className="text-sm text-gray-700 leading-relaxed">
               All content on this website, including images, logos, text, and product designs,
               is the property of {siteConfig.name} and protected by copyright laws. 
@@ -125,7 +131,7 @@ export default function TermsPage() {
 
           {/* Dispute Resolution */}
           <section>
-            <h2 className="text-xl font-bold text-gray-900 mb-3">10. Dispute Resolution</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">11. Dispute Resolution</h2>
             <p className="text-sm text-gray-700 leading-relaxed">
               Any disputes arising from these Terms shall be governed by the laws of India and resolved 
               in the courts of Chennai, Tamil Nadu.
@@ -134,7 +140,7 @@ export default function TermsPage() {
 
           {/* Changes to Terms */}
           <section>
-            <h2 className="text-xl font-bold text-gray-900 mb-3">11. Changes to Terms</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">12. Changes to Terms</h2>
             <p className="text-sm text-gray-700 leading-relaxed">
               We reserve the right to update these Terms at any time. Continued use of our services 
               after changes constitutes acceptance of the revised Terms.

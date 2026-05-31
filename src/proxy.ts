@@ -10,9 +10,15 @@ const ADMIN_ROUTES = ['/admin']
 const GATE_PAGE = '/admin-gate'
 
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({
-    request: { headers: request.headers },
+  const response = NextResponse.next({
+    request: {
+      headers: new Headers(request.headers),
+    },
   })
+
+  // Ensure original host is preserved to prevent redirect loops (SEO Fix)
+  const host = request.headers.get('host')
+  if (host) response.headers.set('X-Forwarded-Host', host)
 
   // Standard Security Headers
   response.headers.set('X-Frame-Options', 'SAMEORIGIN')

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useAdminThemeStore } from '@/store/theme.store'
 import { CheckCircle, AlertTriangle, X, XCircle } from 'lucide-react'
 
 interface ToastItem {
@@ -16,7 +17,7 @@ interface ToastItem {
   timerId?: NodeJS.Timeout
 }
 
-let toasts: ToastItem[] = []
+const toasts: ToastItem[] = []
 let listeners: ((toasts: ToastItem[]) => void)[] = []
 
 const notify = () => listeners.forEach(l => l([...toasts]))
@@ -59,6 +60,8 @@ export default function Toaster() {
   const [currentToasts, setCurrentToasts] = useState<ToastItem[]>([])
   const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
+  const themeStore = useAdminThemeStore()
+  const theme = themeStore?.theme || 'dark'
 
   useEffect(() => {
     setMounted(true)
@@ -74,7 +77,7 @@ export default function Toaster() {
   return createPortal(
     <div className={`fixed z-[999999] flex flex-col gap-3 transition-all duration-500
       ${isAdmin 
-        ? 'bottom-8 left-1/2 -translate-x-1/2 w-full max-w-[420px] px-4' // Gemini Admin: Bottom Center
+        ? `bottom-[90px] left-4 right-4 md:bottom-8 md:left-8 md:right-auto md:w-[380px] admin-theme-${theme}` // 🚨 Desktop Bottom-Left, Mobile Above Nav
         : 'bottom-[80px] left-4 right-4 md:bottom-6 md:left-auto md:right-6 md:w-[380px]' // Amazon Store: Bottom Right
       } pointer-events-none`}
     >
@@ -94,7 +97,7 @@ export default function Toaster() {
             key={toast.id}
             className={`transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-auto transform origin-bottom w-full flex flex-col overflow-hidden
               ${isAdmin 
-                ? 'bg-[#1E1F20] rounded-lg border border-[#333538] shadow-2xl' // 🚨 GOOGLE CLOUD STYLE
+                ? 'admin-bg-card rounded-lg border admin-border shadow-2xl' // 🚨 GOOGLE CLOUD STYLE
                 : 'bg-white rounded-sm shadow-[0_4px_14px_rgba(0,0,0,0.15)] border border-[#D5D9D9]' // 🚨 AMAZON BOX
               }
               ${toast.visible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'}
@@ -107,7 +110,7 @@ export default function Toaster() {
                   isError ? <XCircle className="w-5 h-5 text-red-600 shrink-0" /> : <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
                 )}
                 
-                <span className={`text-sm font-medium ${isAdmin ? 'text-[#E3E3E3]' : 'text-[#0F1111]'}`}>
+                <span className={`text-sm font-medium ${isAdmin ? 'admin-text-primary' : 'text-[#0F1111]'}`}>
                   {toast.message}
                 </span>
               </div>
@@ -132,7 +135,7 @@ export default function Toaster() {
 
                 {/* Close Action */}
                 {isAdmin ? (
-                  <button onClick={() => removeToast(toast.id)} className="text-[12px] font-bold text-[#A8C7FA] hover:bg-[#A8C7FA]/10 px-3 py-2 rounded transition-colors uppercase tracking-wide cursor-pointer shrink-0" aria-label="Close">
+                  <button onClick={() => removeToast(toast.id)} className="text-[12px] font-bold admin-text-accent hover:admin-bg-elevated px-3 py-2 rounded transition-colors uppercase tracking-wide cursor-pointer shrink-0" aria-label="Close">
                     Close
                   </button>
                 ) : (

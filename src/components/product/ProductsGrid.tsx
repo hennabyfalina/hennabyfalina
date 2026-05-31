@@ -2,6 +2,7 @@
 
 'use client'
 
+import { memo } from 'react'
 import ProductCard from './ProductCard'
 import ProductHorizontalCard from './ProductHorizontalCard'
 import type { Product } from '@/app/(shop)/products/ProductsClientView'
@@ -11,7 +12,7 @@ interface ProductsGridProps {
   products: Product[]
 }
 
-export default function ProductsGrid({ products }: ProductsGridProps) {
+const ProductsGrid = memo(function ProductsGrid({ products }: ProductsGridProps) {
   const searchParams = useSearchParams()
   const searchQuery = searchParams ? (searchParams.get('q') || searchParams.get('search') || '') : ''
 
@@ -29,4 +30,6 @@ export default function ProductsGrid({ products }: ProductsGridProps) {
       ))}
     </div>
   )
-}
+})
+
+export default ProductsGrid;

@@ -1,6 +1,6 @@
 // src/config/admin.ts
 
-import { LayoutDashboard, Package, ShoppingCart, Users, Tags, Boxes, IndianRupee } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingCart, Users, Tags, Boxes, IndianRupee, Settings } from 'lucide-react'
 
 // 1. Centralized Admin Navigation
 export const ADMIN_NAV_ITEMS = [
@@ -11,6 +11,7 @@ export const ADMIN_NAV_ITEMS = [
   { href: '/admin/categories', label: 'Categories', icon: Tags, roles: ['admin', 'super_admin'] },
   { href: '/admin/customers', label: 'Customers', icon: Users, roles: ['admin', 'super_admin'] },
   { href: '/admin/finance', label: 'Finance', icon: IndianRupee, roles: ['admin', 'super_admin'] }, // ✅ Visible to both, but page restricts
+  { href: '/admin/settings', label: 'Settings', icon: Settings, roles: ['admin', 'super_admin'] }, 
 ]
 
 // 2. Strict Gemini UI Color Dictionary

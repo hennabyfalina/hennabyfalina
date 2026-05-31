@@ -1,5 +1,3 @@
-// src/app/admin/inventory/logs/page.tsx
-
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -7,15 +5,11 @@ import Link from 'next/link'
 import { getAllInventoryLogs } from '@/services/inventory.service'
 import { formatDate } from '@/lib/utils'
 import AdminLoader from '@/components/admin/AdminLoader'
-import { History, ChevronLeft, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { History, ChevronLeft, TrendingUp, TrendingDown, Minus, User, Calendar } from 'lucide-react'
 
 export default function InventoryLogsPage() {
   const [logs, setLogs] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    loadLogs()
-  }, [])
 
   const loadLogs = async () => {
     setIsLoading(true)
@@ -29,100 +23,101 @@ export default function InventoryLogsPage() {
     }
   }
 
+  useEffect(() => {
+    loadLogs()
+  }, [])
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <AdminLoader message="Fetching audit logs..." />
+        <AdminLoader message="Fetching inventory audit trail..." />
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 animate-in fade-in duration-500">
       
-      {/* 🚨 HEADER 🚨 */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
           <Link 
             href="/admin/inventory" 
-            className="p-2 hover:bg-[#282A2C] rounded-full text-[#C4C7C5] transition-colors cursor-pointer" 
-            title="Back to Inventory"
+            className="p-2 admin-bg-card border admin-border admin-text-muted hover:admin-text-primary rounded-full transition-colors"
           >
-            <ChevronLeft className="w-6 h-6" />
+            <ChevronLeft className="w-5 h-5" />
           </Link>
           <div>
-            <h1 className="text-[28px] font-medium text-[#E3E3E3] tracking-tight leading-tight flex items-center gap-3">
-              Inventory Logs
-            </h1>
-            <p className="text-sm text-[#C4C7C5] mt-1">Audit trail for all manual stock adjustments and system changes.</p>
+            <h1 className="text-2xl font-bold admin-text-primary tracking-tight">Audit Logs</h1>
+            <p className="text-sm admin-text-muted mt-1">Track every stock adjustment and system operation.</p>
           </div>
-        </div>
-        
-        <div className="bg-[#131314] border border-[#333538] px-4 py-2 rounded-full flex items-center gap-2">
-          <History className="w-4 h-4 text-[#A8C7FA]" />
-          <span className="text-xs font-bold text-[#A8C7FA] uppercase tracking-widest">Last 100 Records</span>
         </div>
       </div>
 
-      {/* 🚨 ELITE AUDIT LEDGER TABLE 🚨 */}
-      <div className="bg-[#1E1F20] rounded-[32px] border border-[#333538] overflow-hidden">
-        <div className="overflow-x-auto no-scrollbar">
-          <table className="w-full min-w-[900px] text-left">
-            <thead className="bg-[#131314]">
+      <div className="admin-bg-card rounded-[32px] border admin-border overflow-hidden shadow-xl">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="admin-bg-primary">
               <tr>
-                <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest whitespace-nowrap">Timestamp</th>
-                <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest whitespace-nowrap">Target Product</th>
-                <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest whitespace-nowrap">Delta / Change</th>
-                <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest whitespace-nowrap">Reason</th>
-                <th className="px-6 py-5 text-xs font-bold text-[#8E9196] uppercase tracking-widest whitespace-nowrap text-right">Authorized By</th>
+                <th className="px-6 py-4 text-[11px] font-bold admin-text-muted uppercase tracking-widest">Date & Time</th>
+                <th className="px-6 py-4 text-[11px] font-bold admin-text-muted uppercase tracking-widest">Product</th>
+                <th className="px-6 py-4 text-[11px] font-bold admin-text-muted uppercase tracking-widest">Movement</th>
+                <th className="px-6 py-4 text-[11px] font-bold admin-text-muted uppercase tracking-widest">Reason</th>
+                <th className="px-6 py-4 text-right text-[11px] font-bold admin-text-muted uppercase tracking-widest">Authorized By</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#333538]">
+            <tbody className="divide-y admin-border">
               {logs.map((log) => {
-                const isPositive = log.change_amount > 0
-                const isNegative = log.change_amount < 0
-                const isNeutral = log.change_amount === 0
-
+                const diff = log.new_stock - log.previous_stock
                 return (
-                  <tr key={log.id} className="hover:bg-[#282A2C] transition-colors group cursor-default">
-                    <td className="px-6 py-5 text-sm text-[#C4C7C5] whitespace-nowrap">
-                      {formatDate(log.created_at)}
+                  <tr key={log.id} className="hover:admin-bg-elevated transition-colors group">
+                    <td className="px-6 py-5 whitespace-nowrap">
+                      <div className="flex items-center gap-2 admin-text-secondary">
+                        <Calendar className="w-3.5 h-3.5 admin-text-muted" />
+                        <span className="text-xs font-medium">{formatDate(log.created_at)}</span>
+                      </div>
                     </td>
-                    <td className="px-6 py-5 text-[15px] font-medium text-[#E3E3E3] group-hover:text-[#A8C7FA] transition-colors">
-                      {log.products?.name || 'Deleted / Unknown Product'}
+                    <td className="px-6 py-5">
+                      <p className="text-sm font-bold admin-text-primary line-clamp-1">{log.products?.name || 'Unknown Product'}</p>
+                      <p className="text-[10px] admin-text-muted mt-0.5 font-mono uppercase">{log.products?.sku || 'NO-SKU'}</p>
                     </td>
-                    <td className="px-6 py-5 whitespace-nowrap flex items-center gap-3">
-                      {/* Badge Delta */}
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-widest border ${
-                        isPositive ? 'bg-[#214332]/30 text-[#93D7A4] border-[#214332]' :
-                        isNegative ? 'bg-[#3C1E0A] text-[#F9AB00] border-[#4E270D]' :
-                        'bg-[#282A2C] text-[#C4C7C5] border-[#333538]'
-                      }`}>
-                        {isPositive ? <TrendingUp className="w-3 h-3" /> : isNegative ? <TrendingDown className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
-                        {isPositive ? '+' : ''}{log.change_amount}
-                      </span>
-                      
-                      {/* Before -> After Trail */}
-                      <span className="text-xs text-[#8E9196] font-mono tracking-wide bg-[#131314] px-2.5 py-1 rounded-md border border-[#333538]">
-                        {log.previous_stock} ➔ <span className="text-[#E3E3E3] font-bold">{log.new_stock}</span>
-                      </span>
+                    <td className="px-6 py-5 whitespace-nowrap">
+                      <div className="flex items-center gap-3">
+                        <div className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-bold ${
+                          diff > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 
+                          diff < 0 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 
+                          'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                        }`}>
+                          {diff > 0 ? <TrendingUp className="w-3 h-3" /> : 
+                           diff < 0 ? <TrendingDown className="w-3 h-3" /> : 
+                           <Minus className="w-3 h-3" />}
+                          {diff > 0 ? '+' : ''}{diff}
+                        </div>
+                        <span className="text-xs admin-text-muted font-mono admin-bg-primary px-2 py-1 rounded border admin-border">
+                          {log.previous_stock} ➔ <span className="admin-text-primary font-bold">{log.new_stock}</span>
+                        </span>
+                      </div>
                     </td>
-                    <td className="px-6 py-5 text-sm text-[#E3E3E3] capitalize whitespace-nowrap">
-                      {log.reason || 'Manual Adjustment'}
+                    <td className="px-6 py-5">
+                      <span className="text-sm admin-text-secondary capitalize">{log.reason?.replace('_', ' ') || 'Manual Adjustment'}</span>
                     </td>
-                    <td className="px-6 py-5 text-sm text-right whitespace-nowrap">
-                      <span className="bg-[#0B57D0]/10 text-[#A8C7FA] border border-[#0B57D0]/30 px-3 py-1 rounded-full font-mono text-[11px] tracking-wide">
-                        {log.users?.name || log.users?.email || 'System Operation'}
-                      </span>
+                    <td className="px-6 py-5 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center gap-2 bg-[#0B57D0]/10 admin-text-accent border border-[#0B57D0]/30 px-3 py-1.5 rounded-full">
+                        <User className="w-3 h-3" />
+                        <span className="font-mono text-[11px] tracking-wide">
+                          {log.users?.name || log.users?.email?.split('@')[0] || 'System Admin'}
+                        </span>
+                      </div>
                     </td>
                   </tr>
                 )
               })}
               {logs.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-16 text-center">
-                    <History className="w-12 h-12 text-[#333538] mx-auto mb-4" />
-                    <p className="text-[#8E9196] font-medium">No inventory audit logs found in the database.</p>
+                  <td colSpan={5} className="px-6 py-20 text-center">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <History className="w-12 h-12 admin-text-muted" />
+                      <p className="admin-text-muted font-medium text-sm">No inventory audit logs found.</p>
+                    </div>
                   </td>
                 </tr>
               )}

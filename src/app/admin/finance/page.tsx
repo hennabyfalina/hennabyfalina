@@ -1,5 +1,3 @@
-// src/app/admin/finance/page.tsx
-
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -15,7 +13,6 @@ import { useSearchParams } from 'next/navigation'
 import FinanceCharts from '@/components/admin/FinanceCharts'
 import FinanceLedgerTable from '@/components/admin/FinanceLedgerTable'
 
-// 🚨 IMPORTED DRY CONSTANTS 🚨
 import { FINANCE_TRANSACTION_TYPES, FINANCE_SORT_OPTIONS } from '@/lib/constants'
 
 interface LedgerEntry {
@@ -30,7 +27,7 @@ interface LedgerEntry {
   gst_amount: number
 }
 
-const GST_RATE = 0.18 // 18% Standard GST for packaging materials
+const GST_RATE = 0.18
 
 export default function AdminFinance() {
   const { isSuperAdmin, isLoading: authLoading } = useAuth()
@@ -38,7 +35,6 @@ export default function AdminFinance() {
   const [isLoading, setIsLoading] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
   
-  // Filters
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [sortBy, setSortBy] = useState('date_desc')
@@ -50,14 +46,9 @@ export default function AdminFinance() {
 
   const supabase = createClient()
 
-  useEffect(() => {
-    loadFinancials()
-  }, [range, startParam, endParam]) // Re-fetch when date changes!
-
   const loadFinancials = async () => {
     setIsLoading(true)
     try {
-      // 🚨 DYNAMIC DATE CALCULATION
       let startDate = new Date()
       let endDate = new Date()
 
@@ -75,7 +66,6 @@ export default function AdminFinance() {
         startDate.setHours(0, 0, 0, 0)
       }
 
-      // Pull only finalized financial states
       const { data, error } = await supabase
         .from('orders')
         .select('id, order_number, created_at, total_amount, payment_status, razorpay_payment_id')
@@ -86,7 +76,6 @@ export default function AdminFinance() {
       if (error) throw error
 
       const formattedLedger: LedgerEntry[] = (data || []).map(order => {
-        // Reverse calculate Taxable Value and GST from Total (assuming Total is inclusive of GST)
         const taxable_value = order.total_amount / (1 + GST_RATE)
         const gst_amount = order.total_amount - taxable_value
 
@@ -105,6 +94,10 @@ export default function AdminFinance() {
       setIsLoading(false)
     }
   }
+
+  useEffect(() => {
+    loadFinancials()
+  }, [range, startParam, endParam])
 
   const exportToCSV = () => {
     setIsExporting(true)
@@ -134,7 +127,6 @@ export default function AdminFinance() {
     }
   }
 
-  // Filter & Sort Logic
   const filteredLedger = ledger.filter(entry => {
     const matchesSearch = entry.order_number.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           (entry.razorpay_payment_id || '').toLowerCase().includes(searchQuery.toLowerCase())
@@ -150,13 +142,11 @@ export default function AdminFinance() {
     return 0
   })
 
-  // Core Accounting Metrics
   const grossInflow = ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.total_amount, 0)
   const totalRefunds = ledger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.total_amount, 0)
   const netIncome = grossInflow - totalRefunds
   const estimatedGST = ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.gst_amount, 0)
 
-  // 🚨 CHART DATA AGGREGATION 🚨
   const cashflowData = [
     { name: 'Taxable Income', value: grossInflow - estimatedGST, color: '#93D7A4' },
     { name: 'GST Liability', value: estimatedGST, color: '#A8C7FA' },
@@ -164,7 +154,6 @@ export default function AdminFinance() {
   ].filter(d => d.value > 0)
 
   const timelineMap = new Map()
-  // Sort chronologically for the timeline chart
   const ledgerChronological = [...filteredLedger].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
   ledgerChronological.forEach(entry => {
     const dateStr = new Date(entry.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -192,14 +181,14 @@ export default function AdminFinance() {
   if (!isSuperAdmin) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-in fade-in zoom-in-95 duration-300">
-        <div className="w-20 h-20 bg-[#3C1E0A] border border-[#f90400] rounded-full flex items-center justify-center mb-6 shadow-lg shadow-orange-900/20">
-          <Lock className="w-10 h-10 text-[#f90400]" />
+        <div className="w-20 h-20 bg-amber-100 dark:bg-[#3C1E0A] border border-amber-500 dark:border-[#f90400] rounded-full flex items-center justify-center mb-6 shadow-lg shadow-orange-900/20">
+          <Lock className="w-10 h-10 text-amber-600 dark:text-[#f90400]" />
         </div>
-        <h2 className="text-2xl font-medium text-[#E3E3E3] mb-3 tracking-tight">Restricted Zone</h2>
-        <p className="text-[#8E9196] max-w-md mx-auto leading-relaxed mb-8">
+        <h2 className="text-2xl font-medium admin-text-primary mb-3 tracking-tight">Restricted Zone</h2>
+        <p className="admin-text-muted max-w-md mx-auto leading-relaxed mb-8">
           Financial auditing and ledger operations are strictly limited to Super Administrators.
         </p>
-        <button onClick={() => window.history.back()} className="px-6 py-3 bg-[#1E1F20] text-[#E3E3E3] border border-[#333538] hover:border-[#A8C7FA] hover:bg-[#282A2C] rounded-full font-medium transition-colors shadow-sm cursor-pointer">
+        <button onClick={() => window.history.back()} className="px-6 py-3 admin-bg-card admin-text-primary border admin-border hover:border-[#A8C7FA] hover:admin-bg-elevated rounded-full font-medium transition-colors shadow-sm cursor-pointer">
           Return to Dashboard
         </button>
       </div>
@@ -218,61 +207,57 @@ export default function AdminFinance() {
     <>
       <div className="flex flex-col gap-6">
         
-        {/* 🚨 HEADER 🚨 */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-[28px] font-medium text-[#E3E3E3] tracking-tight leading-tight">Financial Ledger</h1>
-            <p className="text-sm text-[#C4C7C5] mt-1">Audit transactions, manage settlements, and track tax liabilities.</p>
+            <h1 className="text-[28px] font-medium admin-text-primary tracking-tight leading-tight">Financial Ledger</h1>
+            <p className="text-sm admin-text-secondary mt-1">Audit transactions, manage settlements, and track tax liabilities.</p>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
             <DashboardDateFilter />
             <button
               onClick={exportToCSV}
               disabled={isExporting || ledger.length === 0}
-              className="w-full sm:w-auto px-6 py-3 text-sm font-bold bg-[#1E1F20] text-[#E3E3E3] border border-[#333538] hover:border-[#A8C7FA] rounded-full hover:bg-[#282A2C] transition-colors shadow-lg active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full sm:w-auto px-6 py-3 text-sm font-bold admin-bg-card admin-text-primary border admin-border hover:border-[#A8C7FA] rounded-full hover:admin-bg-elevated transition-colors shadow-lg active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
             >
               <Download className="w-4 h-4" /> {isExporting ? 'Generating CSV...' : 'Export Audit Report'}
             </button>
           </div>
         </div>
 
-        {/* 🚨 ACCOUNTING STATS GRID 🚨 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatsCard title="Gross Inflow (Credit)" value={formatCompactIndianCurrency(grossInflow)} icon={<IndianRupee className="w-5 h-5 text-[#02fa40]" />} />
-          <StatsCard title="Net Income" value={formatCompactIndianCurrency(netIncome)} icon={<Wallet className="w-5 h-5 text-[#A8C7FA]" />} />
-          <StatsCard title="GST Liability (Est.)" value={formatCompactIndianCurrency(estimatedGST)} icon={<ReceiptText className="w-5 h-5 text-[#A8C7FA]" />} />
-          <StatsCard title="Refunds (Debit)" value={formatCompactIndianCurrency(totalRefunds)} icon={<TrendingDown className="w-5 h-5 text-[#A8C7FA]" />} />
+          <StatsCard title="Gross Inflow (Credit)" value={formatCompactIndianCurrency(grossInflow)} icon={<IndianRupee className="w-5 h-5 text-green-500" />} />
+          <StatsCard title="Net Income" value={formatCompactIndianCurrency(netIncome)} icon={<Wallet className="w-5 h-5 admin-text-accent" />} />
+          <StatsCard title="GST Liability (Est.)" value={formatCompactIndianCurrency(estimatedGST)} icon={<ReceiptText className="w-5 h-5 admin-text-accent" />} />
+          <StatsCard title="Refunds (Debit)" value={formatCompactIndianCurrency(totalRefunds)} icon={<TrendingDown className="w-5 h-5 admin-text-accent" />} />
         </div>
 
-        {/* 🚨 BUSINESS INTELLIGENCE CHARTS 🚨 */}
         <FinanceCharts timelineData={timelineData} cashflowData={cashflowData} />
 
-        {/* 🚨 FLOATING SEARCH & FILTERS 🚨 */}
-        <div className="flex flex-col md:flex-row gap-3 bg-[#1E1F20] p-3 rounded-[24px] border border-[#333538]">
+        <div className="flex flex-col md:flex-row gap-3 admin-bg-card p-3 rounded-[24px] border admin-border">
           <div className="relative flex-1 group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8E9196] group-focus-within:text-[#A8C7FA] transition-colors" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 admin-text-muted group-focus-within:admin-text-accent transition-colors" />
             <input
               type="text"
               placeholder="Search by Invoice Ref or Razorpay Txn ID..."
               title="Search transactions"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-3 pl-10 bg-[#131314] border border-transparent text-[#E3E3E3] placeholder:text-[#8E9196] rounded-full text-sm font-mono focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow"
+              className="w-full px-4 py-3 pl-10 admin-bg-primary border border-transparent admin-text-primary placeholder:admin-text-muted rounded-full text-sm font-mono focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow"
             />
-            {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8E9196] hover:text-[#E3E3E3]">✕</button>}
+            {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 admin-text-muted hover:admin-text-primary">✕</button>}
           </div>
           
           <div className="flex gap-3 overflow-x-auto no-scrollbar">
             <div className="relative shrink-0 min-w-[180px]">
-              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8E9196]" />
+              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 admin-text-muted" />
               <select
                 title="Sort transactions"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="w-full px-4 py-3 pl-10 pr-8 appearance-none bg-[#131314] border border-transparent text-[#E3E3E3] rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
+                className="w-full px-4 py-3 pl-10 pr-8 appearance-none admin-bg-primary border border-transparent admin-text-primary rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
               >
                 {FINANCE_SORT_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value} className="bg-[#1E1F20]">{opt.label}</option>
+                  <option key={opt.value} value={opt.value} className="admin-bg-card">{opt.label}</option>
                 ))}
               </select>
             </div>
@@ -281,17 +266,16 @@ export default function AdminFinance() {
                 title="Filter by entry type"
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
-                className="w-full px-5 py-3 pr-8 appearance-none bg-[#131314] border border-transparent text-[#E3E3E3] rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
+                className="w-full px-5 py-3 pr-8 appearance-none admin-bg-primary border border-transparent admin-text-primary rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
               >
                 {FINANCE_TRANSACTION_TYPES.map(opt => (
-                  <option key={opt.value} value={opt.value} className="bg-[#1E1F20]">{opt.label}</option>
+                  <option key={opt.value} value={opt.value} className="admin-bg-card">{opt.label}</option>
                 ))}
               </select>
             </div>
           </div>
         </div>
 
-        {/* 🚨 ELITE AUDIT LEDGER TABLE 🚨 */}
         <FinanceLedgerTable sortedLedger={sortedLedger} />
       </div>
     </>

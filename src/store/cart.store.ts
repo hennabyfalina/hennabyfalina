@@ -3,6 +3,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { createClient } from '@/lib/supabase/client'
+import { broadcast } from '@/lib/broadcast'
 
 export interface CartItem {
   id: string
@@ -16,21 +17,22 @@ export interface CartItem {
   category_id: string | null
   description?: string | null
   original_price?: number
-  bulk_price?: number | null
-  bulk_min_quantity?: number | null
+  selling_price?: number
   rating?: number | null
   review_count?: number | null
-  selling_price?: number
   printing_type?: string
   artwork_urls?: string[]
-  artwork_sizes?: number[]  // 🆕 Size tracking for 15MB limit
+  artwork_sizes?: number[]
   printing_instructions?: string | null
+  pricing_tiers?: any[] // 🚨 NEW: Store tiers to calculate delivery days in UI
+  version?: number  // 🆕 Optimistic locking version
 }
 
 interface CartState {
   items: CartItem[]
   isLoading: boolean
   addItem: (item: Omit<CartItem, 'id'>) => Promise<void>
+  updateItem: (id: string, updates: Partial<Omit<CartItem, 'id'>>) => Promise<void>
   removeItem: (id: string) => Promise<void>
   updateQuantity: (id: string, quantity: number) => Promise<void>
   clearCart: () => Promise<void>
@@ -47,15 +49,18 @@ const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9
 
 const calculateItemPrice = (
   basePrice: number,
-  bulkPrice?: number | null,
-  bulkMinQty?: number | null,
-  quantity: number = 1
+  tiers: any[] | undefined,
+  printingType: string
 ) => {
-  if (bulkPrice && bulkMinQty && quantity >= bulkMinQty) {
-    return bulkPrice
-  }
-  return basePrice
+  if (!tiers || tiers.length === 0) return basePrice
+  const selectedTier = tiers.find(t => t.tier_name === printingType)
+  return selectedTier?.selling_price ?? basePrice
 }
+
+const incrementVersion = (item: CartItem): CartItem => ({
+  ...item,
+  version: (item.version || 0) + 1
+})
 
 export const useCartStore = create<CartState>()(
   persist(
@@ -81,31 +86,21 @@ export const useCartStore = create<CartState>()(
       addItem: async (newItem) => {
         set({ isLoading: true })
         const currentItems = get().items
-        
         const isCustomPrint = (newItem.printing_type || '').includes('Color')
 
         const existingItem = currentItems.find((item) => {
-          const isSameProduct = item.product_id === newItem.product_id;
-          const isSamePrintType = (item.printing_type || 'None') === (newItem.printing_type || 'None');
-          
-          if (!isSameProduct || !isSamePrintType) return false;
+          const isSameProduct = item.product_id === newItem.product_id
+          const isSamePrintType = (item.printing_type || 'None') === (newItem.printing_type || 'None')
+          if (!isSameProduct || !isSamePrintType) return false
           
           if (isCustomPrint) {
-            // 🚀 SMART MERGE: Only merge custom prints if ALL details match exactly
-            const sameInstructions = (item.printing_instructions || null) === (newItem.printing_instructions || null);
-            
-            const aUrls = item.artwork_urls || [];
-            const bUrls = newItem.artwork_urls || [];
-            const sameUrls = aUrls.length === bUrls.length && aUrls.every((val, index) => val === bUrls[index]);
-            
-            const aSizes = item.artwork_sizes || [];
-            const bSizes = newItem.artwork_sizes || [];
-            const sameSizes = aSizes.length === bSizes.length && aSizes.every((val, index) => val === bSizes[index]);
-            
-            return sameInstructions && sameUrls && sameSizes;
+            const sameInstructions = (item.printing_instructions || null) === (newItem.printing_instructions || null)
+            const aUrls = item.artwork_urls || []
+            const bUrls = newItem.artwork_urls || []
+            const sameUrls = aUrls.length === bUrls.length && aUrls.every((val, index) => val === bUrls[index])
+            return sameInstructions && sameUrls
           }
-          
-          return true; // Safe to merge retail/wholesale (no custom artwork)
+          return true
         })
 
         let updatedItems: CartItem[]
@@ -116,16 +111,14 @@ export const useCartStore = create<CartState>()(
             set({ isLoading: false })
             throw new Error(`Only ${newItem.stock} items available`)
           }
-
           const basePrice = existingItem.selling_price ?? existingItem.original_price ?? existingItem.price
           updatedItems = currentItems.map((item) =>
             item.id === existingItem.id
-              ? { 
+              ? incrementVersion({ 
                   ...item, 
                   quantity: newQuantity,
-                  // 🚀 Artwork arrays are identical, so we keep the existing ones without duplicating
-                  price: calculateItemPrice(basePrice, item.bulk_price, item.bulk_min_quantity, newQuantity) 
-                }
+                  price: calculateItemPrice(basePrice, item.pricing_tiers, item.printing_type || 'None') 
+                })
               : item
           )
         } else {
@@ -133,12 +126,11 @@ export const useCartStore = create<CartState>()(
           const cartItem: CartItem = {
             ...newItem,
             id: generateId(),
-            price: calculateItemPrice(basePrice, newItem.bulk_price, newItem.bulk_min_quantity, newItem.quantity),
+            version: 1, // Start at 1
+            price: calculateItemPrice(basePrice, newItem.pricing_tiers, newItem.printing_type || 'None'),
             category_id: newItem.category_id || null,
             description: newItem.description || null,
             original_price: newItem.original_price,
-            bulk_price: newItem.bulk_price || null,
-            bulk_min_quantity: newItem.bulk_min_quantity || null,
             rating: newItem.rating || null,
             review_count: newItem.review_count || null,
             selling_price: newItem.selling_price,
@@ -146,18 +138,52 @@ export const useCartStore = create<CartState>()(
             artwork_urls: newItem.artwork_urls || [],
             artwork_sizes: newItem.artwork_sizes || [],
             printing_instructions: newItem.printing_instructions || null,
+            pricing_tiers: newItem.pricing_tiers || []
           }
           updatedItems = [...currentItems, cartItem]
         }
 
         set({ items: updatedItems, isLoading: false })
+        broadcast.send({ type: 'CART_ITEM_ADDED', productId: newItem.product_id })
         await get()._syncAfterUpdate()
       },
 
+      updateItem: async (id, updates) => {
+  set({ isLoading: true })
+  const currentItems = get().items
+  const itemIndex = currentItems.findIndex(i => i.id === id)
+
+  if (itemIndex === -1) {
+    set({ isLoading: false })
+    throw new Error('Item not found')
+  }
+
+  const oldItem = currentItems[itemIndex]
+  const merged = { ...oldItem, ...updates }
+  
+  // Recalculate price if printing_type or tiers changed
+  const basePrice = merged.selling_price ?? merged.original_price ?? merged.price
+  const newPrice = calculateItemPrice(basePrice, merged.pricing_tiers, merged.printing_type || 'None')
+  
+  const updatedItems = [...currentItems]
+  updatedItems[itemIndex] = incrementVersion({
+    ...merged,
+    price: newPrice,
+  })
+
+  set({ items: updatedItems, isLoading: false })
+  broadcast.send({ type: 'CART_ITEM_UPDATED', productId: oldItem.product_id, printingType: merged.printing_type || 'None' })
+  await get()._syncAfterUpdate()
+},
+
       removeItem: async (id: string) => {
         set({ isLoading: true })
+        const itemToRemove = get().items.find(i => i.id === id)
         const updatedItems = get().items.filter((item) => item.id !== id)
         set({ items: updatedItems, isLoading: false })
+        if (itemToRemove) {
+          broadcast.send({ type: 'CART_ITEM_DELETED', productId: itemToRemove.product_id, artworkUrls: itemToRemove.artwork_urls || [] })
+        }
         await get()._syncAfterUpdate()
       },
 
@@ -177,16 +203,19 @@ export const useCartStore = create<CartState>()(
         const updatedItems = get().items.map((item) => {
           if (item.id === id) {
             const basePrice = item.selling_price ?? item.original_price ?? item.price
-            return {
+            return incrementVersion({
               ...item,
               quantity,
-              price: calculateItemPrice(basePrice, item.bulk_price, item.bulk_min_quantity, quantity)
-            }
+              price: calculateItemPrice(basePrice, item.pricing_tiers, item.printing_type || 'None')
+            })
           }
           return item
         })
         
         set({ items: updatedItems, isLoading: false })
+        if (item) {
+          broadcast.send({ type: 'CART_ITEM_UPDATED', productId: item.product_id, printingType: item.printing_type || 'None' })
+        }
         await get()._syncAfterUpdate()
       },
 
@@ -225,9 +254,10 @@ export const useCartStore = create<CartState>()(
         const { data: { session } } = await supabase.auth.getSession()
         
         if (session?.user) {
+          // 🚨 FETCH TIERS HERE TO POWER THE UI
           const { data: dbItems, error } = await supabase
             .from('cart_items')
-            .select('*, products(*)')
+            .select('*, products(*, pricing_tiers:product_pricing_tiers(*))')
             .eq('user_id', session.user.id)
           
           if (!error && dbItems && dbItems.length > 0) {
@@ -238,15 +268,13 @@ export const useCartStore = create<CartState>()(
                   product_id: item.product_id,
                   name: item.products.name,
                   slug: item.products.slug,
-                  price: calculateItemPrice(basePrice, item.products.bulk_price, item.products.bulk_min_quantity, item.quantity),
+                  price: calculateItemPrice(basePrice, item.products.pricing_tiers, item.printing_type || 'None'),
                   quantity: item.quantity,
                   image: item.products.images?.[0] || '',
                   stock: item.products.stock,
                   category_id: item.products.category_id,
                   description: item.products.description,
                   original_price: item.products.price,
-                  bulk_price: item.products.bulk_price,
-                  bulk_min_quantity: item.products.bulk_min_quantity,
                   rating: item.products.rating,
                   review_count: item.products.review_count,
                   selling_price: item.products.selling_price,
@@ -254,6 +282,7 @@ export const useCartStore = create<CartState>()(
                   artwork_urls: item.artwork_urls || [],
                   artwork_sizes: item.artwork_sizes || [],
                   printing_instructions: item.printing_instructions || null,
+                  pricing_tiers: item.products.pricing_tiers || []
                 }
               })
             set({ items: loadedItems })
@@ -267,9 +296,11 @@ export const useCartStore = create<CartState>()(
         if (currentItems.length === 0) return
         const supabase = createClient()
         const productIds = currentItems.map((item) => item.product_id)
+        
+        // 🚨 REFRESH WITH TIERS
         const { data: products, error } = await supabase
           .from('products')
-          .select('id, name, slug, price, selling_price, bulk_price, bulk_min_quantity, stock, images, category_id, description, rating, review_count')
+          .select('*, pricing_tiers:product_pricing_tiers(*)')
           .in('id', productIds)
 
         if (!error && products) {
@@ -279,11 +310,10 @@ export const useCartStore = create<CartState>()(
             const basePrice = product.selling_price ?? product.price
             return {
               ...item,
-              price: calculateItemPrice(basePrice, product.bulk_price, product.bulk_min_quantity, item.quantity),
+              price: calculateItemPrice(basePrice, product.pricing_tiers, item.printing_type || 'None'),
               stock: product.stock,
-              bulk_price: product.bulk_price,
-              bulk_min_quantity: product.bulk_min_quantity,
               selling_price: product.selling_price,
+              pricing_tiers: product.pricing_tiers || []
             }
           })
           set({ items: updatedItems })

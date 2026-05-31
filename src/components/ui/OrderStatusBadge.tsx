@@ -1,6 +1,10 @@
 // src/components/ui/OrderStatusBadge.tsx
 
+'use client'
+
 import React from 'react'
+import { usePathname } from 'next/navigation'
+import AdminBadge from '@/components/admin/OrderStatusBadge'
 
 const statusColors = {
   pending: 'bg-orange-100 text-orange-700',
@@ -26,6 +30,13 @@ interface OrderStatusBadgeProps {
 }
 
 export default function OrderStatusBadge({ status, type = 'order', className = '' }: OrderStatusBadgeProps) {
+  const pathname = usePathname()
+  const isAdmin = pathname?.startsWith('/admin')
+
+  if (isAdmin) {
+    return <AdminBadge status={status} type={type} />
+  }
+
   if (!status) {
     return (
       <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200 ${className}`}>

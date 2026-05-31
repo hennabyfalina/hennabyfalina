@@ -2,13 +2,28 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
-import { ShoppingCart } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { ShoppingCart, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import ProductCard from '@/components/product/ProductCard'
-import { Product } from '@/types/database.types'
+import { Product } from '@/components/product/ProductCard'
 import { useCartStore } from '@/store/cart.store'
 import { showToast } from '@/components/ui/Toast'
-import { B2B_CONSTANTS } from '@/config/b2b-rules'
+import { createClient } from '@/lib/supabase/client'
+
+// 🚨 COMPONENT: Skeleton Loader (mimics the ProductCard shape)
+function ProductCardSkeleton() {
+  return (
+    <div className="w-[200px] sm:w-[240px] flex-shrink-0 h-full bg-white border border-gray-200 rounded-md overflow-hidden animate-pulse">
+      <div className="aspect-square bg-gray-100 w-full" />
+      <div className="p-4 space-y-3">
+        <div className="h-4 bg-gray-100 rounded w-3/4" />
+        <div className="h-3 bg-gray-50 rounded w-1/2" />
+        <div className="h-6 bg-gray-100 rounded w-1/3 mt-4" />
+        <div className="h-8 bg-gray-100 rounded-full w-full mt-2" />
+      </div>
+    </div>
+  )
+}
 
 interface RecentlyBoughtCarouselProps {
   userId: string | null;
@@ -19,6 +34,11 @@ export default function RecentlyBoughtCarousel({ userId }: RecentlyBoughtCarouse
   const [loading, setLoading] = useState(true)
   const [isAdding, setIsAdding] = useState(false)
   const addItem = useCartStore((state) => state.addItem)
+  const supabase = createClient()
+  
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(true)
 
   useEffect(() => {
     const fetchRecentlyBought = async () => {
@@ -29,112 +49,162 @@ export default function RecentlyBoughtCarousel({ userId }: RecentlyBoughtCarouse
       setLoading(true)
       try {
         const response = await fetch('/api/user/recently-bought')
-        if (!response.ok) throw new Error('Failed to fetch recently bought products')
-        const products: Product[] = await response.json()
-        setRecentlyBought(products)
+        if (response.ok) {
+          const products: Product[] = await response.json()
+          setRecentlyBought(Array.isArray(products) ? products : [])
+        } else {
+          // If 404, 401 or other errors, user might not have history or session is invalid
+          setRecentlyBought([])
+        }
       } catch (error) {
         console.error('Error fetching recently bought products:', error)
       } finally {
         setLoading(false)
       }
     }
-
     fetchRecentlyBought()
   }, [userId])
 
-  if (loading) {
-    return (
-      <div className="bg-white p-4 sm:p-5 rounded-sm shadow-[0_1px_4px_rgba(0,0,0,0.1)] overflow-hidden w-full" suppressHydrationWarning>
-        <div className="flex items-center gap-2 mb-4" suppressHydrationWarning>
-          <div className="h-6 bg-gray-200 rounded w-48 animate-pulse" suppressHydrationWarning />
-        </div>
-        <div className="flex gap-4 pb-6 overflow-hidden" suppressHydrationWarning>
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="w-[220px] flex-shrink-0 animate-pulse" suppressHydrationWarning>
-              <div className="aspect-square bg-gray-100 rounded-sm mb-3" suppressHydrationWarning />
-              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" suppressHydrationWarning />
-              <div className="h-4 bg-gray-200 rounded w-1/2" suppressHydrationWarning />
-            </div>
-          ))}
-        </div>
-      </div>
-    )
+  const checkScroll = () => {
+    if (scrollContainerRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current
+      setCanScrollLeft(scrollLeft > 0)
+      setCanScrollRight(Math.ceil(scrollLeft + clientWidth) < scrollWidth - 5)
+    }
   }
 
-  if (!userId || recentlyBought.length === 0) {
-    return null
+  useEffect(() => {
+    checkScroll()
+    window.addEventListener('resize', checkScroll)
+    return () => window.removeEventListener('resize', checkScroll)
+  }, [recentlyBought])
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = Math.min(scrollContainerRef.current.clientWidth * 0.8, 800)
+      scrollContainerRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      })
+      setTimeout(checkScroll, 350)
+    }
   }
 
   const handleAddAllToCart = async () => {
     if (recentlyBought.length === 0) return
     setIsAdding(true)
+    let addedCount = 0
+    
     try {
-      const retailMin = B2B_CONSTANTS.RETAIL_MIN_QTY
-      // B2B Validation: Only add products that have at least the minimum retail stock
-      const availableProducts = recentlyBought.filter(p => (p.stock ?? retailMin) >= retailMin)
-      
-      await Promise.all(availableProducts.map(async (product) => {
-        const sellingPrice = product.selling_price ?? product.price ?? 0
-        // Dynamic bulk pricing check based on the new B2B minimums
-        const finalPrice = product.bulk_price && retailMin >= (product.bulk_min_quantity || B2B_CONSTANTS.WHOLESALE_MIN_QTY) 
-          ? product.bulk_price 
-          : sellingPrice
+      for (const p of recentlyBought) {
+        const { data: fullProduct, error } = await supabase
+          .from('products')
+          .select('*, pricing_tiers:product_pricing_tiers(*)')
+          .eq('id', p.id)
+          .single()
 
-        await addItem({
-          product_id: product.id,
-          name: product.name,
-          slug: product.slug,
-          price: finalPrice,
-          quantity: retailMin,
-          image: product.images?.[0] || '',
-          stock: product.stock,
-          category_id: product.category_id || null,
-          description: product.description || null,
-          original_price: product.price,
-          bulk_price: product.bulk_price || null,
-          bulk_min_quantity: product.bulk_min_quantity || null,
-          rating: product.rating || null,
-          review_count: product.review_count || null,
-          selling_price: sellingPrice,
-        })
-      }))
-      showToast(`Added ${availableProducts.length} items to Cart`, 'success')
+        if (error || !fullProduct) continue
+
+        const tiers = fullProduct.pricing_tiers?.filter((t: any) => !t.is_deleted) || []
+        const defaultTier = tiers.length > 0 
+          ? tiers.find((t: any) => t.min_quantity === 1) || 
+            tiers.sort((a: any, b: any) => a.min_quantity - b.min_quantity)[0]
+          : null;
+        
+        const targetQty = defaultTier ? defaultTier.min_quantity : 1;
+        const targetPrice = defaultTier ? defaultTier.selling_price : (fullProduct.selling_price ?? fullProduct.price);
+
+        if (fullProduct.stock >= targetQty) {
+          await addItem({
+            product_id: fullProduct.id,
+            name: fullProduct.name,
+            slug: fullProduct.slug,
+            price: targetPrice,
+            quantity: targetQty,
+            image: fullProduct.images?.[0] || '',
+            stock: fullProduct.stock,
+            category_id: fullProduct.category_id || null,
+            description: fullProduct.description || null,
+            original_price: fullProduct.price,
+            rating: fullProduct.rating || null,
+            review_count: fullProduct.review_count || null,
+            selling_price: fullProduct.selling_price || fullProduct.price,
+            printing_type: defaultTier ? defaultTier.tier_name : 'Retail (Readymade)',
+            artwork_urls: [],
+            artwork_sizes: [],
+            printing_instructions: null,
+            pricing_tiers: tiers 
+          })
+          addedCount++
+        }
+      }
+      if (addedCount > 0) showToast(`${addedCount} favorites added to cart`, 'success')
     } catch (error) {
-      showToast('Failed to add some items to cart', 'error')
+      showToast('Error updating cart', 'error')
     } finally {
       setIsAdding(false)
     }
   }
 
+  if (loading) {
+    return (
+      <div className="w-full bg-white p-4 sm:p-6 rounded-md border border-gray-200 mt-10">
+        <div className="h-7 w-48 bg-gray-100 rounded mb-6 animate-pulse" />
+        <div className="flex gap-4 sm:gap-6 overflow-hidden">
+          {[...Array(5)].map((_, i) => <ProductCardSkeleton key={i} />)}
+        </div>
+      </div>
+    )
+  }
+
+  if (!recentlyBought || recentlyBought.length === 0) return null
+
   return (
-    <div className="bg-white p-4 sm:p-5 rounded-sm shadow-[0_1px_4px_rgba(0,0,0,0.1)] overflow-hidden w-full">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex flex-col">
-          <h3 className="text-lg sm:text-2xl font-bold text-gray-900 tracking-tight leading-tight">Buy Again</h3>
-          <p className="text-[11px] text-gray-500 font-medium mt-0.5 hidden sm:block">Quick reorder base retail configurations (Min. Qty: {B2B_CONSTANTS.RETAIL_MIN_QTY})</p>
+    <div className="w-full bg-white p-4 sm:p-6 rounded-md border border-gray-200 shadow-sm mt-10 relative">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 pb-4">
+        <div>
+          <h3 className="text-xl sm:text-2xl font-bold text-[#0F1111] tracking-tight">Buy it again</h3>
         </div>
         <button
           onClick={handleAddAllToCart}
-          // B2B Validation: Disable button if NO products have enough stock for the minimum
-          disabled={isAdding || recentlyBought.filter(p => (p.stock ?? B2B_CONSTANTS.RETAIL_MIN_QTY) >= B2B_CONSTANTS.RETAIL_MIN_QTY).length === 0}
-          className="px-4 py-1.5 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] text-sm font-medium rounded-full shadow-sm border border-[#FCD200] transition-colors disabled:opacity-60 flex items-center gap-2 cursor-pointer focus:outline-none"
+          disabled={isAdding}
+          className="px-6 py-2 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] text-sm font-bold rounded-full shadow-sm border border-[#FCD200] transition-all disabled:opacity-60 flex items-center gap-2 cursor-pointer active:scale-95"
         >
-          {isAdding ? (
-            <div className="w-4 h-4 border-2 border-[#0F1111] border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <ShoppingCart className="w-4 h-4" />
-          )}
-          <span className="hidden sm:inline">Add all to Cart</span>
-          <span className="sm:hidden">Add All</span>
+          {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
+          {isAdding ? 'Processing...' : 'Add all to Cart'}
         </button>
       </div>
       
-      <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
-        {recentlyBought.map((product) => (
-          <div key={product.id} className="w-[220px] flex-shrink-0 h-full">
-            <ProductCard product={product} priority={false} productList={recentlyBought} />
-          </div>
-        ))}
+      <div className="relative -mx-4 sm:mx-0 px-4 sm:px-0 -mt-7">
+        {canScrollLeft && (
+          <button 
+            onClick={() => scroll('left')}
+            className="absolute left-0 top-[40%] -translate-y-1/2 -ml-3 sm:-ml-5 z-20 w-10 h-10 bg-white rounded-full shadow-lg border border-gray-200 flex items-center justify-center text-gray-700 hover:text-gray-900 transition-all opacity-0 group-hover/slider:opacity-100 hidden sm:flex"
+          >
+            <ChevronLeft className="w-5 h-5 pr-0.5" />
+          </button>
+        )}
+        
+        <div ref={scrollContainerRef} onScroll={checkScroll} className="flex gap-4 sm:gap-6 overflow-x-auto no-scrollbar pb-6 scroll-smooth snap-x">
+          {recentlyBought.map((product) => (
+            <div key={product.id} className="w-[200px] sm:w-[240px] flex-shrink-0 h-full snap-start">
+              <ProductCard 
+                product={product} 
+                productList={recentlyBought} 
+                hideMinOrderBadge={true} // 🚨 TRIGGER: Hide badge only in this carousel
+              />
+            </div>
+          ))}
+        </div>
+
+        {canScrollRight && (
+          <button 
+            onClick={() => scroll('right')}
+            className="absolute right-0 top-[40%] -translate-y-1/2 -mr-3 sm:-mr-5 z-20 w-10 h-10 bg-white rounded-full shadow-lg border border-gray-200 flex items-center justify-center text-gray-700 hover:text-gray-900 transition-all opacity-0 group-hover/slider:opacity-100 hidden sm:flex"
+          >
+            <ChevronRight className="w-5 h-5 pl-0.5" />
+          </button>
+        )}
       </div>
     </div>
   )

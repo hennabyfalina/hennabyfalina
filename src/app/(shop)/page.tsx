@@ -1,6 +1,7 @@
 // src/app/(shop)/page.tsx
 
-import { getProductsWithSignedUrls } from '@/services/product.service'
+import { Metadata } from 'next'
+import { getFeaturedProductsWithSignedUrls } from '@/services/product.service'
 import HeroSection from '@/components/home/HeroSection'
 import CategorySection from '@/components/home/CategorySection'
 import FeaturedProductsSection from '@/components/home/FeaturedProductsSection'
@@ -11,6 +12,14 @@ import TestimonialsSection from '@/components/home/TestimonialsSection'
 import ContactSection from '@/components/home/ContactSection'
 import { createClient } from '@/lib/supabase/server'
 import dynamic from 'next/dynamic'
+
+export const metadata: Metadata = {
+  title: 'Razack Packaging Centre | Wholesale Packaging Solutions',
+  description: 'Premium wholesale packaging, readymade boxes, and custom printing solutions.',
+  alternates: {
+    canonical: 'https://www.razackpackagingcentre.com',
+  },
+}
 
 const RecentlyBoughtCarousel = dynamic(() => import('@/components/product/RecentlyBoughtCarousel'), {
   loading: () => <div className="w-full h-[340px] bg-white border border-gray-100 animate-pulse rounded-sm shadow-sm" />
@@ -37,8 +46,7 @@ export default async function HomePage() {
     product_count: category.products?.length || 0,
   })) || []
 
-  const allProducts = await getProductsWithSignedUrls()
-  const featuredProducts = allProducts.slice(0, 8)
+  const featuredProducts = await getFeaturedProductsWithSignedUrls(8)
 
   return (
     <div className="flex-1 flex flex-col w-full bg-[#eaeded] pb-8" suppressHydrationWarning>

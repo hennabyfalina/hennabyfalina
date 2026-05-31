@@ -521,3 +521,225 @@
     animation: zoomIn 0.3s ease-out;
   }
 }
+
+/* Z-Index System */
+:root {
+  --z-modal: 999999;
+  --z-sticky-bar: 999998;
+  --z-bottom-nav: 100;
+  --z-navbar: 50;
+}
+
+/* Fix body scroll lock without breaking fixed elements */
+body.modal-open {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
+
+/* Ensure sticky bar remains above content */
+.sticky-buy-bar {
+  z-index: var(--z-sticky-bar) !important;
+}
+
+/* Modal stays on top */
+.modal-container {
+  z-index: var(--z-modal) !important;
+}
+
+html {
+  /* Do NOT set scroll-behavior here – we'll use JS for smoothness */
+  scroll-padding-top: 73px; /* Desktop navbar height */
+}
+
+@media (max-width: 768px) {
+  html {
+    scroll-padding-top: 56px; /* Mobile navbar height */
+  }
+}
+
+/* Respect user preferences */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+
+:root {
+  --bottom-nav-height: 64px;  /* Mobile bottom nav height */
+  --bottom-nav-padding: 8px;   /* Extra padding for safe area */
+  --sticky-bar-bottom-offset: calc(var(--bottom-nav-height) + var(--bottom-nav-padding));
+}
+
+@media (max-width: 768px) {
+  .mobile-sticky-bar {
+    bottom: 85px;  /* Direct value instead of calc */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+
+/* ============================================
+   ADMIN PANEL THEMING SYSTEM
+   Only applies to .admin-theme-wrapper
+   Main site remains untouched
+   ============================================ */
+
+/* Dark Theme (Default for Admin) */
+.admin-theme-dark {
+  --admin-bg-primary: #131314;
+  --admin-bg-card: #1E1F20;
+  --admin-bg-elevated: #282A2C;
+  --admin-bg-hover: #333538;
+  --admin-border: #333538;
+  --admin-text-primary: #E3E3E3;
+  --admin-text-secondary: #C4C7C5;
+  --admin-text-muted: #8E9196;
+  --admin-accent: #A8C7FA;
+  --admin-accent-solid: #0B57D0;
+  --admin-warning: #F9AB00;
+  --admin-danger: #F2B8B5;
+  --admin-success: #93D7A4;
+  
+  /* Status badge colors */
+  --admin-status-pending-bg: #4A4431;
+  --admin-status-pending-text: #F1DF9E;
+  --admin-status-confirmed-bg: #2E3C4E;
+  --admin-status-confirmed-text: #A8C7FA;
+  --admin-status-processing-bg: #3F2D4A;
+  --admin-status-processing-text: #D0BCFF;
+  --admin-status-shipped-bg: #4A3A2C;
+  --admin-status-shipped-text: #FFB4A8;
+  --admin-status-delivered-bg: #214332;
+  --admin-status-delivered-text: #93D7A4;
+  --admin-status-cancelled-bg: #4D2628;
+  --admin-status-cancelled-text: #F2B8B5;
+}
+
+/* Light Theme for Admin */
+.admin-theme-light {
+  --admin-bg-primary: #ffffff;
+  --admin-bg-card: #f9fafb;
+  --admin-bg-elevated: #f3f4f6;
+  --admin-bg-hover: #e5e7eb;
+  --admin-border: #e5e7eb;
+  --admin-text-primary: #111827;
+  --admin-text-secondary: #4b5563;
+  --admin-text-muted: #6b7280;
+  --admin-accent: #2563eb;
+  --admin-accent-solid: #0B57D0;
+  --admin-warning: #b45309;
+  --admin-danger: #dc2626;
+  --admin-success: #16a34a;
+  
+  /* Status badge colors - Light mode */
+  --admin-status-pending-bg: #fef3c7;
+  --admin-status-pending-text: #854d0e;
+  --admin-status-confirmed-bg: #dbeafe;
+  --admin-status-confirmed-text: #1e40af;
+  --admin-status-processing-bg: #ede9fe;
+  --admin-status-processing-text: #6d28d9;
+  --admin-status-shipped-bg: #ffedd5;
+  --admin-status-shipped-text: #9a3412;
+  --admin-status-delivered-bg: #dcfce7;
+  --admin-status-delivered-text: #166534;
+  --admin-status-cancelled-bg: #fee2e2;
+  --admin-status-cancelled-text: #b91c1c;
+}
+
+/* Semantic Tailwind-like classes for admin components */
+/* Backgrounds */
+.admin-bg-primary { background-color: var(--admin-bg-primary); transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
+.admin-bg-card { background-color: var(--admin-bg-card); transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
+.admin-bg-elevated { background-color: var(--admin-bg-elevated); transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
+.admin-bg-hover { background-color: var(--admin-bg-hover); transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
+
+/* Text colors */
+.admin-text-primary { color: var(--admin-text-primary); transition: color 0.3s ease; }
+.admin-text-secondary { color: var(--admin-text-secondary); transition: color 0.3s ease; }
+.admin-text-muted { color: var(--admin-text-muted); transition: color 0.3s ease; }
+.admin-text-accent { color: var(--admin-accent); transition: color 0.3s ease; }
+
+/* Borders */
+.admin-border { border-color: var(--admin-border); transition: border-color 0.3s ease; }
+
+/* Status badges */
+.admin-badge-pending { background-color: var(--admin-status-pending-bg); color: var(--admin-status-pending-text); }
+.admin-badge-confirmed { background-color: var(--admin-status-confirmed-bg); color: var(--admin-status-confirmed-text); }
+.admin-badge-processing { background-color: var(--admin-status-processing-bg); color: var(--admin-status-processing-text); }
+.admin-badge-shipped { background-color: var(--admin-status-shipped-bg); color: var(--admin-status-shipped-text); }
+.admin-badge-delivered { background-color: var(--admin-status-delivered-bg); color: var(--admin-status-delivered-text); }
+.admin-badge-cancelled { background-color: var(--admin-status-cancelled-bg); color: var(--admin-status-cancelled-text); }
+
+/* Hover utilities */
+.admin-hover-bg:hover { background-color: var(--admin-bg-hover); }
+
+/* Button styles */
+.admin-btn-primary {
+  background-color: var(--admin-accent-solid);
+  color: white;
+  transition: all 150ms;
+}
+.admin-btn-primary:hover {
+  background-color: #0842A0;
+}
+.admin-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Smooth theme transitions */
+.admin-theme-dark,
+.admin-theme-light {
+  transition: background-color 0.2s ease-out, 
+              border-color 0.2s ease-out,
+              color 0.15s ease-out;
+}
+
+.admin-theme-dark *,
+.admin-theme-light * {
+  transition: background-color 0.15s ease-out,
+              border-color 0.15s ease-out,
+              color 0.1s ease-out;
+}
+
+/* Disable transitions for elements that cause lag */
+.admin-theme-dark svg,
+.admin-theme-light svg,
+.admin-theme-dark img,
+.admin-theme-light img {
+  transition: none;
+}
+
+/* Optimize recharts for theme switching */
+.recharts-wrapper,
+.recharts-surface {
+  transition: none !important;
+}
+
+/* Force recharts to use theme variables */
+.recharts-text {
+  fill: var(--admin-text-muted) !important;
+}
+.recharts-cartesian-axis-tick-value {
+  fill: var(--admin-text-muted) !important;
+}
+.recharts-legend-item-text {
+  color: var(--admin-text-primary) !important;
+  fill: var(--admin-text-primary) !important;
+}
+.recharts-tooltip-wrapper {
+  background-color: var(--admin-bg-primary) !important;
+  border-color: var(--admin-border) !important;
+}
+.recharts-default-tooltip {
+  background-color: var(--admin-bg-primary) !important;
+  border-color: var(--admin-border) !important;
+}
+.recharts-tooltip-label {
+  color: var(--admin-text-primary) !important;
+}
+.recharts-tooltip-item {
+  color: var(--admin-text-secondary) !important;
+}

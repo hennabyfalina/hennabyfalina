@@ -6,7 +6,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Eye } from 'lucide-react'
 import ProductCard from '@/components/product/ProductCard'
-import { B2B_CONSTANTS } from '@/config/b2b-rules'
 
 interface ViewedProduct {
   id: string
@@ -17,12 +16,12 @@ interface ViewedProduct {
   images?: string[]
   original_price?: number
   selling_price?: number
-  bulk_price?: number | null
-  bulk_min_quantity?: number | null
   description?: string | null
   stock?: number
   rating?: number | null
   review_count?: number | null
+  pricing_tiers?: any[]
+  min_order_qty?: number
 }
 
 export default function RecentlyViewed() {
@@ -35,7 +34,7 @@ export default function RecentlyViewed() {
     if (stored) {
       try {
         const items = JSON.parse(stored)
-        setRecentItems(items.slice(0, 6)) // Load up to 6 items to fill the shelf
+        setRecentItems(items.slice(0, 6)) 
       } catch (e) {
         console.error('Error parsing recently viewed', e)
       }
@@ -44,18 +43,11 @@ export default function RecentlyViewed() {
 
   if (!mounted) {
     return (
-      <div className="w-full">
-        <div className="flex items-center gap-2 mb-6">
-          <div className="w-5 h-5 bg-gray-200 rounded animate-pulse" />
-          <div className="h-6 bg-gray-200 rounded w-48 animate-pulse" />
-        </div>
-        <div className="flex gap-4 pb-4 overflow-hidden">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="w-[220px] flex-shrink-0 animate-pulse">
-              <div className="aspect-square bg-gray-100 rounded-sm mb-3"></div>
-              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-            </div>
+      <div className="w-full mt-4 pb-8 min-h-[300px]">
+        <div className="h-6 w-48 bg-gray-100 animate-pulse rounded mb-4"></div>
+        <div className="flex gap-4 overflow-hidden">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="min-w-[200px] h-[300px] bg-gray-50 animate-pulse rounded-lg shrink-0"></div>
           ))}
         </div>
       </div>
@@ -64,18 +56,16 @@ export default function RecentlyViewed() {
 
   if (recentItems.length === 0) {
     return (
-      <div className="w-full text-center py-8 bg-white border border-gray-200 rounded-sm shadow-sm mt-4">
-        <div className="flex flex-col items-center justify-center">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-            <Eye className="w-8 h-8 text-gray-400" />
-          </div>
-          <h3 className="text-base font-semibold text-gray-900 mb-2">No recently viewed items</h3>
-          <p className="text-sm text-gray-600 mb-4">
-            Products you view will automatically appear here.
-          </p>
-          <Link
+      <div className="w-full mt-2 bg-white rounded-lg p-6 sm:p-8 text-center border border-gray-100 shadow-sm">
+        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-100">
+          <Eye className="w-8 h-8 text-gray-300" />
+        </div>
+        <h3 className="font-bold text-gray-900 text-lg mb-2">No recently viewed items</h3>
+        <p className="text-gray-500 text-sm mb-6 max-w-sm mx-auto">Products you view will be saved here so you can easily find them later.</p>
+        <div>
+          <Link 
             href="/products"
-            className="px-6 py-2 bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 rounded-sm font-bold text-sm transition-colors border border-[#FCD200] shadow-sm"
+            className="inline-flex py-2.5 px-6 bg-white hover:bg-gray-50 text-[#0F1111] rounded-sm font-bold text-sm transition-colors border border-[#D5D9D9] shadow-sm"
           >
             Start Shopping
           </Link>
@@ -90,28 +80,30 @@ export default function RecentlyViewed() {
         <h3 className="font-bold text-gray-900 text-lg">Recently Viewed</h3>
       </div>
       
-      <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div className="flex gap-4 sm:gap-6 overflow-x-auto no-scrollbar pb-6 scroll-smooth snap-x" style={{ WebkitOverflowScrolling: 'touch' }}>
         {recentItems.map((prod, _, arr) => {
-          // Pre-map all items so QuickView can cycle through them perfectly
           const mappedList = arr.map(p => ({
             id: p.id,
-            name: p.name,
+            name: p.name || '',
             slug: p.slug,
             price: p.price,
             selling_price: p.selling_price,
-            bulk_price: p.bulk_price,
-            bulk_min_quantity: p.bulk_min_quantity,
             description: p.description,
             images: p.images && p.images.length > 0 ? p.images : [p.image],
-            stock: p.stock ?? B2B_CONSTANTS.RETAIL_MIN_QTY, 
+            stock: p.stock ?? 100, 
             rating: p.rating ?? 4.5,
-            review_count: p.review_count ?? 128
+            review_count: p.review_count ?? 128,
+            pricing_tiers: p.pricing_tiers,
+            min_order_qty: p.min_order_qty ?? 100
           }))
           const mappedProduct = mappedList.find(p => p.id === prod.id)!
-
+          
           return (
-            <div key={prod.id} className="w-[220px] flex-shrink-0 h-full">
-              <ProductCard product={mappedProduct} priority={false} productList={mappedList} />
+            <div key={prod.id} className="w-[200px] sm:w-[240px] flex-shrink-0 h-full snap-start">
+              <ProductCard 
+                product={mappedProduct} 
+                productList={mappedList} 
+              />
             </div>
           )
         })}

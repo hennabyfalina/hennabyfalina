@@ -1,16 +1,18 @@
 // src/services/payment.service.ts
 
 import { createClient } from '@/lib/supabase/server'
+import { releaseStockReservation, deductOrderStock } from '@/services/inventory.service'
 
 export async function updatePaymentStatus(
   orderId: string,
   paymentId: string,
   status: 'paid' | 'failed',
-  idempotencyKey?: string
+  idempotencyKey?: string,
+  sessionId?: string
 ) {
   const supabase = await createClient()
   
-  // ✅ FIX: Get current order first
+  // Get current order first
   const { data: existingOrder, error: fetchError } = await supabase
     .from('orders')
     .select('payment_status, idempotency_key, payment_attempts')
@@ -52,7 +54,7 @@ export async function updatePaymentStatus(
     .from('orders')
     .update(updateData)
     .eq('id', orderId)
-    .eq('payment_status', 'pending')  // ✅ Atomic update
+    .eq('payment_status', 'pending')
 
   if (error) {
     console.error('Error updating payment status:', error)
@@ -60,45 +62,13 @@ export async function updatePaymentStatus(
   }
 
   if (status === 'paid') {
-    await updateProductStock(orderId)
+    // 🆕 Use unified stock deduction
+    await deductOrderStock(orderId)
+    
+    if (sessionId) {
+      await releaseStockReservation(sessionId)
+    }
   }
 
   return { alreadyProcessed: false }
-}
-
-async function updateProductStock(orderId: string) {
-  const supabase = await createClient()
-  
-  const { data: orderItems, error: itemsError } = await supabase
-    .from('order_items')
-    .select('product_id, quantity')
-    .eq('order_id', orderId)
-
-  if (itemsError || !orderItems) {
-    console.error('Error fetching order items:', itemsError)
-    return
-  }
-
-  for (const item of orderItems) {
-    const { error: rpcError } = await supabase.rpc('decrement_product_stock', {
-      p_id: item.product_id,
-      decrement_qty: item.quantity,
-    })
-
-    if (rpcError) {
-      console.warn(`[Payment Service] RPC failed for ${item.product_id}. Using fallback.`)
-      const { data: product } = await supabase
-        .from('products')
-        .select('stock')
-        .eq('id', item.product_id)
-        .single()
-      
-      if (product) {
-        await supabase
-          .from('products')
-          .update({ stock: Math.max(0, product.stock - item.quantity) })
-          .eq('id', item.product_id)
-      }
-    }
-  }
 }

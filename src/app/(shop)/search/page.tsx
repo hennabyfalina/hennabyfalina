@@ -1,3 +1,5 @@
+// src/app/(shop)/search/page.tsx
+
 import { searchProductsWithSignedUrls } from '@/services/product.service'
 import { getCategories } from '@/services/category.service'
 import ProductsClientView from '@/app/(shop)/products/ProductsClientView'
@@ -21,14 +23,14 @@ export default async function SearchPage({
     getCategories()
   ])
 
-  const initialProducts = products.map((product) => ({
+  // 🚨 Pass tiers directly to the client view!
+  const initialProducts = products.map((product: any) => ({
     ...product,
-    bulk_min_quantity: null,
+    pricing_tiers: product.pricing_tiers || [] 
   }))
 
   return (
     <div className="w-full max-w-[1500px] mx-auto px-4 py-8 min-h-screen">
-      {/* Search Header */}
       <div className="mb-4 border-b border-gray-200 pb-4">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
           {q ? `Search results for "${q}"` : 'Search our products'}

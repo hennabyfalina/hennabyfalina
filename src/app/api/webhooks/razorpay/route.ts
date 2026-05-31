@@ -6,6 +6,9 @@ import { createClient } from '@supabase/supabase-js'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { notifyOrderConfirmed } from '@/services/whatsapp.service'
+import { getIdempotencyRecord, storeIdempotencyRecord } from '@/lib/idempotency'
+import { releaseStockReservation, deductOrderStock } from '@/services/inventory.service'
+import { finalizeOrderAddress } from '@/services/order.service'
 
 const ratelimit = process.env.UPSTASH_REDIS_REST_URL
   ? new Ratelimit({
@@ -14,11 +17,41 @@ const ratelimit = process.env.UPSTASH_REDIS_REST_URL
     })
   : null
 
+interface WebhookLog {
+  event_type: string
+  razorpay_order_id: string
+  razorpay_payment_id: string
+  order_id: string | null
+  payload: any
+  signature: string
+  processed: boolean
+  error_message?: string
+}
+
+async function logWebhook(supabase: any, logData: WebhookLog): Promise<void> {
+  try {
+    await supabase.from('webhook_logs').insert({
+      event_type: logData.event_type,
+      razorpay_order_id: logData.razorpay_order_id,
+      razorpay_payment_id: logData.razorpay_payment_id,
+      order_id: logData.order_id,
+      payload: logData.payload,
+      signature: logData.signature,
+      processed: logData.processed,
+      error_message: logData.error_message || null,
+      created_at: new Date().toISOString()
+    })
+  } catch (err) {
+    // Non-critical background task fail suppression
+  }
+}
+
 export async function POST(request: NextRequest) {
   const clientIp = request.headers.get('x-forwarded-for') || 'unknown'
+  const webhookId = crypto.randomUUID()
   
   if (ratelimit) {
-    const { success, reset } = await ratelimit.limit(`razorpay_webhook_${clientIp}`)
+    const { success } = await ratelimit.limit(`razorpay_webhook_${clientIp}`)
     if (!success) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
@@ -30,16 +63,16 @@ export async function POST(request: NextRequest) {
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET
 
     if (!secret || !signature) {
-      return NextResponse.json({ error: 'Missing signature or secret' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Generate expected signature and compare in constant time to prevent timing attacks
+    // 🔒 MAXIMUM PROTECTION: Verify signature using constant-time comparison BEFORE looking at event types
     const expectedSignature = crypto.createHmac('sha256', secret).update(body).digest('hex')
     const expectedBuffer = Buffer.from(expectedSignature, 'hex')
     const signatureBuffer = Buffer.from(signature, 'hex')
 
     if (expectedBuffer.length !== signatureBuffer.length || !crypto.timingSafeEqual(expectedBuffer, signatureBuffer)) {
-      return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 })
+      return NextResponse.json({ error: 'Invalid token verification' }, { status: 401 })
     }
 
     const event = JSON.parse(body)
@@ -47,42 +80,73 @@ export async function POST(request: NextRequest) {
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     
     if (!supabaseUrl || !supabaseServiceKey) {
-      return NextResponse.json({ error: 'Config error' }, { status: 500 })
+      return NextResponse.json({ error: 'Configuration setup error' }, { status: 500 })
     }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } })
 
+    // Process payment.captured event
     if (event.event === 'payment.captured') {
       const payment = event.payload.payment.entity
       const { notes, method, id: razorpayPaymentId, order_id: razorpayOrderId, amount } = payment
       const internalOrderId = notes?.internal_order_id
-      const idempotencyKey = notes?.idempotency_key
+      const idempotencyKey = notes?.idempotency_key 
+        ? `${notes.idempotency_key}_webhook_captured` 
+        : `webhook_captured_${razorpayPaymentId}`
+
+      await logWebhook(supabase, {
+        event_type: 'payment.captured',
+        razorpay_order_id: razorpayOrderId,
+        razorpay_payment_id: razorpayPaymentId,
+        order_id: internalOrderId || null,
+        payload: event,
+        signature: signature,
+        processed: false
+      })
 
       if (!internalOrderId) {
-        return NextResponse.json({ error: 'Missing order reference' }, { status: 400 })
+        return NextResponse.json({ error: 'Missing target validation identifier' }, { status: 400 })
       }
 
-      // ✅ FIX: Fetch current order state including payment_attempts
-      const { data: existingOrder } = await supabase
+      if (idempotencyKey) {
+        const existingRecord = await getIdempotencyRecord(idempotencyKey)
+        if (existingRecord) {
+          return NextResponse.json({ received: true, alreadyProcessed: true })
+        }
+      }
+
+      const { data: existingOrder, error: fetchError } = await supabase
         .from('orders')
-        .select('id, payment_status, razorpay_payment_id, payment_attempts')
+        .select('id, payment_status, razorpay_payment_id, payment_attempts, total_amount, session_id')
         .eq('id', internalOrderId)
         .single()
 
-      if (existingOrder?.payment_status === 'paid') {
-        console.log(`[Webhook] Order ${internalOrderId} already paid. Skipping duplicate.`)
+      if (fetchError || !existingOrder) {
+        return NextResponse.json({ error: 'Target tracking missing' }, { status: 404 })
+      }
+
+      if (existingOrder.payment_status === 'paid' || existingOrder.razorpay_payment_id) {
         return NextResponse.json({ received: true, alreadyProcessed: true })
       }
 
-      if (existingOrder?.razorpay_payment_id) {
-        console.log(`[Webhook] Order ${internalOrderId} already has payment ID. Skipping.`)
-        return NextResponse.json({ received: true, alreadyProcessed: true })
+      const expectedAmount = Math.round(existingOrder.total_amount * 100)
+      if (amount !== expectedAmount) {
+        await logWebhook(supabase, {
+          event_type: 'payment.captured',
+          razorpay_order_id: razorpayOrderId,
+          razorpay_payment_id: razorpayPaymentId,
+          order_id: internalOrderId,
+          payload: event,
+          signature: signature,
+          processed: false,
+          error_message: `Value error mismatch matching system target amount.`
+        })
+        return NextResponse.json({ error: 'Verification data tracking mismatch' }, { status: 400 })
       }
 
-      const currentAttempts = existingOrder?.payment_attempts || 0
+      const currentAttempts = existingOrder.payment_attempts || 0
 
-      // ✅ FIX: Use proper increment without .raw()
-      const { data: updatedOrder, error: updateError } = await supabase
+      const { error: updateError } = await supabase
         .from('orders')
         .update({
           payment_status: 'paid',
@@ -95,30 +159,36 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', internalOrderId)
         .eq('payment_status', 'pending')
-        .select('*')
-        .single()
 
-      if (updateError || !updatedOrder) {
-        console.log(`[Webhook] Order ${internalOrderId} already processed or update failed`)
+      if (updateError) {
         return NextResponse.json({ received: true, alreadyProcessed: true })
       }
 
-      if (notes?.b2b_gst_compliant === 'true') {
-        console.log(`[B2B] Order ${internalOrderId} Paid. Base: ₹${notes.base_amount_inr} | GST: ₹${notes.total_gst_inr}`)
+      try {
+        await finalizeOrderAddress(internalOrderId)
+      } catch (addressError) {
+        // Suppress non-blocking address finalizing exceptions
       }
 
-      await updateProductStock(internalOrderId, supabase)
+      if (existingOrder.session_id) {
+        await releaseStockReservation(existingOrder.session_id)
+      }
+
+      if (idempotencyKey) {
+        await storeIdempotencyRecord(idempotencyKey, { processed: true, orderId: internalOrderId }, 200)
+      }
+
+      await supabase
+        .from('webhook_logs')
+        .update({ processed: true })
+        .eq('razorpay_payment_id', razorpayPaymentId)
+        .eq('event_type', 'payment.captured')
+
+      await deductOrderStock(internalOrderId)
 
       const { data: fullOrder } = await supabase
         .from('orders')
-        .select(`
-          *,
-          addresses (*),
-          order_items (
-            *,
-            products (name)
-          )
-        `)
+        .select(`*, addresses (*), order_items (*, products (name))`)
         .eq('id', internalOrderId)
         .single()
 
@@ -126,22 +196,31 @@ export async function POST(request: NextRequest) {
         if (!fullOrder.customer_name && fullOrder.addresses?.name) {
           fullOrder.customer_name = fullOrder.addresses.name
         }
-        try {
-          await notifyOrderConfirmed(fullOrder)
-        } catch (e) {
-          console.error('[Webhook] WhatsApp error:', e)
-        }
+        notifyOrderConfirmed(fullOrder).catch(() => {})
       }
     }
 
+    // Process payment.failed event safely
     if (event.event === 'payment.failed') {
-      const { notes, error_description, error_reason } = event.payload.payment.entity
-      if (notes?.internal_order_id) {
-        // ✅ FIX: Get current attempts first
+      const payment = event.payload.payment.entity
+      const { notes, error_description, error_reason, id: razorpayPaymentId, order_id: razorpayOrderId } = payment
+      const internalOrderId = notes?.internal_order_id
+
+      await logWebhook(supabase, {
+        event_type: 'payment.failed',
+        razorpay_order_id: razorpayOrderId,
+        razorpay_payment_id: razorpayPaymentId,
+        order_id: internalOrderId || null,
+        payload: event,
+        signature: signature,
+        processed: true
+      })
+
+      if (internalOrderId) {
         const { data: existingOrder } = await supabase
           .from('orders')
           .select('payment_attempts')
-          .eq('id', notes.internal_order_id)
+          .eq('id', internalOrderId)
           .single()
 
         const currentAttempts = existingOrder?.payment_attempts || 0
@@ -153,49 +232,17 @@ export async function POST(request: NextRequest) {
             status: 'pending',
             payment_failed_reason: error_description || error_reason,
             payment_attempts: currentAttempts + 1,
-            last_payment_error: error_description || error_reason
+            last_payment_error: error_description || error_reason,
+            razorpay_payment_id: razorpayPaymentId
           })
-          .eq('id', notes.internal_order_id)
+          .eq('id', internalOrderId)
           .eq('payment_status', 'pending')
       }
     }
 
     return NextResponse.json({ received: true })
-  } catch (error: any) {
-    console.error('[Webhook] Error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-}
-
-async function updateProductStock(orderId: string, supabase: any) {
-  try {
-    const { data: orderItems } = await supabase
-      .from('order_items')
-      .select('product_id, quantity')
-      .eq('order_id', orderId)
-    if (!orderItems) return
     
-    for (const item of orderItems) {
-      const { error: rpcError } = await supabase.rpc('decrement_product_stock', { 
-        p_id: item.product_id, 
-        decrement_qty: item.quantity 
-      })
-      
-      if (rpcError) {
-        const { data: product } = await supabase
-          .from('products')
-          .select('stock')
-          .eq('id', item.product_id)
-          .single()
-        if (product) {
-          await supabase
-            .from('products')
-            .update({ stock: Math.max(0, product.stock - item.quantity) })
-            .eq('id', item.product_id)
-        }
-      }
-    }
-  } catch (e) {
-    console.error('[Webhook] Stock update error:', e)
+  } catch (error: any) {
+    return NextResponse.json({ error: 'Internal system handling fault' }, { status: 500 })
   }
 }

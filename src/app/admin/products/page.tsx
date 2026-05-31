@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 // src/app/admin/products/page.tsx
 
 'use client'
@@ -16,9 +17,9 @@ import { formatCurrency } from '@/lib/utils'
 import { showToast } from '@/components/ui/Toast'
 import { Package, CheckCircle, Search, Filter, Trash2, Edit } from 'lucide-react'
 
-// 🚨 IMPORTED DRY CONSTANTS 🚨
 import { PRODUCT_STATUS_FILTERS, PRODUCT_SORT_OPTIONS } from '@/lib/constants'
 import { useAuth } from '@/hooks/useAuth'
+import { createProduct, updateProduct, deleteProduct } from '@/services/product.service'
 
 const formatIST = (dateString?: string) => {
   if (!dateString) return '-'
@@ -37,6 +38,7 @@ type Product = BaseProduct & {
   updated_at?: string
   rating?: number | null
   review_count?: number | null
+  pricing_tiers?: any[]
 }
 
 export default function AdminProducts() {
@@ -52,7 +54,6 @@ export default function AdminProducts() {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
   const [imageUrls, setImageUrls] = useState<Map<string, string>>(new Map())
   
-  // Filters
   const [statusFilter, setStatusFilter] = useState('all')
   const [sortBy, setSortBy] = useState('updated_desc')
   const [searchQuery, setSearchQuery] = useState('')
@@ -60,41 +61,21 @@ export default function AdminProducts() {
 
   const supabase = createClient()
 
-  useEffect(() => {
-    loadCategories()
-    loadProducts()
-  }, [])
-
-  useEffect(() => {
-    const loadImageUrls = () => {
-      const urls = new Map<string, string>()
-      for (const product of products) {
-        if (product.images && product.images.length > 0) {
-          const publicUrl = getPublicUrl(product.images[0])
-          urls.set(product.id, publicUrl)
-        }
-      }
-      setImageUrls(urls)
-    }
-    
-    if (products.length > 0) {
-      loadImageUrls()
-    }
-  }, [products])
-
   const loadProducts = async () => {
     setIsLoading(true)
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select('*, pricing_tiers:product_pricing_tiers(*)')
+        .eq('is_deleted', false)
         .order('created_at', { ascending: false })
 
       if (error) throw error
       
       const mappedData = (data || []).map(p => ({
         ...p,
-        status: p.is_active ? 'published' : 'draft'
+        status: p.is_active ? 'published' : 'draft',
+        pricing_tiers: p.pricing_tiers ? p.pricing_tiers.filter((t: any) => !t.is_deleted).sort((a: any, b: any) => a.sort_order - b.sort_order) : []
       }))
       setProducts(mappedData)
     } catch (error) {
@@ -121,51 +102,36 @@ export default function AdminProducts() {
     }
   }
 
+  useEffect(() => {
+    loadCategories()
+    loadProducts()
+  }, [])
+
+  useEffect(() => {
+    const loadImageUrls = () => {
+      const urls = new Map<string, string>()
+      for (const product of products) {
+        if (product.images && product.images.length > 0) {
+          const publicUrl = getPublicUrl(product.images[0])
+          urls.set(product.id, publicUrl)
+        }
+      }
+      setImageUrls(urls)
+    }
+    
+    if (products.length > 0) {
+      loadImageUrls()
+    }
+  }, [products])
+
   const handleSubmit = async (formData: any) => {
     setIsSubmitting(true)
     try {
-      const payload = { ...formData }
-      
-      if ('status' in payload) {
-        payload.is_active = payload.status === 'published'
-        delete payload.status
-      }
-      
-      if (payload.category_id === '') payload.category_id = null
-
-      const safeBulkPrice = payload.bulk_price === '' || payload.bulk_price === undefined ? null : payload.bulk_price
-      const safeBulkMinQty = payload.bulk_min_quantity === '' || payload.bulk_min_quantity === undefined ? null : payload.bulk_min_quantity
-      const safeSellingPrice = payload.selling_price === '' || payload.selling_price === undefined ? null : payload.selling_price
-
-      const dbPayload = {
-        name: payload.name,
-        slug: payload.slug,
-        description: payload.description,
-        price: payload.price,
-        selling_price: safeSellingPrice,
-        bulk_price: safeBulkPrice,
-        bulk_min_quantity: safeBulkMinQty,
-        stock: payload.stock,
-        category_id: payload.category_id,
-        images: payload.images,
-        is_active: payload.is_active,
-        sku: payload.sku || null,
-        weight: payload.weight || null,
-        dimensions: payload.dimensions || null,
-        meta_title: payload.meta_title || null,
-        meta_description: payload.meta_description || null,
-        rating: payload.rating ?? 4.5,
-        review_count: payload.review_count ?? 128,
-        frequently_bought_together: payload.frequently_bought_together || [],
-      }
-
       if (editingProduct) {
-        const { error } = await supabase.from('products').update(dbPayload).eq('id', editingProduct.id)
-        if (error) throw new Error(error.message || 'Failed to update product')
+        await updateProduct(editingProduct.id, formData)
         showToast('Product updated successfully', 'success')
       } else {
-        const { error } = await supabase.from('products').insert(dbPayload)
-        if (error) throw new Error(error.message || 'Failed to create product')
+        await createProduct(formData)
         showToast('Product created successfully', 'success')
       }
       
@@ -181,21 +147,8 @@ export default function AdminProducts() {
 
   const handleEdit = async (product: Product, e?: React.MouseEvent) => {
     if (e) e.stopPropagation()
-    try {
-      const { data: fullProduct, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('id', product.id)
-        .single()
-      
-      if (error) throw error
-      
-      fullProduct.status = fullProduct.is_active ? 'published' : 'draft'
-      setEditingProduct(fullProduct)
-      setIsModalOpen(true)
-    } catch (error) {
-      showToast('Failed to load product details', 'error')
-    }
+    setEditingProduct(product)
+    setIsModalOpen(true)
   }
 
   const handleAddNew = () => {
@@ -207,18 +160,12 @@ export default function AdminProducts() {
     if (!productToDelete) return
     setIsSubmitting(true)
     try {
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', productToDelete.id)
-      
-      if (error) throw error
-      
+      await deleteProduct(productToDelete.id)
       await loadProducts()
       setProductToDelete(null)
       showToast('Product permanently deleted', 'success')
-    } catch (error) {
-      showToast('Failed to delete product', 'error')
+    } catch (error: any) {
+      showToast(error.message || 'Failed to delete product', 'error')
     } finally {
       setIsSubmitting(false)
     }
@@ -241,12 +188,15 @@ export default function AdminProducts() {
   })
 
   const sortedProducts = [...filteredProducts].sort((a, b) => {
+    const aPrice = a.pricing_tiers?.[0]?.selling_price ?? a.price
+    const bPrice = b.pricing_tiers?.[0]?.selling_price ?? b.price
+
     if (sortBy === 'updated_desc') return new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime()
     if (sortBy === 'newest') return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
     if (sortBy === 'name_asc') return a.name.localeCompare(b.name)
     if (sortBy === 'name_desc') return b.name.localeCompare(a.name)
-    if (sortBy === 'price_asc') return a.price - b.price
-    if (sortBy === 'price_desc') return b.price - a.price
+    if (sortBy === 'price_asc') return aPrice - bPrice
+    if (sortBy === 'price_desc') return bPrice - aPrice
     return 0
   })
 
@@ -257,11 +207,10 @@ export default function AdminProducts() {
     <>
       <div className="flex flex-col gap-6">
         
-        {/* Header Section */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-[28px] font-medium text-[#E3E3E3] tracking-tight leading-tight">Products</h1>
-            <p className="text-sm text-[#C4C7C5] mt-1">Manage your B2B product catalog and inventory.</p>
+            <h1 className="text-[28px] font-medium admin-text-primary tracking-tight leading-tight">Products</h1>
+            <p className="text-sm admin-text-secondary mt-1">Manage your B2B product catalog and inventory.</p>
           </div>
           <button
             onClick={handleAddNew}
@@ -271,217 +220,226 @@ export default function AdminProducts() {
           </button>
         </div>
 
-        {/* Gemini-Inspired Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { title: "Total Products", value: totalProducts, icon: <Package className="w-5 h-5" /> },
             { title: "Active Products", value: activeProducts, icon: <CheckCircle className="w-5 h-5 text-green-500" /> },
           ].map((stat, idx) => (
-            <div key={idx} className="bg-[#1E1F20] rounded-[24px] p-5 border border-transparent hover:bg-[#282A2C] transition-colors cursor-default">
+            <div key={idx} className="admin-bg-card rounded-[24px] p-5 border border-transparent hover:admin-bg-elevated transition-colors cursor-default">
               <div className="flex justify-between items-start mb-3">
-                <h3 className="text-xs font-medium text-[#C4C7C5]">{stat.title}</h3>
-                <div className="text-[#A8C7FA]">{stat.icon}</div>
+                <h3 className="text-xs font-medium admin-text-secondary">{stat.title}</h3>
+                <div className="admin-text-accent">{stat.icon}</div>
               </div>
-              <p className="text-3xl font-normal text-[#E3E3E3]">{stat.value}</p>
+              <p className="text-3xl font-normal admin-text-primary">{stat.value}</p>
             </div>
           ))}
         </div>
 
-        {/* Gemini Floating Controls */}
-        <div className="flex flex-col md:flex-row gap-3 bg-[#1E1F20] p-3 rounded-[24px] border border-[#333538]">
+        <div className="flex flex-col md:flex-row gap-3 admin-bg-card p-3 rounded-[24px] border admin-border">
           <div className="relative flex-1 group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8E9196] group-focus-within:text-[#A8C7FA] transition-colors" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 admin-text-muted group-focus-within:admin-text-accent transition-colors" />
             <input
               type="text"
               placeholder="Search products by name or SKU..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-3 pl-10 bg-[#131314] border border-transparent text-[#E3E3E3] placeholder:text-[#8E9196] rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-text"
+              className="w-full px-4 py-3 pl-10 admin-bg-primary border border-transparent admin-text-primary placeholder:admin-text-muted rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-text"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8E9196] hover:text-[#E3E3E3]">
+              <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 admin-text-muted hover:admin-text-primary">
                 ✕
               </button>
             )}
           </div>
           
           <div className="flex gap-3 overflow-x-auto overscroll-contain-x no-scrollbar">
-            {/* 🚨 DRY Sort Dropdown 🚨 */}
             <div className="relative shrink-0 min-w-[160px]">
-              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8E9196]" />
+              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 admin-text-muted" />
               <select
                 value={sortBy}
                 title="Sort products"
                 onChange={(e) => setSortBy(e.target.value)}
-                className="w-full px-4 py-3 pl-10 pr-8 appearance-none bg-[#131314] border border-transparent text-[#E3E3E3] rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
+                className="w-full px-4 py-3 pl-10 pr-8 appearance-none admin-bg-primary border border-transparent admin-text-primary rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
               >
                 {PRODUCT_SORT_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value} className="bg-[#1E1F20]">{opt.label}</option>
+                  <option key={opt.value} value={opt.value} className="admin-bg-card">{opt.label}</option>
                 ))}
               </select>
             </div>
 
-            {/* Category Filter */}
             <div className="relative shrink-0 min-w-[160px]">
               <select
                 value={categoryFilter}
                 title="Filter by category"
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="w-full px-5 py-3 pr-8 appearance-none bg-[#131314] border border-transparent text-[#E3E3E3] rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
+                className="w-full px-5 py-3 pr-8 appearance-none admin-bg-primary border border-transparent admin-text-primary rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
               >
-                <option value="all" className="bg-[#1E1F20]">All Categories</option>
+                <option value="all" className="admin-bg-card">All Categories</option>
                 {categories.map(c => (
-                  <option key={c.id} value={c.id} className="bg-[#1E1F20]">{c.name}</option>
+                  <option key={c.id} value={c.id} className="admin-bg-card">{c.name}</option>
                 ))}
               </select>
             </div>
 
-            {/* 🚨 DRY Status Filter 🚨 */}
             <div className="relative shrink-0 min-w-[140px]">
               <select
                 value={statusFilter}
                 title="Filter by status"
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-5 py-3 pr-8 appearance-none bg-[#131314] border border-transparent text-[#E3E3E3] rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
+                className="w-full px-5 py-3 pr-8 appearance-none admin-bg-primary border border-transparent admin-text-primary rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-pointer"
               >
                 {PRODUCT_STATUS_FILTERS.map(opt => (
-                  <option key={opt.value} value={opt.value} className="bg-[#1E1F20]">{opt.label}</option>
+                  <option key={opt.value} value={opt.value} className="admin-bg-card">{opt.label}</option>
                 ))}
               </select>
             </div>
           </div>
         </div>
 
-        {/* Enterprise Products Table */}
-        <div className="bg-[#1E1F20] rounded-[32px] border border-[#333538] overflow-hidden">
+        <div className="admin-bg-card rounded-[32px] border admin-border overflow-hidden">
           {isLoading && products.length > 0 && (
-            <div className="w-full h-1 bg-[#282A2C] overflow-hidden">
+            <div className="w-full h-1 admin-bg-elevated overflow-hidden">
               <div className="h-full bg-[#A8C7FA] animate-pulse w-1/3 rounded-r-full"></div>
             </div>
           )}
           <div className="overflow-x-auto overscroll-contain-x no-scrollbar">
             <table className="w-full min-w-[1000px] text-left">
-              <thead className="bg-[#131314]">
+              <thead className="admin-bg-primary">
                 <tr>
-                  <th className="px-6 py-4 text-xs font-medium text-[#8E9196] uppercase tracking-widest w-16">Img</th>
-                  <th className="px-6 py-4 text-xs font-medium text-[#8E9196] uppercase tracking-widest">Name & SKU</th>
-                  <th className="px-6 py-4 text-xs font-medium text-[#8E9196] uppercase tracking-widest">Pricing</th>
-                  <th className="px-6 py-4 text-xs font-medium text-[#8E9196] uppercase tracking-widest">B2B Rule</th>
-                  <th className="px-6 py-4 text-xs font-medium text-[#8E9196] uppercase tracking-widest">Stock</th>
-                  <th className="px-6 py-4 text-xs font-medium text-[#8E9196] uppercase tracking-widest">Status</th>
-                  <th className="px-6 py-4 text-xs font-medium text-[#8E9196] uppercase tracking-widest">Updated</th>
-                  <th className="px-6 py-4 text-right text-xs font-medium text-[#8E9196] uppercase tracking-widest">Actions</th>
+                  <th className="px-6 py-4 text-xs font-medium admin-text-muted uppercase tracking-widest w-16">Img</th>
+                  <th className="px-6 py-4 text-xs font-medium admin-text-muted uppercase tracking-widest">Name & SKU</th>
+                  <th className="px-6 py-4 text-xs font-medium admin-text-muted uppercase tracking-widest">Pricing</th>
+                  <th className="px-6 py-4 text-xs font-medium admin-text-muted uppercase tracking-widest">B2B Rule</th>
+                  <th className="px-6 py-4 text-xs font-medium admin-text-muted uppercase tracking-widest">Stock</th>
+                  <th className="px-6 py-4 text-xs font-medium admin-text-muted uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-xs font-medium admin-text-muted uppercase tracking-widest">Updated</th>
+                  <th className="px-6 py-4 text-right text-xs font-medium admin-text-muted uppercase tracking-widest">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#333538]">
+              <tbody className="divide-y admin-border">
                 {filteredProducts.length === 0 && !isLoading ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-[#8E9196] font-medium">
+                    <td colSpan={8} className="px-6 py-12 text-center admin-text-muted font-medium">
                       No products found matching your search criteria.
                     </td>
                   </tr>
                 ) : (
                   sortedProducts.map((product) => {
                     const imageUrl = product.images?.[0] ? imageUrls.get(product.id) : null
+                    
+                    const displayPrice = product.pricing_tiers?.[0]?.selling_price ?? (product.selling_price || product.price)
+                    const displayMrp = product.pricing_tiers?.[0]?.mrp ?? product.price
+                  
+                    const b2bTier = product.pricing_tiers?.find(t => t.min_quantity > 1) || product.pricing_tiers?.[1]
+                    const displayB2bPrice = b2bTier?.selling_price
+                    const displayB2bQty = b2bTier?.min_quantity
+
                     return (
                       <tr 
                         key={product.id} 
                         onClick={() => handleEdit(product)}
-                        className="hover:bg-[#282A2C] transition-colors cursor-pointer group"
+                        className="hover:admin-bg-elevated transition-all duration-150 cursor-pointer group"
                       >
-                        {/* Image */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           {imageUrl ? (
-                            <div className="w-12 h-12 bg-[#131314] border border-[#333538] rounded-xl overflow-hidden shadow-sm">
-                              <img src={imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                            <div className="w-12 h-12 admin-bg-primary border admin-border rounded-xl overflow-hidden shadow-sm">
+                              <img 
+                                src={imageUrl} 
+                                alt={product.name} 
+                                className="w-full h-full object-cover" 
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
                             </div>
                           ) : (
-                            <div className="w-12 h-12 bg-[#131314] border border-[#333538] rounded-xl flex items-center justify-center text-xs text-[#565959]">-</div>
+                            <div className="w-12 h-12 admin-bg-primary border admin-border rounded-xl flex items-center justify-center">
+                              <Package className="w-5 h-5 admin-text-muted" />
+                            </div>
                           )}
                         </td>
                         
-                        {/* Name & SKU */}
                         <td className="px-6 py-4">
-                          <div className="font-medium text-[#E3E3E3] text-[15px] group-hover:text-[#A8C7FA] transition-colors line-clamp-2">
+                          <div className="font-medium admin-text-primary text-[15px] group-hover:admin-text-accent transition-colors line-clamp-2">
                             {product.name}
                           </div>
-                          <div className="text-xs text-[#8E9196] font-mono mt-1 tracking-wide">
+                          <div className="text-xs admin-text-muted font-mono mt-1 tracking-wide">
                             {product.sku || 'NO-SKU'}
                           </div>
                         </td>
 
-                        {/* Price */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-[#E3E3E3]">
-                            {formatCurrency(product.selling_price ?? product.price)}
+                          <div className="text-sm font-medium admin-text-primary">
+                            {formatCurrency(displayPrice)}
                           </div>
-                          {product.selling_price && product.selling_price < product.price && (
-                            <div className="text-[11px] text-[#8E9196] line-through mt-0.5">
-                              {formatCurrency(product.price)}
+                          {displayPrice < displayMrp && (
+                            <div className="text-[11px] admin-text-muted line-through mt-0.5">
+                              {formatCurrency(displayMrp)}
                             </div>
                           )}
                         </td>
                         
-                        {/* B2B Wholesale */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {product.bulk_price && product.bulk_min_quantity ? (
+                          {displayB2bPrice && displayB2bQty ? (
                             <div className="flex flex-col">
-                              <span className="text-sm font-bold text-[#93D7A4]">{formatCurrency(product.bulk_price)}</span>
-                              <span className="text-[11px] text-[#C4C7C5] mt-0.5">Min Qty: {product.bulk_min_quantity}</span>
+                              <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(displayB2bPrice)}</span>
+                              <span className="text-[11px] admin-text-secondary mt-0.5">Min Qty: {displayB2bQty}</span>
                             </div>
                           ) : (
-                            <span className="text-xs text-[#565959] italic">No bulk rules</span>
+                            <span className="text-xs text-gray-400 dark:text-[#565959] italic">No B2B rules</span>
                           )}
                         </td>
 
-                        {/* Stock */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
-                            <span className={`text-sm font-medium ${product.stock <= 5 && product.stock > 0 ? 'text-[#F9AB00]' : product.stock === 0 ? 'text-red-400' : 'text-[#E3E3E3]'}`}>
+                            <span className={`text-sm font-medium ${
+                              product.stock <= 5 && product.stock > 0 
+                                ? 'text-amber-600 dark:text-amber-400' 
+                                : product.stock === 0 
+                                ? 'text-red-600 dark:text-red-400' 
+                                : 'admin-text-primary'
+                            }`}>
                               {product.stock}
                             </span>
-                            {product.stock <= 5 && product.stock > 0 && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#3C1E0A] text-[#F9AB00] border border-[#4E270D]">LOW</span>}
-                            {product.stock === 0 && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#4D2628] text-[#F2B8B5] border border-[#8C1D18]">OUT</span>}
+                            {product.stock <= 5 && product.stock > 0 && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">LOW</span>}
+                            {product.stock === 0 && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800">OUT</span>}
                           </div>
                         </td>
 
-                        {/* Status */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-3 py-1 rounded-full text-[11px] font-bold tracking-widest uppercase ${
-                            product.status === 'published' 
-                              ? 'bg-[#214332]/30 text-[#93D7A4] border border-[#214332]'
+                            product.status === 'published'
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
                               : product.status === 'draft'
-                              ? 'bg-[#282A2C] text-[#C4C7C5] border border-[#333538]'
-                              : 'bg-[#4A4431]/30 text-[#F1DF9E] border border-[#4A4431]'
+                              ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700'
+                              : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
                           }`}>
-                            {product.status}
+                            {product.status === 'published' ? 'PUBLISHED' : product.status === 'draft' ? 'DRAFT' : 'ARCHIVED'}
                           </span>
                         </td>
 
-                        {/* Updated Date */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#8E9196]">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm admin-text-muted">
                           {formatIST(product.updated_at)}
                         </td>
 
-                        {/* Actions */}
                         <td className="px-6 py-4 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-2">
                             <button 
-                              onClick={(e) => handleEdit(product, e)} 
-                              className="p-2 text-[#A8C7FA] hover:bg-[#0B57D0]/20 rounded-full transition-colors cursor-pointer"
-                              title="Edit Product"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            {isSuperAdmin && (
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); setProductToDelete(product); }} 
-                                className="p-2 text-[#F2B8B5] hover:bg-[#8C1D18]/40 rounded-full transition-colors cursor-pointer"
-                                title="Delete Product"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
+                               onClick={(e) => handleEdit(product, e)}
+                               className="p-2 rounded-full hover:admin-bg-elevated transition-all duration-200 cursor-pointer"
+                               title="Edit Product"
+                             >
+                               <Edit className="w-4 h-4 text-blue-500 hover:text-blue-400" />
+                             </button>
+                             {isSuperAdmin && (
+                               <button 
+                                  onClick={(e) => { e.stopPropagation(); setProductToDelete(product); }}
+                                  className="p-2 rounded-full hover:admin-bg-elevated transition-all duration-200 cursor-pointer"
+                                 title="Delete Product"
+                               >
+                                 <Trash2 className="w-4 h-4 text-red-500 hover:text-red-400" />
+                               </button>
+                             )}
                           </div>
                         </td>
                       </tr>
@@ -494,10 +452,14 @@ export default function AdminProducts() {
         </div>
       </div>
 
-      {/* Editing Modal Component */}
       <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingProduct(null); }} title={editingProduct ? 'Edit Product' : 'Add New Product'}>
         <ProductForm
-          initialData={editingProduct ? { ...editingProduct, frequently_bought_together: editingProduct.frequently_bought_together || [] } : undefined}
+          initialData={editingProduct ? { 
+            ...editingProduct, 
+            selling_price: editingProduct.selling_price ?? '',
+            weight_unit: editingProduct.weight_unit === null ? undefined : editingProduct.weight_unit,
+            frequently_bought_together: editingProduct.frequently_bought_together || [] 
+          } : undefined}
           categories={categories}
           allProducts={products.map(p => ({ id: p.id, name: p.name }))}
           onSubmit={handleSubmit}
@@ -505,7 +467,6 @@ export default function AdminProducts() {
         />
       </Modal>
 
-      {/* 🚨 TWO-STEP VERIFICATION MODAL FOR DELETION 🚨 */}
       <AdminConfirmModal
         isOpen={!!productToDelete}
         onClose={() => setProductToDelete(null)}
@@ -514,7 +475,7 @@ export default function AdminProducts() {
         description={`You are about to completely delete "${productToDelete?.name}". This removes it and its images from the database and cannot be recovered.`}
         confirmText="Delete Product"
         isDestructive={true}
-        requireMatch={productToDelete?.sku || "DELETE"} // 🚨 Enforces typing SKU or "DELETE"
+        requireMatch={productToDelete?.sku || "DELETE"}
         isLoading={isSubmitting}
       />
     </>

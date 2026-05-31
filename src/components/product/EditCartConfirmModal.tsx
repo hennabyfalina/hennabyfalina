@@ -1,3 +1,5 @@
+// src/components/product/EditCartConfirmModal.tsx
+
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -16,6 +18,8 @@ interface EditCartConfirmModalProps {
   newPrint: string
   oldTotal: number
   newTotal: number
+  oldDays?: number // 🚨 New Props
+  newDays?: number // 🚨 New Props
   filesWillBeDeleted: boolean
   productName: string
 }
@@ -30,7 +34,9 @@ export default function EditCartConfirmModal({
   oldPrint, 
   newPrint, 
   oldTotal, 
-  newTotal, 
+  newTotal,
+  oldDays = 7, 
+  newDays = 7, 
   filesWillBeDeleted,
   productName
 }: EditCartConfirmModalProps) {
@@ -41,9 +47,12 @@ export default function EditCartConfirmModal({
   }, [])
 
   useEffect(() => {
-    if (isOpen) document.body.style.overflow = 'hidden'
-    else document.body.style.overflow = 'unset'
-    return () => { document.body.style.overflow = 'unset' }
+    if (isOpen) {
+      document.body.classList.add('modal-open')
+    } else {
+      document.body.classList.remove('modal-open')
+    }
+    return () => document.body.classList.remove('modal-open')
   }, [isOpen])
 
   if (!isOpen || !mounted) return null
@@ -51,6 +60,7 @@ export default function EditCartConfirmModal({
   const isQtyChanged = oldQty !== newQty
   const isPrintChanged = oldPrint !== newPrint
   const isTotalChanged = oldTotal !== newTotal
+  const isDaysChanged = oldDays !== newDays // 🚨 Tracker
 
   return createPortal(
     <div className="z-[999999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh' }}>
@@ -104,6 +114,24 @@ export default function EditCartConfirmModal({
               </div>
             </div>
 
+            {/* 🚨 Delivery Days Tracker 🚨 */}
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center p-3 bg-white border border-gray-200 rounded-lg shadow-sm gap-2">
+              <span className="text-sm font-medium text-gray-700 shrink-0 flex items-center gap-1">
+                Dispatch Time
+              </span>
+              <div className="flex items-center gap-2 text-sm sm:text-right flex-wrap">
+                {isDaysChanged ? (
+                  <>
+                    <span className="text-gray-500 line-through">{oldDays} Days</span>
+                    <ArrowRight className="w-4 h-4 text-gray-400 shrink-0" />
+                    <span className={`font-bold ${newDays > oldDays ? 'text-[#C7511F]' : 'text-green-600'}`}>{newDays} Days</span>
+                  </>
+                ) : (
+                  <span className="font-bold text-gray-900">{newDays} Days</span>
+                )}
+              </div>
+            </div>
+
             {/* Price Tracker */}
             <div className="flex flex-col sm:flex-row justify-between sm:items-center p-3 bg-[#F0F8FF] border border-[#007185]/20 rounded-lg mt-2 shadow-sm gap-2">
               <span className="text-sm font-bold text-gray-900 shrink-0">Total Price</span>
@@ -125,7 +153,7 @@ export default function EditCartConfirmModal({
               <div className="flex items-start gap-2 mt-4 p-3 bg-[#FFF4F4] border border-[#F2B8B5] rounded-lg shadow-sm animate-in zoom-in duration-300">
                 <AlertTriangle className="w-5 h-5 text-[#B3261E] shrink-0 mt-0.5" />
                 <p className="text-xs text-[#4D2628] leading-relaxed">
-                  <strong>Data Deletion Notice:</strong> Switching to a non-custom printing option will permanently delete your previously uploaded artwork files to save storage.
+                  <strong>Data Deletion Notice:</strong> Switching to a non-custom printing option will permanently delete your previously uploaded artwork files.
                 </p>
               </div>
             )}

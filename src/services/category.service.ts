@@ -1,3 +1,5 @@
+// src/services/category.service.ts
+
 'use server'
 
 import { createClient as createServerClient } from '@/lib/supabase/server'

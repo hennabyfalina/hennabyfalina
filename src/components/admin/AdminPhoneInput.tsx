@@ -21,7 +21,6 @@ export default function AdminPhoneInput({
 }: AdminPhoneInputProps) {
   const [touched, setTouched] = useState(false)
 
-  // Clean the incoming value for display (strip +91 if present)
   const displayValue = value.startsWith('+91') 
     ? value.slice(3) 
     : (value.startsWith('91') && value.length === 12 ? value.slice(2) : value.replace(/\D/g, '').slice(0, 10))
@@ -41,8 +40,8 @@ export default function AdminPhoneInput({
 
   return (
     <div>
-      <div className={`flex items-stretch w-full overflow-hidden bg-[#131314] border ${showError || error ? 'border-[#8C1D18] ring-1 ring-[#8C1D18]' : 'border-[#333538]'} rounded-2xl focus-within:border-[#A8C7FA] focus-within:ring-1 focus-within:ring-[#A8C7FA] transition-all`}>
-        <div className="flex items-center justify-center px-4 bg-[#1E1F20] border-r border-[#333538] text-sm font-bold text-[#8E9196] select-none">
+      <div className={`flex items-stretch w-full overflow-hidden admin-bg-primary border ${showError || error ? 'border-[#8C1D18] ring-1 ring-[#8C1D18]' : 'admin-border'} rounded-2xl focus-within:border-[#A8C7FA] focus-within:ring-1 focus-within:ring-[#A8C7FA] transition-all`}>
+        <div className="flex items-center justify-center px-4 admin-bg-card border-r admin-border text-sm font-bold admin-text-muted select-none">
           +91
         </div>
         <input
@@ -52,7 +51,7 @@ export default function AdminPhoneInput({
           onBlur={() => setTouched(true)}
           disabled={disabled}
           placeholder="10-digit mobile number"
-          className="w-full px-4 py-3 text-sm font-medium text-[#E3E3E3] bg-transparent border-none outline-none disabled:opacity-50 placeholder:text-[#565959]"
+          className="w-full px-4 py-3 text-sm font-medium admin-text-primary bg-transparent border-none outline-none disabled:opacity-50 placeholder:text-[#565959]"
           maxLength={10}
         />
       </div>

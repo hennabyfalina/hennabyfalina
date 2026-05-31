@@ -2,221 +2,220 @@
 
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import { X, ArrowRight, CheckCircle2, Heart, ChevronLeft, ChevronRight } from 'lucide-react'
+import { X, Info, ArrowRight } from 'lucide-react'
 import { useQuickViewStore } from '@/store/quickview.store'
 import { useWishlistStore } from '@/store/wishlist.store'
-import { showToast } from '@/components/ui/Toast'
 import { useRouter } from 'next/navigation'
+import { Heart } from 'lucide-react'
 import StarRating from '@/components/product/StarRating'
 import AddToCartButton from '@/components/product/AddToCartButton'
 import BuyNowButton from '@/components/product/BuyNowButton'
 import ProductImageGallery from '@/components/product/ProductImageGallery'
 import { formatCurrency } from '@/lib/utils'
-import { siteConfig } from '@/config/site'
-import { B2B_CONSTANTS } from '@/config/b2b-rules'
+import { createClient } from '@/lib/supabase/client'
+import { showToast } from '@/components/ui/Toast'
 
 export default function QuickViewModal() {
-  const { isOpen, product, productList, closeQuickView, nextProduct, prevProduct } = useQuickViewStore()
+  const { isOpen, product: initialProduct, closeQuickView } = useQuickViewStore()
+  const [fullProduct, setFullProduct] = useState<any>(null)
   const [mounted, setMounted] = useState(false)
-  const { savedProductIds, toggleItem } = useWishlistStore()
   const router = useRouter()
+  const supabase = createClient()
+  const { savedProductIds, toggleItem } = useWishlistStore()
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // Close on Escape key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeQuickView()
-      if (e.key === 'ArrowLeft') prevProduct()
-      if (e.key === 'ArrowRight') nextProduct()
+  // 🚨 SILENT BACKGROUND ENGINE: Syncs metadata quietly without layout flickering
+  const fetchFullProduct = useCallback(async (id: string) => {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*, pricing_tiers:product_pricing_tiers(*)')
+      .eq('id', id)
+      .single()
+    
+    if (!error && data) {
+      setFullProduct({
+        ...data,
+        pricing_tiers: data.pricing_tiers?.filter((t: any) => !t.is_deleted).sort((a: any, b: any) => a.sort_order - b.sort_order)
+      })
     }
-    if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown)
+  }, [supabase])
+
+  useEffect(() => {
+    if (isOpen && initialProduct?.id) {
+      fetchFullProduct(initialProduct.id)
       document.body.style.overflow = 'hidden'
     } else {
-      document.body.style.overflow = ''
+      document.body.style.overflow = 'unset'
+      setFullProduct(null)
     }
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = ''
-    }
-  }, [isOpen, closeQuickView, prevProduct, nextProduct])
-
-  // Swipe to change Product Gesture
-  const [touchStartX, setTouchStartX] = useState<number | null>(null)
-  const [touchEndX, setTouchEndX] = useState<number | null>(null)
-
-  if (!mounted || !isOpen || !product) return null
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEndX(null)
-    setTouchStartX(e.targetTouches[0].clientX)
-  }
-  const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEndX(e.targetTouches[0].clientX)
-  }
-  const onTouchEnd = () => {
-    if (!touchStartX || !touchEndX) return
-    const distance = touchStartX - touchEndX
-    if (distance > 50) nextProduct()
-    if (distance < -50) prevProduct()
-    setTouchStartX(null)
-    setTouchEndX(null)
-  }
-
-  const isSaved = product ? savedProductIds.includes(product.id) : false
+    return () => { document.body.style.overflow = 'unset' }
+  }, [isOpen, initialProduct, fetchFullProduct])
 
   const handleWishlist = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    const willBeSaved = !isSaved
-    // 🚨 Trigger Toast Instantly before awaiting DB
-    showToast(willBeSaved ? 'Saved to Wishlist' : 'Removed from Wishlist', 'success')
+    if (!initialProduct) return
+    const isSaved = savedProductIds.includes(initialProduct.id)
+    showToast(!isSaved ? 'Saved to Wishlist' : 'Removed from Wishlist', 'success')
     try {
-      if (!product) return
-      await toggleItem(product.id)
+      await toggleItem(initialProduct.id)
     } catch (error: any) {
       if (error.message === 'unauthorized') {
-        const currentUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
+        router.push(`/login?next=${encodeURIComponent(window.location.pathname)}`)
         closeQuickView()
-        router.push(`/login?next=${currentUrl}`)
-      } else {
-        showToast('Failed to update wishlist', 'error')
       }
     }
   }
 
-  // B2B Configuration Setup
-  const retailMin = B2B_CONSTANTS.RETAIL_MIN_QTY
-  const sellingPrice = product.selling_price ?? product.price ?? 0
-  const regularPrice = product.price ?? 0
+  if (!isOpen || !mounted || !initialProduct) return null
+
+  // 🚨 NAN PROTECTION: Safe math targets that bind to context structures smoothly
+  const targetProduct = fullProduct || initialProduct
+  const tiers = targetProduct.pricing_tiers || initialProduct.pricing_tiers || []
+  
+  const defaultTier = tiers.length > 0 
+    ? tiers[0] 
+    : { 
+        mrp: targetProduct.price || initialProduct.price || 0, 
+        selling_price: targetProduct.selling_price || initialProduct.selling_price || initialProduct.price || 0, 
+        min_quantity: 1,
+        requires_artwork: false 
+      }
+
+  const sellingPrice = defaultTier.selling_price
+  const regularPrice = defaultTier.mrp
   const hasDiscount = regularPrice > sellingPrice
-  const safeStock = product.stock ?? retailMin
-  const isOutOfStock = safeStock < retailMin
+  const discountPercent = hasDiscount ? Math.round(((regularPrice - sellingPrice) / regularPrice) * 100) : 0
+  const isSaved = savedProductIds.includes(initialProduct.id)
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={closeQuickView}>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150" onClick={closeQuickView}>
       <div 
-        className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row relative animate-in zoom-in-95 duration-200"
+        className="relative w-full max-w-4xl bg-white rounded-md shadow-2xl flex flex-col md:flex-row max-h-[90vh] overflow-hidden animate-in zoom-in-95 cursor-default"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close Button */}
-        <button 
-          onClick={closeQuickView}
-          className="absolute top-3 right-3 z-50 p-2 bg-white/80 hover:bg-gray-100 rounded-full text-gray-500 hover:text-gray-900 transition-colors cursor-pointer"
-        >
-          <X className="w-5 h-5" />
+        {/* Amazon Minimal Close Trigger */}
+        <button onClick={closeQuickView} className="absolute top-3 right-3 z-50 p-1.5 bg-white hover:bg-gray-100 rounded-full border border-gray-200 transition-colors cursor-pointer shadow-sm">
+          <X className="w-5 h-5 text-gray-700" />
         </button>
 
-        {/* Left Side: Image */}
-        <div className="w-full md:w-1/2 bg-[#F8F8F8] p-8 flex items-center justify-center relative min-h-[300px]">
-          {productList && productList.length > 1 && (
-            <>
-              <button 
-                onClick={(e) => { e.stopPropagation(); prevProduct(); }}
-                className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/80 hover:bg-white border border-gray-200 rounded-full shadow-sm text-gray-800 transition-all z-10 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#007185]"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button 
-                onClick={(e) => { e.stopPropagation(); nextProduct(); }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/80 hover:bg-white border border-gray-200 rounded-full shadow-sm text-gray-800 transition-all z-10 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#007185]"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </>
-          )}
-          <div className="relative w-full max-w-[350px]">
-            <ProductImageGallery images={product.images || []} productName={product.name} />
+        {/* LEFT COMPACT IMAGE GALLERY - STICKY ON MOBILE TOP */}
+        <div className="w-full md:w-1/2 bg-white border-r border-gray-100 p-2 flex items-center justify-center shrink-0 sticky top-0 z-20 md:relative md:overflow-y-auto">
+          <div className="w-full max-w-[350px] md:max-w-none mx-auto">
+            <ProductImageGallery images={fullProduct?.images || initialProduct.images || []} productName={initialProduct.name} />
           </div>
         </div>
 
-        {/* Right Side: Details */}
-        <div 
-          className="w-full md:w-1/2 p-6 md:p-8 flex flex-col overflow-y-auto overscroll-contain no-scrollbar"
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-        >
-          <div className="flex justify-between items-start gap-4 mb-2 relative">
-            <h2 className="text-xl md:text-2xl font-medium text-gray-900 leading-tight">
-              {product.name}
+        {/* RIGHT COMPACT SPECIFICATIONS PANEL */}
+        <div className="w-full md:w-1/2 flex flex-col bg-white overflow-y-auto p-5 sm:p-6 md:p-7">
+          <div className="flex-1">
+            <h2 className="text-xl sm:text-2xl font-bold text-[#0F1111] leading-tight mb-2">
+              {initialProduct.name}
             </h2>
-            <button 
-              onClick={handleWishlist}
-              className="w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-full border border-[#D5D9D9] shadow-sm transition-colors shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#007185] md:mt-4"
-              title={isSaved ? "Remove from Wishlist" : "Add to Wishlist"}
-            >
-              <Heart className={`w-5 h-5 transition-colors ${isSaved ? 'fill-red-500 text-red-500' : 'text-gray-500 hover:text-red-500'}`} />
-            </button>
-          </div>
-          
-          <div className="mb-4">
-            <StarRating rating={product.rating ?? 4.5} reviewCount={product.review_count ?? 128} size="sm" />
-          </div>
+            
+            <div className="flex items-center gap-4 mb-4">
+              <StarRating rating={initialProduct.rating ?? 4.5} reviewCount={initialProduct.review_count ?? 128} size="sm" />
+              <button 
+                onClick={handleWishlist}
+                className="flex items-center gap-1.5 text-xs font-medium text-[#007185] hover:text-[#C7511F] transition-colors cursor-pointer group border-l border-gray-200 pl-4"
+              >
+                <Heart className={`w-4 h-4 transition-all ${isSaved ? 'fill-[#CC0C39] text-[#CC0C39]' : 'group-hover:scale-110'}`} />
+                {isSaved ? 'Saved' : 'Save'}
+              </button>
+            </div>
 
-          <div className="mb-6">
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-gray-900">{formatCurrency(sellingPrice)}</span>
+            <hr className="border-gray-100 mb-4" />
+
+            {/* Price Calculations Block */}
+            <div className="space-y-0.5 mb-4">
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl sm:text-3xl font-bold text-[#0F1111]">{formatCurrency(sellingPrice)}</span>
+                <span className="text-sm text-gray-500">/ unit</span>
+                {hasDiscount && (
+                  <span className="text-sm sm:text-base text-gray-500 line-through font-normal ml-2">{formatCurrency(regularPrice)}</span>
+                )}
+              </div>
               {hasDiscount && (
-                <span className="text-sm text-gray-500 line-through">{formatCurrency(regularPrice)}</span>
+                <p className="text-xs sm:text-sm text-[#CC0C39] font-semibold">You save: {formatCurrency(regularPrice - sellingPrice)} ({discountPercent}%)</p>
               )}
+              <p className="text-[11px] text-gray-400 font-medium pt-0.5">Price inclusive of all taxes (18% GST Applicable)</p>
             </div>
-            {hasDiscount && (
-              <p className="text-sm text-red-600 font-medium mt-1">
-                You save {Math.round(((regularPrice - sellingPrice) / regularPrice) * 100)}%
-              </p>
+
+            {/* Pricing Dynamic Tier List */}
+            {tiers.length > 1 && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-5">
+                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <Info className="w-3.5 h-3.5 text-[#007185]" /> Wholesale Pricing
+                </p>
+                <div className="space-y-2">
+                  {tiers.map((t: any, i: number) => (
+                    <div key={i} className="flex justify-between items-center text-sm border-b border-gray-100 pb-2 last:border-0 last:pb-0">
+                      <div className="flex flex-col">
+                        <span className="text-[#0F1111] font-medium">{t.tier_name}</span>
+                        <span className="text-[11px] text-gray-500">Min. {t.min_quantity} units</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-[#08ab1b]">{formatCurrency(t.selling_price)}</div>
+                        {t.mrp > t.selling_price && (
+                          <div className="text-[10px] text-gray-400 line-through">{formatCurrency(t.mrp)}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
-            <p className="text-sm text-gray-600 mt-2 flex items-center gap-1">
-              <CheckCircle2 className="w-4 h-4 text-green-600" />
-              Eligible for FREE Delivery by <span className="font-bold text-gray-900">{siteConfig.shortName}</span>
-            </p>
+
+            {/* Product Status Flag */}
+            <div className="flex items-center gap-2 mb-4">
+              <div className={`w-2 h-2 rounded-full ${initialProduct.stock > 0 ? 'bg-green-600' : 'bg-red-600'}`} />
+              <span className={`text-xs font-bold ${initialProduct.stock > 0 ? 'text-green-700' : 'text-red-700'}`}>
+                {initialProduct.stock > 0 ? 'In Stock.' : 'Currently Unavailable.'}
+              </span>
+            </div>
+
+            {/* Clean Functional B2B Description Block */}
+            {targetProduct.description && (
+              <div className="mb-5">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Product Description</p>
+                <p className="text-xs sm:text-sm text-gray-600 leading-relaxed line-clamp-4">
+                  {targetProduct.description}
+                </p>
+              </div>
+            )}
           </div>
 
-          <div className="border-t border-gray-200 pt-6 mb-6 flex-1">
-            <p className="text-sm text-gray-700 line-clamp-4 leading-relaxed">
-              {product.description || 'Premium B2B quality packaging material designed for durability and professional presentation.'}
-            </p>
-          </div>
-
-          <div className="mt-auto space-y-4">
-            {/* B2B Dynamic Stock Alerts */}
-            {isOutOfStock ? (
-              <p className="text-red-600 font-bold text-sm">Currently unavailable.</p>
-            ) : (product.stock !== undefined && product.stock <= 50) ? (
-              <p className="text-[#B12704] font-bold text-sm">Only {safeStock} left in stock - order soon.</p>
-            ) : (
-              <p className="text-green-700 font-bold text-sm">In Stock.</p>
-            )}
-
-            <div className="w-full flex flex-col gap-2.5">
-              {/* B2B Quantity Forcing */}
-              <AddToCartButton 
-                product={product as any} 
-                quantity={retailMin}
-                minQuantity={retailMin}
+          {/* COMPACT B2B CONVERSION ACTIONS ZONE */}
+          <div className="space-y-2.5 mt-auto pt-4 border-t border-gray-100">
+            {/* 1. Add to Cart: Primary Action (Bold Weight) */}
+            <AddToCartButton 
+              product={fullProduct || initialProduct} 
+              quantity={defaultTier.min_quantity}
+              minQuantity={defaultTier.min_quantity}
+              requireCustomizationChoice={true}
+              className="w-full h-11 text-sm font-bold bg-[#FFD814] hover:bg-[#F7CA00] border-[#FCD200] rounded-full shadow-sm cursor-pointer transition-transform active:scale-[0.99]"
+            />
+            
+            {/* 2. Customize & Buy: Secondary Action (Normal Weight per layout standard request) */}
+            <BuyNowButton 
+                product={fullProduct || initialProduct} 
+                quantity={defaultTier.min_quantity}
                 requireCustomizationChoice={true}
-                className="w-full h-11 text-base font-medium bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-full shadow-sm cursor-pointer" 
-              />
-              <BuyNowButton 
-                product={product as any} 
-                quantity={retailMin}
-                requireCustomizationChoice={true}
-                className="w-full h-11 flex items-center justify-center gap-2 text-base font-bold bg-[#FFA41C] hover:bg-[#FA8900] text-[#0F1111] border border-[#FF8F00] rounded-full shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed transition-all" 
-              />
-            </div>
+                className="w-full h-11 flex items-center justify-center gap-2 text-sm font-normal bg-[#FFA41C] hover:bg-[#FA8900] text-[#0F1111] border border-[#FF8F00] rounded-full shadow-sm cursor-pointer transition-all active:scale-[0.99] disabled:opacity-60" 
+            />
 
             <Link 
-              href={`/product/${product.slug}`}
+              href={`/product/${initialProduct.slug}`}
               onClick={closeQuickView}
-              className="flex items-center justify-center gap-2 w-full py-2 text-sm font-medium text-[#007185] hover:text-[#C7511F] hover:underline"
+              className="flex items-center justify-center gap-1.5 w-full pt-2 text-xs font-bold text-[#007185] hover:text-[#C7511F] transition-all cursor-pointer group"
             >
-              See full product details <ArrowRight className="w-4 h-4" />
+              See full product specifications <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
         </div>

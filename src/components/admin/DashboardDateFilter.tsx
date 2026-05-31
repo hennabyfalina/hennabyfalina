@@ -31,7 +31,6 @@ export default function DashboardDateFilter() {
   const [endMonth, setEndMonth] = useState('01')
   const [endYear, setEndYear] = useState('')
 
-  // Hydrate fields when modal opens
   useEffect(() => {
     if (isCustomOpen) {
       if (start) {
@@ -82,21 +81,21 @@ export default function DashboardDateFilter() {
 
   return (
     <div className="relative flex items-center gap-2">
-      <div className="relative flex items-center bg-[#131314] border border-[#333538] hover:border-[#A8C7FA] rounded-full px-4 py-2 shadow-sm transition-colors cursor-pointer">
-        <Calendar className="w-4 h-4 text-[#8E9196] mr-2 shrink-0 pointer-events-none" />
+      <div className="relative flex items-center admin-bg-primary border admin-border hover:border-[#A8C7FA] rounded-full px-4 py-2 shadow-sm transition-colors cursor-pointer">
+        <Calendar className="w-4 h-4 admin-text-muted mr-2 shrink-0 pointer-events-none" />
         <select 
           value={currentRange === 'custom' && !isCustomOpen ? 'custom' : currentRange}
           title="Select dashboard date range"
           onChange={handleChange}
-          className="bg-transparent text-sm font-medium text-[#E3E3E3] focus:outline-none cursor-pointer appearance-none pr-6 z-10"
+          className="bg-transparent text-sm font-medium admin-text-primary focus:outline-none cursor-pointer appearance-none pr-6 z-10"
         >
-          <option value="30d" className="bg-[#1E1F20]">Last 30 Days</option>
-          <option value="3m" className="bg-[#1E1F20]">Last 3 Months</option>
-          <option value="6m" className="bg-[#1E1F20]">Last 6 Months</option>
-          <option value="1y" className="bg-[#1E1F20]">Last 1 Year</option>
-          <option value="custom" className="bg-[#1E1F20]">Custom Range...</option>
+          <option value="30d" className="admin-bg-card">Last 30 Days</option>
+          <option value="3m" className="admin-bg-card">Last 3 Months</option>
+          <option value="6m" className="admin-bg-card">Last 6 Months</option>
+          <option value="1y" className="admin-bg-card">Last 1 Year</option>
+          <option value="custom" className="admin-bg-card">Custom Range...</option>
         </select>
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#8E9196]">
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none admin-text-muted">
           <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
@@ -105,53 +104,53 @@ export default function DashboardDateFilter() {
 
       {isCustomOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative w-full max-w-sm bg-[#1E1F20] border border-[#333538] rounded-[32px] shadow-2xl p-7 sm:p-8 animate-in zoom-in-95 duration-200 flex flex-col gap-6">
+          <div className="relative w-full max-w-sm admin-bg-card border admin-border rounded-[32px] shadow-2xl p-7 sm:p-8 animate-in zoom-in-95 duration-200 flex flex-col gap-6">
             
             <div className="flex items-center justify-between">
-              <h4 className="text-lg font-bold text-[#E3E3E3]">Custom Range</h4>
-              <button onClick={() => setIsCustomOpen(false)} className="p-2 bg-[#131314] hover:bg-[#282A2C] border border-[#333538] rounded-full text-[#E3E3E3] transition-colors cursor-pointer">
+              <h4 className="text-lg font-bold admin-text-primary">Custom Range</h4>
+              <button onClick={() => setIsCustomOpen(false)} className="p-2 admin-bg-primary hover:admin-bg-elevated border admin-border rounded-full admin-text-primary transition-colors cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
           
-          <div className="flex flex-col gap-2">
-            <label className="text-[11px] font-bold text-[#8E9196] uppercase tracking-widest">Start Date</label>
-            <div className="flex gap-2">
-              <input type="text" maxLength={2} placeholder="DD" value={startDay} onChange={e => setStartDay(e.target.value.replace(/\D/g, ''))} className="w-14 bg-[#131314] border border-[#333538] text-[#E3E3E3] rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-[#A8C7FA] text-center" />
-              <div className="relative flex-1">
-                <select value={startMonth} title="Start Month" onChange={e => setStartMonth(e.target.value)} className="w-full bg-[#131314] border border-[#333538] text-[#E3E3E3] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#A8C7FA] appearance-none cursor-pointer">
-                  {MONTHS.map(m => <option key={m.v} value={m.v} className="bg-[#1E1F20]">{m.l}</option>)}
-                </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#8E9196]">
-                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <div className="flex flex-col gap-2">
+              <label className="text-[11px] font-bold admin-text-muted uppercase tracking-widest">Start Date</label>
+              <div className="flex gap-2">
+                <input type="text" maxLength={2} placeholder="DD" value={startDay} onChange={e => setStartDay(e.target.value.replace(/\D/g, ''))} className="w-14 admin-bg-primary border admin-border admin-text-primary rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-[#A8C7FA] text-center" />
+                <div className="relative flex-1">
+                  <select value={startMonth} title="Start Month" onChange={e => setStartMonth(e.target.value)} className="w-full admin-bg-primary border admin-border admin-text-primary rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#A8C7FA] appearance-none cursor-pointer">
+                    {MONTHS.map(m => <option key={m.v} value={m.v} className="admin-bg-card">{m.l}</option>)}
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none admin-text-muted">
+                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </div>
                 </div>
+                <input type="text" maxLength={4} placeholder="YYYY" value={startYear} onChange={e => setStartYear(e.target.value.replace(/\D/g, ''))} className="w-20 admin-bg-primary border admin-border admin-text-primary rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-[#A8C7FA] text-center" />
               </div>
-              <input type="text" maxLength={4} placeholder="YYYY" value={startYear} onChange={e => setStartYear(e.target.value.replace(/\D/g, ''))} className="w-20 bg-[#131314] border border-[#333538] text-[#E3E3E3] rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-[#A8C7FA] text-center" />
             </div>
-          </div>
           
-          <div className="flex flex-col gap-2">
-            <label className="text-[11px] font-bold text-[#8E9196] uppercase tracking-widest">End Date</label>
-            <div className="flex gap-2">
-              <input type="text" maxLength={2} placeholder="DD" value={endDay} onChange={e => setEndDay(e.target.value.replace(/\D/g, ''))} className="w-14 bg-[#131314] border border-[#333538] text-[#E3E3E3] rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-[#A8C7FA] text-center" />
-              <div className="relative flex-1">
-                <select value={endMonth} title="End Month" onChange={e => setEndMonth(e.target.value)} className="w-full bg-[#131314] border border-[#333538] text-[#E3E3E3] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#A8C7FA] appearance-none cursor-pointer">
-                  {MONTHS.map(m => <option key={m.v} value={m.v} className="bg-[#1E1F20]">{m.l}</option>)}
-                </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#8E9196]">
-                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <div className="flex flex-col gap-2">
+              <label className="text-[11px] font-bold admin-text-muted uppercase tracking-widest">End Date</label>
+              <div className="flex gap-2">
+                <input type="text" maxLength={2} placeholder="DD" value={endDay} onChange={e => setEndDay(e.target.value.replace(/\D/g, ''))} className="w-14 admin-bg-primary border admin-border admin-text-primary rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-[#A8C7FA] text-center" />
+                <div className="relative flex-1">
+                  <select value={endMonth} title="End Month" onChange={e => setEndMonth(e.target.value)} className="w-full admin-bg-primary border admin-border admin-text-primary rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#A8C7FA] appearance-none cursor-pointer">
+                    {MONTHS.map(m => <option key={m.v} value={m.v} className="admin-bg-card">{m.l}</option>)}
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none admin-text-muted">
+                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </div>
                 </div>
+                <input type="text" maxLength={4} placeholder="YYYY" value={endYear} onChange={e => setEndYear(e.target.value.replace(/\D/g, ''))} className="w-20 admin-bg-primary border admin-border admin-text-primary rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-[#A8C7FA] text-center" />
               </div>
-              <input type="text" maxLength={4} placeholder="YYYY" value={endYear} onChange={e => setEndYear(e.target.value.replace(/\D/g, ''))} className="w-20 bg-[#131314] border border-[#333538] text-[#E3E3E3] rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-[#A8C7FA] text-center" />
             </div>
-          </div>
           
-          <div className="flex gap-3 mt-4 pt-6 border-t border-[#333538]">
-            <button onClick={() => setIsCustomOpen(false)} className="flex-1 py-3 text-sm font-medium bg-transparent border border-[#333538] text-[#E3E3E3] hover:bg-[#282A2C] rounded-full transition-colors cursor-pointer">Cancel</button>
-            <button onClick={applyCustomDate} className="flex-1 py-3 text-sm font-bold bg-[#0B57D0] text-white hover:bg-[#0842A0] rounded-full transition-colors cursor-pointer shadow-lg shadow-blue-900/20">Apply Range</button>
+            <div className="flex gap-3 mt-4 pt-6 border-t admin-border">
+              <button onClick={() => setIsCustomOpen(false)} className="flex-1 py-3 text-sm font-medium bg-transparent border admin-border admin-text-primary hover:admin-bg-elevated rounded-full transition-colors cursor-pointer">Cancel</button>
+              <button onClick={applyCustomDate} className="flex-1 py-3 text-sm font-bold admin-btn-primary rounded-full shadow-lg shadow-blue-900/20">Apply Range</button>
+            </div>
           </div>
         </div>
-      </div>
       )}
     </div>
   )

@@ -12,20 +12,19 @@ interface DeliveryMethodProps {
 
 export default function DeliveryMethod({ shippingMethod, onChange, disabled = false }: DeliveryMethodProps) {
   return (
-    <div className="bg-white p-5 md:p-6 rounded-sm border border-[#D5D9D9] shadow-sm">
-      <h2 className="text-lg font-bold text-[#0F1111] mb-4">Delivery Method</h2>
+    <div className="bg-white">
+      
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Home Delivery */}
         <button
           type="button"
           onClick={() => !disabled && onChange('delivery')}
           disabled={disabled}
-          style={{
-            border: shippingMethod === 'delivery' ? '2px solid #FF9900' : '2px solid #D5D9D9',
-            backgroundColor: shippingMethod === 'delivery' ? '#FFF5E6' : 'white',
-            transition: 'all 0.15s ease'
-          }}
-        className="w-full text-left flex items-center p-4 rounded-sm hover:border-[#FF9900] focus:outline-none cursor-pointer disabled:cursor-not-allowed"
+          className={`w-full text-left flex items-center p-4 rounded-sm border transition-all hover:border-[#FF9900] focus:outline-none cursor-pointer disabled:cursor-not-allowed ${
+            shippingMethod === 'delivery' 
+              ? 'border-[#D5D9D9] bg-white' 
+              : 'border-[#D5D9D9] bg-white hover:border-gray-400'
+          }`}
         >
           <div className="flex items-center gap-3 w-full">
             <div
@@ -54,12 +53,11 @@ export default function DeliveryMethod({ shippingMethod, onChange, disabled = fa
           type="button"
           onClick={() => !disabled && onChange('pickup')}
           disabled={disabled}
-          style={{
-            border: shippingMethod === 'pickup' ? '2px solid #FF9900' : '2px solid #D5D9D9',
-            backgroundColor: shippingMethod === 'pickup' ? '#FFF5E6' : 'white',
-            transition: 'all 0.15s ease'
-          }}
-        className="w-full text-left flex items-center p-4 rounded-sm hover:border-[#FF9900] focus:outline-none cursor-pointer disabled:cursor-not-allowed"
+          className={`w-full text-left flex items-center p-4 rounded-sm border transition-all hover:border-[#FF9900] focus:outline-none cursor-pointer disabled:cursor-not-allowed ${
+            shippingMethod === 'pickup' 
+              ? 'border-[#D5D9D9] bg-white' 
+              : 'border-[#D5D9D9] bg-white hover:border-gray-400'
+          }`}
         >
           <div className="flex items-center gap-3 w-full">
             <div

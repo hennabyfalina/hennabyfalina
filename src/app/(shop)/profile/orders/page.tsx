@@ -57,7 +57,6 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
 
   const { data: rawOrders } = await query
 
-  // 🚨 UPGRADED TO HANDLE ARRAYS 🚨 Generate signed URLs for all artwork files
   const orders = await Promise.all((rawOrders || []).map(async (order) => {
     const itemsWithUrls = await Promise.all(order.order_items.map(async (item: any) => {
       
@@ -66,7 +65,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         signedUrls = await Promise.all(item.artwork_urls.map(async (url: string) => {
           const { data } = await supabase.storage
             .from('artworks')
-            .createSignedUrl(url, 3600) // 1 Hour Secure Link
+            .createSignedUrl(url, 3600) 
           return data?.signedUrl
         }))
       }
@@ -79,14 +78,12 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   return (
     <div className="min-h-screen bg-white py-6 md:py-10">
       <Container className="max-w-[1000px]">
-        {/* Breadcrumb */}
         <div className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline mb-4">
           <Link href="/profile">Your Account</Link> <span className="text-gray-500 mx-1">›</span> <span className="text-[#C7511F]">Your Orders</span>
         </div>
         
         <h1 className="text-2xl md:text-3xl font-normal text-gray-900 mb-6 tracking-tight">Your Orders</h1>
 
-        {/* Messaging Box */}
         {(msg === 'cancel_soon' || msg === 'return_soon') && (
           <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-sm relative pr-8 lg:pr-4">
             <div className="flex items-start gap-3">
@@ -105,7 +102,6 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
           </div>
         )}
 
-        {/* Filter Tabs */}
         <div className="flex overflow-x-auto overscroll-contain-x no-scrollbar border-b border-gray-200 mb-6 gap-6 text-sm font-medium pb-1">
           <Link href="/profile/orders" className={`whitespace-nowrap pb-2 border-b-2 ${filter === 'all' ? 'text-gray-900 border-[#e77600] font-bold' : 'text-[#007185] border-transparent hover:text-[#C7511F] hover:underline'}`}>Orders</Link>
           <Link href="/profile/orders?filter=buy-again" className={`whitespace-nowrap pb-2 border-b-2 ${filter === 'buy-again' ? 'text-gray-900 border-[#e77600] font-bold' : 'text-[#007185] border-transparent hover:text-[#C7511F] hover:underline'}`}>Buy Again</Link>
@@ -114,7 +110,6 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
           <Link href="/profile/orders?filter=failed" className={`whitespace-nowrap pb-2 border-b-2 ${filter === 'failed' ? 'text-gray-900 border-[#e77600] font-bold' : 'text-[#007185] border-transparent hover:text-[#C7511F] hover:underline'}`}>Pending & Failed</Link>
         </div>
 
-        {/* Orders List */}
         {(!orders || orders.length === 0) ? (
           <div className="py-8 text-center text-gray-600">
             {filter === 'cancelled' && 'You have no cancelled orders.'}
@@ -136,7 +131,6 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
               return (
                 <div key={order.id} className="border border-gray-300 rounded-lg overflow-hidden shadow-sm">
                   
-                {/* Order Header */}
                 <div className="bg-[#F0F2F2] px-4 md:px-5 py-3 border-b border-gray-300 text-sm text-gray-600 flex flex-col sm:flex-row justify-between gap-3 sm:gap-4">
                   <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-4 sm:gap-6 md:gap-12 w-full sm:w-auto">
                     <div>
@@ -154,7 +148,6 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                       <svg className="w-3 h-3 text-gray-500 group-hover:rotate-180 group-focus-within:rotate-180 transition-transform shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                     </div>
                     
-                    {/* Amazon-style Address Dropdown */}
                     <div className="absolute top-full left-0 sm:left-auto mt-1 w-56 sm:w-64 bg-white border border-gray-200 shadow-[0_4px_14px_rgba(0,0,0,0.15)] rounded-sm opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-200 z-[60] p-4 text-sm text-gray-900 pointer-events-none group-hover:pointer-events-auto group-focus-within:pointer-events-auto text-left whitespace-normal">
                       <div className="font-bold mb-1.5">{order.addresses?.name || user.user_metadata?.name || user.email?.split('@')[0]}</div>
                       {order.addresses ? (
@@ -186,7 +179,6 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                   </div>
                 </div>
 
-                {/* Order Body */}
                 <div className="p-4 md:p-5 bg-white">
                   <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2 flex-wrap">
                     {order.status === 'delivered' ? (
@@ -228,7 +220,6 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                       return (
                         <div key={item.id} className="flex flex-col md:flex-row gap-4 sm:gap-6">
                           
-                          {/* Left Side: Product Info */}
                           <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 flex-1">
                             <Link href={`/product/${item.products?.slug}`} className="w-20 h-20 sm:w-24 sm:h-24 relative bg-gray-50 border border-gray-200 rounded-sm overflow-hidden shrink-0">
                               <Image src={imageUrl} fill sizes="96px" priority={itemIndex === 0} unoptimized={imageUrl.includes('token=') || imageUrl.includes('supabase')} className="object-contain mix-blend-multiply p-1" alt={item.products?.name || 'Product Image'} />
@@ -248,23 +239,24 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                                 {item.original_price && item.original_price > item.price && (
                                   <span className="text-xs text-gray-500 line-through whitespace-nowrap">{formatCurrency(item.original_price)}</span>
                                 )}
-                                {item.is_bulk_pricing && (
-                                  <span className="text-[10px] font-bold bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded-sm">Bulk Price Applied</span>
-                                )}
                                 <span className="text-xs text-gray-600 ml-1">Qty: {item.quantity}</span>
                               </div>
 
-                              {/* 🚨 B2B ARTWORK DOWNLOAD OPTION UPGRADED TO ARRAY 🚨 */}
                               {item.printing_type && item.printing_type !== 'None' && (
                                 <div className="mt-2.5 pl-3 border-l-2 border-[#007185] text-xs">
                                   <p className="font-bold text-[#007185] flex items-center gap-1.5 uppercase tracking-wide">
                                     <Package className="w-3.5 h-3.5" /> {item.printing_type}
                                   </p>
+                                  {item.artwork_urls && item.artwork_urls.length > 0 && (
+                                    <p className="text-gray-600 mt-0.5 font-medium flex items-center gap-1">
+                                      <span className="w-1 h-1 bg-gray-400 rounded-full" />
+                                      {item.artwork_urls.length} File(s) Attached
+                                    </p>
+                                  )}
                                   {item.printing_instructions && (
-                                    <p className="text-gray-600 italic mt-0.5">Note: "{item.printing_instructions}"</p>
+                                    <p className="text-gray-600 italic mt-0.5">Note: &quot;{item.printing_instructions}&quot;</p>
                                   )}
                                   
-                                  {/* Maps all uploaded files */}
                                   {item.signed_artwork_urls && item.signed_artwork_urls.length > 0 && (
                                     <div className="flex flex-wrap gap-2 mt-1.5">
                                       {item.signed_artwork_urls.map((signedUrl: string, idx: number) => (
@@ -281,7 +273,6 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                             </div>
                           </div>
 
-                          {/* Right Side: Actions Stack */}
                           <div className="mt-2 md:mt-0 flex flex-col gap-2 w-full md:w-56 shrink-0">
                             {order.payment_status === 'paid' && (
                               <Link href={`/order/${order.id}`} className="px-4 py-2 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-xl text-sm font-medium text-gray-900 shadow-sm transition-colors text-center w-full focus:ring-2 focus:ring-[#007185] focus:outline-none">

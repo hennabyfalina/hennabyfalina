@@ -10,7 +10,7 @@ export default function StorePickupInfo() {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
-    const textToCopy = `${siteConfig.name}\n${siteConfig.address.line1}, ${siteConfig.address.line2}, ${siteConfig.address.city}, ${siteConfig.address.state}\nHours: ${siteConfig.business.workingHours}\nPhone: ${siteConfig.contact.phone.primary}\nEmail: ${siteConfig.contact.email.orders}`
+    const textToCopy = `${siteConfig.name}\nAddress: ${siteConfig.address.line1}, ${siteConfig.address.line2}, ${siteConfig.address.city} - ${siteConfig.address.pincode}, ${siteConfig.address.state}, ${siteConfig.address.country}\nHours: ${siteConfig.business.workingHours}\nPhone: ${siteConfig.contact.phone.primary} | ${siteConfig.contact.phone.secondary}\nEmail: ${siteConfig.contact.email.orders}`
     try {
       await navigator.clipboard.writeText(textToCopy)
       setCopied(true)
@@ -26,7 +26,7 @@ export default function StorePickupInfo() {
   return (
     <div className="bg-white p-5 rounded-sm border border-[#D5D9D9] space-y-4">
       <h3 className="text-lg font-bold text-[#0F1111]">Store Details</h3>
-      <p className="text-sm text-[#0F1111] mb-2">Pick up your order directly from our store for free.</p>
+      <p className="text-md text-[#0F1111] mb-2">Pick up your order directly from our store for free.</p>
       
       <div className="bg-[#F0F2F2] rounded-sm p-4 space-y-3 border border-[#D5D9D9]">
         <div className="flex items-start gap-3">
@@ -36,7 +36,7 @@ export default function StorePickupInfo() {
             <p className="text-[15px] text-[#0F1111] leading-relaxed whitespace-pre-line mt-1">
               {siteConfig.address.line1},<br />
               {siteConfig.address.line2},<br />
-              {siteConfig.address.city}, {siteConfig.address.state}, {siteConfig.address.country} – {siteConfig.address.pincode}<br />
+              {siteConfig.address.city} – {siteConfig.address.pincode}, {siteConfig.address.state}, {siteConfig.address.country}<br />
             </p>
           </div>
         </div>
@@ -48,13 +48,12 @@ export default function StorePickupInfo() {
         
         <div className="flex items-center gap-3">
           <Phone className="w-5 h-5 text-[#565959] flex-shrink-0" />
-          <p className="text-[15px] text-[#0F1111]">{siteConfig.contact.phone.primary}</p>
-          <p className="text-[15px] text-[#0F1111]">{siteConfig.contact.phone.secondary}</p>
+          <p className="text-[15px] text-[#0F1111]">{siteConfig.contact.phone.primary} | {siteConfig.contact.phone.secondary}</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <Mail className="w-5 h-5 text-[#565959] flex-shrink-0" />
-          <p className="text-[15px] text-[#0F1111]">{siteConfig.contact.email.orders}</p>
+          <p className="text-[15px] text-[#0F1111] truncate sm:whitespace-normal">{siteConfig.contact.email.orders}</p>
         </div>
       </div>
 

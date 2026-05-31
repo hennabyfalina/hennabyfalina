@@ -2,83 +2,100 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { MapPin, Lock, RefreshCw, Truck, ShieldCheck } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { siteConfig } from '@/config/site'
-import { B2B_CONSTANTS, PRINTING_TIERS } from '@/config/b2b-rules'
 import ProductWishlistButton from './ProductWishlistButton'
 import ShareButton from './ShareButton'
 import StarRating from './StarRating'
 import PrintingOptions from './PrintingOptions'
 import AddToCartButton from './AddToCartButton'
+import BuyNowButton from './BuyNowButton' // 🚨 RESTORED IMPORT
 import { useProductDraftStore, ProductDraft } from '@/store/productDraft.store'
 import { useCartStore } from '@/store/cart.store'
 import { ClientOnly } from '@/components/ui/ClientOnly'
+import { showToast } from '@/components/ui/Toast'
+import { broadcast } from '@/lib/broadcast'
 
 interface ProductInteractiveSectionProps {
   product: any
   hasStock: boolean
-  sellingPrice: number
-  regularPrice: number
-  discountPercentage: number
+  sellingPrice?: number
+  regularPrice?: number
+  discountPercentage?: number
 }
-
-const getDefaultDraft = (product: any): ProductDraft => ({
-  printingType: 'Retail (Readymade)',
-  instructions: '',
-  artworkUrls: [],
-  artworkSizes: [],
-  artworks: [],
-  isAgreementChecked: true,
-  minQty: B2B_CONSTANTS.RETAIL_MIN_QTY,
-  days: B2B_CONSTANTS.STANDARD_DELIVERY_DAYS,
-})
 
 export default function ProductInteractiveSection({
   product,
   hasStock,
-  sellingPrice,
-  regularPrice,
-  discountPercentage,
 }: ProductInteractiveSectionProps) {
   const searchParams = useSearchParams()
   const editItemId = searchParams ? searchParams.get('edit_item') : null
 
   const getDraft = useProductDraftStore((state) => state.getDraft)
   const setDraft = useProductDraftStore((state) => state.setDraft)
+  const clearDraft = useProductDraftStore((state) => state.clearDraft)
   const cartItems = useCartStore((state) => state.items)
   const findCartItem = useCartStore((state) => state.findCartItem)
 
-  // Verify the ID actually exists in the cart to prevent broken edits
   const isValidEditItemId = editItemId && cartItems.some(i => i.id === editItemId) ? editItemId : null
 
-  const [b2bState, setB2bState] = useState<ProductDraft>(() => {
-    // 1. Saved Draft (Memory Template)
-    const savedDraft = getDraft(product.id)
-    if (savedDraft) return savedDraft
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const activeTiers = product.pricing_tiers && product.pricing_tiers.length > 0 
+    ? product.pricing_tiers 
+    : [{ tier_name: 'Retail (Readymade)', mrp: product.price || 0, selling_price: product.selling_price || product.price || 0, min_quantity: 1, requires_artwork: false, delivery_days: 7, sort_order: 0 }];
 
-    // 2. Fresh Slate Default
-    return getDefaultDraft(product)
+  const defaultTier = activeTiers[0];
+
+  const getDefaultDraft = (): ProductDraft => ({
+    printingType: defaultTier.tier_name,
+    instructions: '',
+    artworkUrls: [],
+    artworkSizes: [],
+    artworks: [],
+    isArtworkRightsChecked: false,
+    isPrintTimelineChecked: false,
+    minQty: defaultTier.min_quantity,
+    days: defaultTier.delivery_days ?? 7,
+    lastUpdated: 0
   })
-  
+
+  const [b2bState, setB2bState] = useState<any>(getDefaultDraft())
   const [isClient, setIsClient] = useState(false)
   const [hydratedEditId, setHydratedEditId] = useState<string | null>(null)
+  const [hasStaleDraft, setHasStaleDraft] = useState(false)
 
-  useEffect(() => {
-    setIsClient(true)
+  const handlePrintingOptionsChange = useCallback((newState: any) => {
+    setB2bState((prevState: any) => ({
+      ...prevState,
+      printingType: newState.printingType || newState.type || prevState.printingType,
+      minQty: newState.minQty ?? prevState.minQty,
+      days: newState.days ?? prevState.days,
+      instructions: newState.instructions !== undefined ? newState.instructions : prevState.instructions,
+      artworkUrls: newState.artworkUrls ?? prevState.artworkUrls,
+      artworkSizes: newState.artworkSizes ?? prevState.artworkSizes,
+      artworks: newState.artworks ?? prevState.artworks,
+      isArtworkRightsChecked: newState.isArtworkRightsChecked !== undefined ? newState.isArtworkRightsChecked : prevState.isArtworkRightsChecked,
+      isPrintTimelineChecked: newState.isPrintTimelineChecked !== undefined ? newState.isPrintTimelineChecked : prevState.isPrintTimelineChecked,
+      hydratedFromCart: true, 
+    }))
   }, [])
 
   useEffect(() => {
-    // 🚀 EXPLICIT EDIT MODE HYDRATION (Overrides everything else)
+    setIsClient(true)
+    const savedDraft = getDraft(product.id)
+    if (savedDraft) setB2bState(savedDraft)
+  }, [product.id, getDraft])
+
+  useEffect(() => {
     if (isValidEditItemId && cartItems.length > 0 && hydratedEditId !== isValidEditItemId) {
       const editItem = cartItems.find((item) => item.id === isValidEditItemId)
       if (editItem) {
-        const tier = PRINTING_TIERS.find(t => t.id === editItem.printing_type)
+        const tier = activeTiers.find((t: any) => t.tier_name === editItem.printing_type) || defaultTier
 
-        // 🚀 CRITICAL FIX: Reconstruct the full Artwork objects so previews & sizes work in Edit Mode
         const reconstructedArtworks = (editItem.artwork_urls || []).map((path, idx) => ({
           path: path,
           url: `/api/artwork?path=${encodeURIComponent(path)}`,
@@ -87,79 +104,204 @@ export default function ProductInteractiveSection({
         }))
 
         setB2bState({
-          printingType: editItem.printing_type || 'Retail (Readymade)',
+          printingType: editItem.printing_type || defaultTier.tier_name,
           instructions: editItem.printing_instructions || '',
           artworkUrls: editItem.artwork_urls || [],
           artworkSizes: editItem.artwork_sizes || [],
           artworks: reconstructedArtworks, 
-          isAgreementChecked: true,
-          minQty: tier ? tier.minQty : B2B_CONSTANTS.RETAIL_MIN_QTY,
-          days: tier ? tier.days : B2B_CONSTANTS.STANDARD_DELIVERY_DAYS,
+          isArtworkRightsChecked: true,
+          isPrintTimelineChecked: true,
+          minQty: tier.min_quantity,
+          days: tier.delivery_days ?? 7,
           hydratedFromCart: true,
         })
         setHydratedEditId(isValidEditItemId)
       }
     }
-  }, [isValidEditItemId, cartItems, hydratedEditId])
+  }, [isValidEditItemId, cartItems, hydratedEditId, activeTiers, defaultTier])
 
-  // Persist every change
   useEffect(() => {
-    setDraft(product.id, b2bState)
-  }, [b2bState, product.id, setDraft])
+    if (isClient) {
+      setDraft(product.id, b2bState)
+    }
+  }, [b2bState, product.id, setDraft, isClient])
 
-  // Show restoration message after login redirect
+  // Add inside the component, after existing useEffects
   useEffect(() => {
-    if (b2bState.redirectedForLogin) {
-      // showToast('Your customisation details were restored. Please re‑upload your artwork.', 'info')
-      setDraft(product.id, { ...b2bState, redirectedForLogin: false })
+    if (!isClient) return
+
+    const validateArtworks = async () => {
+      // Check if any artwork URLs are broken
+      const currentArtworks = b2bState.artworks || []
+      const validArtworks = []
+      let hasInvalid = false
+
+      for (const artwork of currentArtworks) {
+        try {
+          const response = await fetch(artwork.url, { method: 'HEAD' })
+          if (response.ok) {
+            validArtworks.push(artwork)
+          } else {
+            hasInvalid = true
+            console.log(`Artwork missing: ${artwork.path}`)
+          }
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (e) {
+          hasInvalid = true
+        }
+      }
+
+      if (hasInvalid && validArtworks.length !== currentArtworks.length) {
+        // Update state with only valid artworks
+        handlePrintingOptionsChange({
+          ...b2bState,
+          artworks: validArtworks,
+          artworkUrls: validArtworks.map((a: any) => a.path),
+          artworkSizes: validArtworks.map((a: any) => a.size),
+        })
+        showToast('Some artwork files are no longer available and have been removed.', 'warning')
+      }
     }
-  }, [])
 
-  // Price calculation with hydration safety
-  let activePrice = sellingPrice
-  if (isClient) {
-    const shouldUseBulkPrice = product.bulk_price &&
-      b2bState.minQty >= (product.bulk_min_quantity || B2B_CONSTANTS.WHOLESALE_MIN_QTY)
-    if (shouldUseBulkPrice) {
-      activePrice = product.bulk_price
+    // Validate when tab becomes visible again
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        validateArtworks()
+      }
     }
-  }
 
-  // Transform b2bState to the shape expected by PrintingOptions
-  const printingOptionsState = {
-    type: b2bState.printingType,
-    minQty: b2bState.minQty,
-    days: b2bState.days,
-    instructions: b2bState.instructions,
-    artworkUrls: b2bState.artworkUrls,
-    artworkSizes: b2bState.artworkSizes,
-    artworks: b2bState.artworks,
-    isAgreementChecked: b2bState.isAgreementChecked,
-  }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    // Also validate on mount
+    validateArtworks()
 
-  const handlePrintingOptionsChange = (newState: any) => {
-    setB2bState({
-      ...b2bState,
-      printingType: newState.type,
-      minQty: newState.minQty,
-      days: newState.days,
-      instructions: newState.instructions,
-      artworkUrls: newState.artworkUrls,
-      artworkSizes: newState.artworkSizes,
-      artworks: newState.artworks,
-      isAgreementChecked: newState.isAgreementChecked,
-      hydratedFromCart: true, // 🚀 Keep true to prevent URL override loops while editing
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isClient, b2bState.artworks])
+
+  useEffect(() => {
+    if (!isClient) return
+
+    // Listen for cart item deletions in other tabs
+    const unsubscribeItemDeleted = broadcast.on('CART_ITEM_DELETED', (data) => {
+      if (data.productId === product.id) {
+        // Clear the draft for this product
+        clearDraft(product.id)
+        
+        // Reset local state
+        setB2bState(getDefaultDraft())
+        showToast('This item was removed from your cart in another tab.', 'info')
+      }
     })
+
+    // Listen for artwork deletions
+    const unsubscribeArtworkDeleted = broadcast.on('ARTWORK_DELETED', (data) => {
+      const currentArtworks = b2bState.artworks || []
+      const pathsToDelete = new Set(data.paths)
+      
+      const remainingArtworks = currentArtworks.filter((a: any) => !pathsToDelete.has(a.path))
+      
+      if (remainingArtworks.length !== currentArtworks.length) {
+        handlePrintingOptionsChange({
+          ...b2bState,
+          artworks: remainingArtworks,
+          artworkUrls: remainingArtworks.map((a: any) => a.path),
+          artworkSizes: remainingArtworks.map((a: any) => a.size),
+        })
+        showToast('Some artwork files were deleted in another tab.', 'warning')
+      }
+    })
+
+    return () => {
+      unsubscribeItemDeleted()
+      unsubscribeArtworkDeleted()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isClient, product.id, b2bState, handlePrintingOptionsChange])
+
+  useEffect(() => {
+    if (!isClient) return
+
+    const unsubscribeItemUpdated = broadcast.on('CART_ITEM_UPDATED', (data) => {
+      if (data.productId === product.id && !isValidEditItemId) {
+        setHasStaleDraft(true)
+        // Show subtle notification that cart changed elsewhere
+        showToast('This item was updated in another tab. Your local draft may be outdated.', 'info')
+      }
+    })
+
+    return () => unsubscribeItemUpdated()
+  }, [isClient, product.id, isValidEditItemId])
+
+  // 🚨 PHASE 6: Always derive active price from the selected tier
+  const selectedTier = activeTiers.find((t: any) => t.tier_name === b2bState.printingType) || defaultTier
+  const activePrice = selectedTier.selling_price
+  const activeRegularPrice = selectedTier.mrp || product.price || 0
+  const activeDiscountPercentage = activeRegularPrice > activePrice ? Math.round(((activeRegularPrice - activePrice) / activeRegularPrice) * 100) : 0
+
+  // Check if there's a cart item matching the current draft's printing type
+  const cartItemForDraft = useCartStore((state) =>
+    state.findCartItem(product.id, b2bState.printingType)
+  )
+
+  // Compare draft vs cart (only if cart item exists and we are not in edit mode)
+  const hasUnsavedChanges = !isValidEditItemId && cartItemForDraft && (
+    cartItemForDraft.printing_type !== b2bState.printingType ||
+    cartItemForDraft.quantity !== b2bState.minQty ||
+    JSON.stringify(cartItemForDraft.artwork_urls || []) !== JSON.stringify(b2bState.artworkUrls) ||
+    (cartItemForDraft.printing_instructions || '') !== (b2bState.instructions || '')
+  )
+
+  const resetDraftFromCart = () => {
+    if (!cartItemForDraft) return
+
+    const reconstructedArtworks = (cartItemForDraft.artwork_urls || []).map((path, idx) => ({
+      path: path,
+      url: `/api/artwork?path=${encodeURIComponent(path)}`,
+      name: path.split('/').pop() || `File ${idx + 1}`,
+      size: cartItemForDraft.artwork_sizes?.[idx] || 0
+    }))
+
+    const tier = product.pricing_tiers?.find((t: any) => t.tier_name === cartItemForDraft.printing_type) || activeTiers[0]
+
+    setB2bState({
+      printingType: cartItemForDraft.printing_type || defaultTier.tier_name,
+      instructions: cartItemForDraft.printing_instructions || '',
+      artworkUrls: cartItemForDraft.artwork_urls || [],
+      artworkSizes: cartItemForDraft.artwork_sizes || [],
+      artworks: reconstructedArtworks,
+      isArtworkRightsChecked: tier?.requires_artwork ? true : false, // assume true for existing custom items
+      isPrintTimelineChecked: tier?.requires_artwork ? true : false,
+      minQty: cartItemForDraft.quantity,
+      days: tier?.delivery_days ?? 7,
+      hydratedFromCart: true,
+    })
+    showToast('Draft reset to cart version', 'info')
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-7 gap-6 lg:gap-8">
-      {/* Middle Column */}
+    <div data-product-interactive className="grid grid-cols-1 lg:grid-cols-7 gap-6 lg:gap-8">
       <div className="lg:col-span-4 space-y-3">
         <div>
           <h1 className="text-xl sm:text-[22px] leading-tight font-medium text-[#0F1111] mb-1">
             {product.name}
           </h1>
+          {hasStaleDraft && (
+            <div className="mt-2 mb-2 p-3 bg-amber-50 border border-amber-200 rounded-md text-sm">
+              <span className="font-medium text-amber-800">Draft may be outdated</span>
+              <p className="text-xs text-amber-700 mt-0.5">
+                This product was modified in another tab. 
+                <button 
+                  onClick={() => window.location.reload()} 
+                  className="ml-2 text-amber-900 underline font-medium cursor-pointer"
+                >
+                  Refresh to see latest
+                </button>
+              </p>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <Link href="/products" className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline">
               Visit the {siteConfig.shortName} Store
@@ -169,7 +311,26 @@ export default function ProductInteractiveSection({
               <ShareButton productName={product.name} productSlug={product.slug} />
             </div>
           </div>
-
+        <ClientOnly>
+          {hasUnsavedChanges && !hasStaleDraft && (
+            <div className="mt-2 mb-2 p-3 bg-blue-50 border border-blue-200 rounded-md text-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <span className="font-medium text-blue-800">Unsaved changes</span>
+                  <p className="text-xs text-blue-700 mt-0.5">
+                    Your local draft differs from the item in your cart.
+                  </p>
+                </div>
+                <button
+                  onClick={resetDraftFromCart}
+                  className="px-3 py-1.5 text-xs font-medium bg-white border border-blue-300 text-blue-800 rounded-full hover:bg-blue-100 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  Reset to Cart
+                </button>
+              </div>
+            </div>
+          )}
+        </ClientOnly>
           <div className="flex items-center gap-2 mb-2 mt-2">
             <StarRating rating={product.rating ?? 4.5} reviewCount={product.review_count ?? 128} size="md" />
           </div>
@@ -177,33 +338,32 @@ export default function ProductInteractiveSection({
 
         <hr className="border-gray-200 my-2" />
 
-        {/* Price Section */}
+        {/* Pricing Display */}
         <div className="flex flex-col gap-1">
-          {discountPercentage > 0 && (
+          <ClientOnly fallback={<div className="h-10 w-32 bg-gray-100 animate-pulse rounded" />}>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-light text-[#CC0C39]">-{discountPercentage}%</span>
+               {activeDiscountPercentage > 0 && (
+                <span className="text-2xl sm:text-3xl font-light text-[#CC0C39]">-{activeDiscountPercentage}%</span>
+              )}
               <span className="text-2xl sm:text-3xl font-medium text-[#0F1111]">{formatCurrency(activePrice)}</span>
             </div>
-          )}
-          {discountPercentage === 0 && (
-            <span className="text-2xl sm:text-3xl font-medium text-[#0F1111]">{formatCurrency(activePrice)}</span>
-          )}
+          </ClientOnly>
 
           <div className="text-xs sm:text-sm text-gray-500">
-            M.R.P.: <span className="line-through">{formatCurrency(regularPrice)}</span>
+            M.R.P.: <span className="line-through">{formatCurrency(activeRegularPrice)}</span>
           </div>
           <div className="text-sm font-semibold text-[#0F1111] mt-1">
             Inclusive of 18% GST
           </div>
         </div>
 
-        {/* B2B Customization Engine - Wrapped in ClientOnly to prevent hydration mismatch */}
         {hasStock && (
           <div className="mt-4 scroll-mt-24" id="b2b-options">
             <ClientOnly fallback={<div className="h-32 bg-gray-50 animate-pulse rounded-lg" />}>
               <PrintingOptions
-                b2bState={printingOptionsState}
+                b2bState={b2bState}
                 onChange={handlePrintingOptionsChange}
+                pricingTiers={activeTiers}
               />
             </ClientOnly>
           </div>
@@ -211,7 +371,7 @@ export default function ProductInteractiveSection({
 
         <hr className="border-gray-200 my-4" />
 
-        {/* Trust Icons Row - Now using local Lucide icons */}
+        {/* Delivery Badges */}
         <div className="flex justify-around items-start py-2 w-full max-w-md mx-auto lg:mx-0">
           <div className="flex flex-col items-center text-center gap-2 px-2 flex-1 group cursor-pointer">
             <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-gray-100 transition-colors">
@@ -241,60 +401,44 @@ export default function ProductInteractiveSection({
 
         <hr className="border-gray-200 my-4" />
 
-        {/* Product Specifications Table */}
+        {/* Specifications */}
         <div className="pt-2">
           <div className="grid grid-cols-2 gap-y-3 text-sm">
             {product.sku && (
-              <>
-                <div className="font-bold text-[#0F1111]">SKU</div>
-                <div className="text-gray-700">{product.sku}</div>
-              </>
+              <><div className="font-bold text-[#0F1111]">SKU</div><div className="text-gray-700">{product.sku}</div></>
             )}
             {product.weight && (
-              <>
-                <div className="font-bold text-[#0F1111]">Item Weight</div>
-                <div className="text-gray-700">{product.weight} kg</div>
-              </>
+              <><div className="font-bold text-[#0F1111]">Item Weight</div><div className="text-gray-700">{product.weight} {product.weight_unit || 'kg'}</div></>
+            )}
+            {product.gsm && (
+              <><div className="font-bold text-[#0F1111]">Thickness (GSM)</div><div className="text-gray-700">{product.gsm}</div></>
             )}
             {product.dimensions && (
-              <>
-                <div className="font-bold text-[#0F1111]">Dimensions</div>
-                <div className="text-gray-700">
-                  {product.dimensions.length} x {product.dimensions.width} x {product.dimensions.height} cm
-                </div>
-              </>
+              <><div className="font-bold text-[#0F1111]">Dimensions</div><div className="text-gray-700">{product.dimensions.length} x {product.dimensions.width} x {product.dimensions.height} cm</div></>
             )}
           </div>
         </div>
 
         <hr className="border-gray-200 my-4" />
 
-        {/* About this item */}
         <div className="pt-2">
           <h2 className="text-base font-bold text-[#0F1111] mb-2">About this item</h2>
           <ul className="list-disc space-y-2 marker:text-gray-800 pl-4 text-sm sm:text-base text-[#0F1111]">
-            {product.description ? (
-              product.description.split('\n').filter(Boolean).map((line: string, i: number) => (
-                <li key={i}>{line}</li>
-              ))
-            ) : (
-              <li>Premium B2B quality packaging material.</li>
-            )}
+            {product.description ? product.description.split('\n').filter(Boolean).map((line: string, i: number) => <li key={i}>{line}</li>) : <li>Premium B2B quality packaging.</li>}
           </ul>
         </div>
       </div>
 
-      {/* Right Column: Buy Box */}
-      <div className="lg:col-span-3">
+      {/* 🚨 SIDEBAR ACTION BOX 🚨 */}
+      <div id="product-action-box" className="lg:col-span-3">
         <div className="border border-gray-300 rounded-lg p-4 sm:p-5 bg-white shadow-sm flex flex-col gap-4 sticky top-28">
-          <div className="flex items-baseline gap-1">
+          <div className="flex items-baseline gap-1" suppressHydrationWarning>
             <span className="text-2xl sm:text-[28px] font-medium text-[#0F1111] leading-none">
               {formatCurrency(activePrice)}
             </span>
             <span className="text-sm text-gray-500">/ unit</span>
           </div>
 
-          {/* 🆕 Show indicator if product is already in cart – wrapped in ClientOnly */}
           <ClientOnly>
             {findCartItem(product.id, b2bState.printingType) && !isValidEditItemId && (
               <div className="text-xs text-green-700 bg-green-50 p-2 rounded-md mb-1 border border-green-200">
@@ -311,10 +455,7 @@ export default function ProductInteractiveSection({
           <div>
             <p className="text-sm text-[#0F1111]">
               Estimated dispatch in{' '}
-              <ClientOnly fallback={<span className="font-bold">7 Days</span>}>
-                <span className="font-bold">{b2bState.days} Days</span>
-              </ClientOnly>
-              .
+              <span className="font-bold">{selectedTier.delivery_days ?? 7} Days</span>.
             </p>
             <div className="flex items-center gap-1 mt-2 text-sm text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer">
               <MapPin className="w-4 h-4 text-gray-400" />
@@ -327,9 +468,7 @@ export default function ProductInteractiveSection({
               <>
                 <span className="text-lg font-medium text-[#007600]">In Stock</span>
                 {product.stock <= 50 && (
-                  <p className="text-sm font-bold text-[#B12704] mt-1">
-                    Only {product.stock} left in stock - order soon.
-                  </p>
+                  <p className="text-sm font-bold text-[#B12704] mt-1">Only {product.stock} left in stock.</p>
                 )}
               </>
             ) : (
@@ -338,18 +477,42 @@ export default function ProductInteractiveSection({
           </div>
 
           {hasStock && (
-            <div className="mt-2">
-              <AddToCartButton
-                product={product}
-                showQuantitySelector={true}
-                minQuantity={b2bState.minQty}
-                printingType={b2bState.printingType}
-                artworkUrls={b2bState.artworkUrls}
-                artworkSizes={b2bState.artworkSizes}
-                printingInstructions={b2bState.instructions}
-                isAgreementChecked={b2bState.isAgreementChecked}
-                editItemId={isValidEditItemId}
-              />
+            <div className="mt-2 flex flex-col gap-3">
+              {/* 🚨 WRAPPED IN CLIENT ONLY TO STOP QUANTITY MISMATCH ERROR */}
+              <ClientOnly fallback={<div className="h-24 bg-gray-100 animate-pulse rounded-lg" />}>
+                <AddToCartButton
+                  product={product}
+                  showQuantitySelector={true}
+                  minQuantity={selectedTier.min_quantity}
+                  printingType={b2bState.printingType}
+                  artworkUrls={b2bState.artworkUrls}
+                  artworkSizes={b2bState.artworkSizes}
+                  printingInstructions={b2bState.instructions}
+                  isArtworkRightsChecked={b2bState.isArtworkRightsChecked}
+                  isPrintTimelineChecked={b2bState.isPrintTimelineChecked}
+                  editItemId={isValidEditItemId}
+                />
+                {/* 🚨 RESTORED BUY NOW BUTTON / CANCEL EDIT BUTTON */}
+                {!isValidEditItemId ? (
+                  <BuyNowButton
+                    product={product}
+                    quantity={selectedTier.min_quantity}
+                    printingType={b2bState.printingType}
+                    artworkUrls={b2bState.artworkUrls}
+                    artworkSizes={b2bState.artworkSizes}
+                    printingInstructions={b2bState.instructions}
+                    isArtworkRightsChecked={b2bState.isArtworkRightsChecked}
+                    isPrintTimelineChecked={b2bState.isPrintTimelineChecked}
+                  />
+                  ) : (
+                  <Link
+                    href="/cart"
+                    className="w-full h-11 flex items-center justify-center gap-2 text-[15px] font-medium bg-white hover:bg-gray-50 text-gray-800 border border-gray-300 rounded-full shadow-sm cursor-pointer transition-all active:scale-[0.98]"
+                  >
+                    Cancel Edit
+                  </Link>
+                )}
+              </ClientOnly>
             </div>
           )}
 
@@ -367,13 +530,11 @@ export default function ProductInteractiveSection({
               <span className="text-gray-500 w-16">Sold by</span>
               <span className="text-[#007185]">{siteConfig.shortName}</span>
             </div>
-            <div className="flex gap-4">
-              <span className="text-gray-500 w-16">Tax Info</span>
-              <span>18% GST Invoice provided</span>
-            </div>
           </div>
         </div>
       </div>
+      {/* 🚨 THE TRIPWIRE: Moved below the Action Box so the sticky bar ONLY appears after scrolling past the Buy buttons! */}
+      <div id="buy-box-trigger" className="h-1 w-full mt-2" aria-hidden="true" />
     </div>
   )
 }

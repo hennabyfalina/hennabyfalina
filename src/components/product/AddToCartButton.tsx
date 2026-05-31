@@ -3,17 +3,55 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useQuickViewStore } from '@/store/quickview.store'
 import { useCartStore } from '@/store/cart.store'
-import { useProductDraftStore, type ProductDraft } from '@/store/productDraft.store'
+import { useProductDraftStore } from '@/store/productDraft.store'
 import { showToast } from '@/components/ui/Toast'
-import BuyNowButton from '@/components/product/BuyNowButton'
 import QuantitySelector from '@/components/product/QuantitySelector'
-import { B2B_CONSTANTS } from '@/config/b2b-rules'
 import { deleteB2BArtwork } from '@/lib/supabase/b2b-storage'
 import { ClientOnly } from '@/components/ui/ClientOnly'
 import EditCartConfirmModal from './EditCartConfirmModal'
+import EditConflictModal from './EditConflictModal'
+import ItemMissingModal from './ItemMissingModal'
+import { broadcast } from '@/lib/broadcast'
+
+// 🚀 Simple, reliable scroll using native browser behaviour
+const scrollToOptions = (elementId: string): Promise<boolean> => {
+  return new Promise((resolve) => {
+    const tryScroll = () => {
+      const element = document.getElementById(elementId)
+      if (element) {
+        element.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        })
+        resolve(true)
+      } else {
+        resolve(false)
+      }
+    }
+
+    // Try immediately
+    if (document.getElementById(elementId)) {
+      tryScroll()
+      return
+    }
+
+    // Wait for element to appear (e.g., after navigation)
+    const observer = new MutationObserver(() => {
+      if (document.getElementById(elementId)) {
+        observer.disconnect()
+        tryScroll()
+      }
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+    setTimeout(() => {
+      observer.disconnect()
+      resolve(false)
+    }, 1000)
+  })
+}
 
 interface AddToCartButtonProps {
   product: {
@@ -22,14 +60,13 @@ interface AddToCartButtonProps {
     slug: string
     price: number
     selling_price?: number
-    bulk_price?: number | null
     stock: number
     images: string[]
     category_id?: string | null
     description?: string | null
-    bulk_min_quantity?: number | null
     rating?: number | null
     review_count?: number | null
+    pricing_tiers?: any[]
   }
   quantity?: number
   minQuantity?: number
@@ -37,7 +74,8 @@ interface AddToCartButtonProps {
   artworkUrls?: string[] | null
   artworkSizes?: number[] | null
   printingInstructions?: string | null
-  isAgreementChecked?: boolean
+  isArtworkRightsChecked?: boolean
+  isPrintTimelineChecked?: boolean
   showQuantitySelector?: boolean
   className?: string
   onQuantityChange?: (qty: number) => void
@@ -53,7 +91,8 @@ export default function AddToCartButton({
   artworkUrls: propArtworkUrls,
   artworkSizes: propArtworkSizes,
   printingInstructions: propPrintingInstructions = null,
-  isAgreementChecked: propIsAgreementChecked = true,
+  isArtworkRightsChecked = false,
+  isPrintTimelineChecked = false,
   showQuantitySelector = false,
   className = '',
   onQuantityChange,
@@ -61,71 +100,115 @@ export default function AddToCartButton({
   editItemId = null
 }: AddToCartButtonProps) {
   const router = useRouter()
+  const pathname = usePathname()
+  const currentProductSlug = product.slug
   const closeQuickView = useQuickViewStore((state) => state.closeQuickView)
-
   const draft = useProductDraftStore((state) => state.drafts[product.id])
+  const clearDraft = useProductDraftStore((state) => state.clearDraft)
 
   const effectivePrintingType = propPrintingType ?? draft?.printingType ?? 'Retail (Readymade)'
   const effectiveArtworkUrls = propArtworkUrls !== undefined && propArtworkUrls !== null ? propArtworkUrls : (draft?.artworkUrls ?? [])
   const effectiveArtworkSizes = propArtworkSizes !== undefined && propArtworkSizes !== null ? propArtworkSizes : (draft?.artworkSizes ?? [])
   const effectivePrintingInstructions = propPrintingInstructions !== null ? propPrintingInstructions : (draft?.instructions ?? null)
-  const effectiveIsAgreementChecked = draft?.isAgreementChecked ?? propIsAgreementChecked
-  const effectiveMinQuantity = minQuantity !== 1 ? minQuantity : (draft?.minQty ?? 1)
+  const effectiveIsArtworkRightsChecked = (draft as any)?.isArtworkRightsChecked ?? isArtworkRightsChecked
+  const effectiveIsPrintTimelineChecked = (draft as any)?.isPrintTimelineChecked ?? isPrintTimelineChecked
+  
+  // 🚨 PHASE 7: Dynamic Tier Resolution
+  const selectedTier = product.pricing_tiers?.find(t => t.tier_name === effectivePrintingType)
+  const isCustomPrint = selectedTier?.requires_artwork ?? false
+  const effectiveMinQuantity = minQuantity !== 1 ? minQuantity : (selectedTier?.min_quantity ?? 1)
 
   const existingItem = useCartStore((state) =>
     editItemId ? state.items.find(i => i.id === editItemId) : state.findCartItem(product.id, effectivePrintingType)
   )
 
-  // 🚨 SANITIZE INPUTS & DETECT GHOST FILES
-  const isCustomPrint = effectivePrintingType.includes('Single Color') || effectivePrintingType.includes('Multi Color')
   const finalArtworkUrls = isCustomPrint ? effectiveArtworkUrls : []
   const finalArtworkSizes = isCustomPrint ? effectiveArtworkSizes : []
   const finalPrintingInstructions = isCustomPrint ? effectivePrintingInstructions : null
 
   const orphanedFiles = existingItem?.artwork_urls?.filter(url => !finalArtworkUrls.includes(url)) || []
-  const filesWillBeDeleted = orphanedFiles.length > 0
 
   const [quantity, setQuantity] = useState(Math.max(initialQuantity, effectiveMinQuantity))
   const [isAdding, setIsAdding] = useState(false)
   const [showEditConfirm, setShowEditConfirm] = useState(false)
+  const [showConflictModal, setShowConflictModal] = useState(false)
+  const [isItemMissing, setIsItemMissing] = useState(false)
+  const [showMissingModal, setShowMissingModal] = useState(false)
   const addItem = useCartStore((state) => state.addItem)
+  const updateItem = useCartStore((state) => state.updateItem)
   const removeItem = useCartStore((state) => state.removeItem)
 
-  // 🚨 Pre-calculate prices to feed to the Confirmation Modal
-  const sellingPrice = product.selling_price ?? product.price ?? 0
-  const finalPrice = product.bulk_price && (quantity >= (product.bulk_min_quantity || B2B_CONSTANTS.WHOLESALE_MIN_QTY))
-    ? product.bulk_price
-    : sellingPrice
+  const sellingPrice = selectedTier?.selling_price ?? (product.selling_price ?? product.price ?? 0)
+  const finalPrice = sellingPrice 
+  
   const newTotal = finalPrice * quantity
   const oldTotal = existingItem ? existingItem.price * existingItem.quantity : 0
 
-  // Track if we've initialized from existing item in edit mode
-  const [initializedFromEdit, setInitializedFromEdit] = useState(false)
-  const prevMinQtyRef = useRef(effectiveMinQuantity)
+  // Calculate Old and New Delivery Days for the Modal
+  const oldTier = product.pricing_tiers?.find(t => t.tier_name === existingItem?.printing_type)
+  const oldDays = oldTier?.delivery_days ?? 7
+  const newDays = selectedTier?.delivery_days ?? 7
+
+  const prevMinQuantityRef = useRef(effectiveMinQuantity)
+
+  // 🚨 PHASE 3: Check for version conflicts when in edit mode
+  const initialVersionRef = useRef<number | null>(null)
 
   useEffect(() => {
-    if (editItemId && existingItem && !initializedFromEdit) {
-      const newQty = Math.max(existingItem.quantity, effectiveMinQuantity)
-      setQuantity(newQty)
-      if (onQuantityChange) onQuantityChange(newQty)
-      setInitializedFromEdit(true)
-      prevMinQtyRef.current = effectiveMinQuantity
+    if (!editItemId || !existingItem) return
+
+    // Capture the version once when the component mounts or when editItemId changes
+    if (initialVersionRef.current === null) {
+      initialVersionRef.current = existingItem.version || 1
     }
-  }, [editItemId, existingItem, effectiveMinQuantity, initializedFromEdit, onQuantityChange])
+
+    const loadedVersion = initialVersionRef.current
+
+    const handleItemUpdated = (data: any) => {
+      if (data.productId === product.id) {
+        // Small delay to ensure store update
+        setTimeout(() => {
+          const currentItem = useCartStore.getState().items.find(i => i.id === editItemId)
+          if (currentItem && (currentItem.version || 1) !== loadedVersion) {
+            setShowConflictModal(true)
+            showToast('This item was modified in another tab. Please review your changes.', 'warning')
+          } else if (!currentItem) {
+            // Item was deleted – show missing modal
+            setShowMissingModal(true)
+          }
+        }, 100)
+      }
+    }
+
+    const unsubscribe = broadcast.on('CART_ITEM_UPDATED', handleItemUpdated)
+    return () => unsubscribe()
+  }, [editItemId, existingItem, product.id])
 
   useEffect(() => {
-    let newQty = quantity
-    if (quantity < effectiveMinQuantity) {
-      newQty = effectiveMinQuantity
-    } else if (quantity === prevMinQtyRef.current && effectiveMinQuantity < prevMinQtyRef.current) {
-      newQty = effectiveMinQuantity
+    if (!editItemId || !initialVersionRef.current) return
+
+    const interval = setInterval(() => {
+      const currentItem = useCartStore.getState().items.find(i => i.id === editItemId)
+      if (currentItem && (currentItem.version || 1) !== initialVersionRef.current) {
+        setShowConflictModal(true)
+        clearInterval(interval)
+      } else if (!currentItem) {
+        setShowMissingModal(true)
+        clearInterval(interval)
+      }
+    }, 2000)
+
+    return () => clearInterval(interval)
+  }, [editItemId])
+
+  useEffect(() => {
+    if (effectiveMinQuantity !== prevMinQuantityRef.current) {
+      setQuantity(effectiveMinQuantity)
+      prevMinQuantityRef.current = effectiveMinQuantity
+    } else if (quantity < effectiveMinQuantity) {
+      setQuantity(effectiveMinQuantity)
     }
-    if (newQty !== quantity) {
-      setQuantity(newQty)
-      if (onQuantityChange) onQuantityChange(newQty)
-    }
-    prevMinQtyRef.current = effectiveMinQuantity
-  }, [effectiveMinQuantity, quantity, onQuantityChange])
+  }, [effectiveMinQuantity, quantity])
 
   const handleQuantityChange = (newQuantity: number) => {
     setQuantity(newQuantity)
@@ -133,111 +216,97 @@ export default function AddToCartButton({
   }
 
   const validateCustomPrint = (): { valid: boolean; message?: string } => {
-    const isCustomPrint = effectivePrintingType.includes('Single Color') || 
-                          effectivePrintingType.includes('Multi Color')
-    
-    if (!isCustomPrint) {
-      return { valid: true }
-    }
-
-    if (!effectiveIsAgreementChecked) {
-      return { 
-        valid: false, 
-        message: 'Please agree to the custom printing terms & conditions.' 
-      }
-    }
-
-    if (!effectiveArtworkUrls || effectiveArtworkUrls.length === 0) {
-      return { 
-        valid: false, 
-        message: `Please upload your Logo/Artwork for ${effectivePrintingType} printing.` 
-      }
-    }
-
+    if (!isCustomPrint) return { valid: true }
+    if (!effectiveArtworkUrls || effectiveArtworkUrls.length === 0) return { valid: false, message: `Please upload your artwork for this option.` }
+    if (!effectiveIsArtworkRightsChecked) return { valid: false, message: 'Please confirm you have legal rights to the uploaded artwork.' }
+    if (!effectiveIsPrintTimelineChecked) return { valid: false, message: 'Please acknowledge the custom printing timeline.' }
     return { valid: true }
   }
 
-  const handleAddToCart = async (e?: React.MouseEvent) => {
-    if (e) { e.preventDefault(); e.stopPropagation() }
-
-    if (requireCustomizationChoice) {
-      closeQuickView()
-      router.push(`/product/${encodeURIComponent(product.slug)}?customize=true#b2b-options`)
-      return
-    }
-
-    const validation = validateCustomPrint()
-    if (!validation.valid) {
-      showToast(validation.message!, product.id)
-      return
-    }
-
-    const safeStock = product.stock ?? 99999
-
-    if (safeStock <= 0) {
-      showToast('Out of stock', product.id)
-      return
-    }
-
-    if (quantity > safeStock) {
-      showToast(`Only ${safeStock} items available`, product.id)
-      return
-    }
-
-    // 🚀 INTERCEPT EDIT CLICKS TO SHOW THE SUMMARY MODAL
-    if (editItemId && existingItem) {
-      setShowEditConfirm(true)
-      return
-    }
-
-    await executeAddToCart()
+  const handleReload = () => {
+    window.location.reload()
   }
 
-  const executeAddToCart = async () => {
+  const handleOverwrite = async () => {
+    setShowConflictModal(false)
+    await executeAddToCart(true) // force overwrite
+  }
+
+  const executeAddToCart = async (forceOverwrite = false) => {
     setIsAdding(true)
     try {
-      // 🚨 SCRUB THE GHOST FILES FROM THE SUPABASE BUCKET
+      // Check version conflict again right before save
+      if (editItemId && !forceOverwrite) {
+        const currentItem = useCartStore.getState().items.find(i => i.id === editItemId)
+        const loadedVersion = existingItem?.version || 1
+        if (currentItem && (currentItem.version || 1) !== loadedVersion) {
+          setShowConflictModal(true)
+          setShowEditConfirm(false)
+          setIsAdding(false)
+          return
+        }
+      }
+
       if (orphanedFiles.length > 0) {
-        // Fire and forget asynchronous deletion
         Promise.all(orphanedFiles.map(path => deleteB2BArtwork(path).catch(console.error)))
+        broadcast.send({
+          type: 'ARTWORK_DELETED',
+          paths: orphanedFiles
+        })
       }
 
-      // 🚀 If we are explicitly editing a line item, remove the old one before injecting the new config!
       if (editItemId) {
-        await removeItem(editItemId)
+  // Update existing item instead of removing + adding
+  await updateItem(editItemId, {
+    quantity,
+    printing_type: effectivePrintingType,
+    artwork_urls: finalArtworkUrls,
+    artwork_sizes: finalArtworkSizes,
+    printing_instructions: finalPrintingInstructions,
+    price: finalPrice,
+    selling_price: sellingPrice,
+    pricing_tiers: product.pricing_tiers || [],
+  })
+  
+} else {
+  await addItem({
+    product_id: product.id,
+    name: product.name,
+    slug: product.slug,
+    price: finalPrice,
+    quantity: quantity,
+    image: product.images?.[0] || '',
+    stock: product.stock,
+    category_id: product.category_id || null,
+    description: product.description || null,
+    original_price: product.price,
+    rating: product.rating || null,
+    review_count: product.review_count || null,
+    selling_price: sellingPrice,
+    printing_type: effectivePrintingType,
+    artwork_urls: finalArtworkUrls,
+    artwork_sizes: finalArtworkSizes,
+    printing_instructions: finalPrintingInstructions,
+    pricing_tiers: product.pricing_tiers || []
+  })
+}
+
+      broadcast.send({
+        type: 'CART_ITEM_UPDATED',
+        productId: product.id,
+        printingType: effectivePrintingType
+      })
+
+      // 🚨 PHASE 7: Ghost File Bug Fix
+      if (editItemId || orphanedFiles.length > 0) {
+        clearDraft(product.id)
       }
 
-      await Promise.all([
-        addItem({
-          product_id: product.id,
-          name: product.name,
-          slug: product.slug,
-          price: finalPrice,
-          quantity: quantity,
-          image: product.images?.[0] || '',
-          stock: product.stock,
-          category_id: product.category_id || null,
-          description: product.description || null,
-          original_price: product.price,
-          bulk_price: product.bulk_price || null,
-          bulk_min_quantity: product.bulk_min_quantity || null,
-          rating: product.rating || null,
-          review_count: product.review_count || null,
-          selling_price: sellingPrice,
-          printing_type: effectivePrintingType,
-          artwork_urls: finalArtworkUrls,
-          artwork_sizes: finalArtworkSizes,
-          printing_instructions: finalPrintingInstructions,
-        }),
-        new Promise((resolve) => setTimeout(resolve, 400))
-      ])
-
       if (editItemId) {
-        showToast('Cart updated successfully', 'success')
-        setShowEditConfirm(false)
+        showToast('Cart updated', 'success')
         router.push('/cart')
       } else {
-        showToast('Added to Cart', product.id)
+        showToast('Added to Cart', 'success')
       }
     } catch (err: any) {
       showToast('Failed to update cart', 'error')
@@ -246,11 +315,54 @@ export default function AddToCartButton({
     }
   }
 
+  const handleAddToCart = async (e?: React.MouseEvent) => {
+    if (e) { e.preventDefault(); e.stopPropagation() }
+
+    if (requireCustomizationChoice) {
+      closeQuickView()
+
+      // Check if we are already on the same product page
+      const isOnProductPage = pathname === `/product/${encodeURIComponent(currentProductSlug)}`
+
+      if (isOnProductPage) {
+        // Use the custom smooth scroll function
+        await scrollToOptions('b2b-options')
+      } else {
+        // Preserve existing query params (including edit_item) and add customize=true
+        const currentParams = new URLSearchParams(window.location.search)
+        currentParams.set('customize', 'true')
+        const queryString = currentParams.toString()
+        router.push(`/product/${encodeURIComponent(currentProductSlug)}${queryString ? `?${queryString}` : ''}#b2b-options`)
+      }
+      return
+    }
+
+    const validation = validateCustomPrint()
+    if (!validation.valid) {
+      showToast(validation.message!, 'error')
+      return
+    }
+
+    // Check for version conflict before showing edit confirm modal
+    if (editItemId && existingItem) {
+      const currentItem = useCartStore.getState().items.find(i => i.id === editItemId)
+      const loadedVersion = existingItem.version || 1
+      if (currentItem && (currentItem.version || 1) !== loadedVersion) {
+        setShowConflictModal(true)
+        return
+      }
+      setShowEditConfirm(true)
+      return
+    }
+
+    await executeAddToCart(false)
+  }
+
   const isOutOfStock = (product.stock ?? 99999) <= 0
   const buttonClasses = className || "w-full h-11 text-[15px] bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-full shadow-sm font-medium"
 
   return (
-    <div className={`w-full flex flex-col gap-3 ${showQuantitySelector ? 'mt-2' : ''}`} onClick={(e) => e.stopPropagation()} suppressHydrationWarning>
+    <div className={`w-full flex flex-col gap-3 ${showQuantitySelector ? 'mt-2' : ''}`} onClick={(e) => e.stopPropagation()}>
       {showQuantitySelector && !isOutOfStock && (
         <ClientOnly fallback={
           <div className="flex items-center justify-between mb-1">
@@ -269,41 +381,30 @@ export default function AddToCartButton({
           </div>
         </ClientOnly>
       )}
-      <div className="flex flex-col gap-2" suppressHydrationWarning>
+      <div className="flex flex-col gap-2">
         <button
           type="button"
           onClick={handleAddToCart}
           disabled={isAdding || isOutOfStock}
-          className={`flex items-center justify-center gap-2 transition-all duration-300 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer ${buttonClasses}`}
+          className={`flex items-center justify-center gap-2 transition-all duration-300 active:scale-[0.98] disabled:opacity-60 cursor-pointer ${buttonClasses}`}
         >
           {isAdding ? (
-            <><div className="w-4 h-4 border-2 border-gray-800 border-t-transparent rounded-full animate-spin" /><span>{existingItem ? 'Updating...' : 'Adding...'}</span></>
+            <div className="w-4 h-4 border-2 border-gray-800 border-t-transparent rounded-full animate-spin" />
           ) : requireCustomizationChoice ? (
             <span>View Options</span>
           ) : (
-            // ✅ Wrap the conditional button text in ClientOnly to prevent hydration mismatch
             <ClientOnly fallback={<span>Add to Cart</span>}>
-              {editItemId ? <span>Save Changes</span> : existingItem ? <span>Add More to Cart</span> : <span>{isOutOfStock ? 'Currently Unavailable' : 'Add to Cart'}</span>}
+              {editItemId ? <span>Save Changes</span> : <span>{isOutOfStock ? 'Currently Unavailable' : 'Add to Cart'}</span>}
             </ClientOnly>
           )}
         </button>
-        {!isOutOfStock && showQuantitySelector && (
-          <BuyNowButton
-            product={product}
-            quantity={quantity}
-            printingType={effectivePrintingType}
-            artworkUrls={effectiveArtworkUrls}
-            printingInstructions={effectivePrintingInstructions}
-          />
-        )}
       </div>
 
-      {/* 🚨 THE NEW VISUAL CONFIRMATION MODAL 🚨 */}
       {existingItem && editItemId && (
         <EditCartConfirmModal
           isOpen={showEditConfirm}
           onClose={() => setShowEditConfirm(false)}
-          onConfirm={executeAddToCart}
+          onConfirm={() => executeAddToCart(false)}
           isLoading={isAdding}
           oldQty={existingItem.quantity}
           newQty={quantity}
@@ -311,10 +412,21 @@ export default function AddToCartButton({
           newPrint={effectivePrintingType}
           oldTotal={oldTotal}
           newTotal={newTotal}
-          filesWillBeDeleted={filesWillBeDeleted}
+          oldDays={oldDays}
+          newDays={newDays} 
+          filesWillBeDeleted={orphanedFiles.length > 0}
           productName={product.name}
         />
       )}
+
+      <EditConflictModal
+        isOpen={showConflictModal}
+        onReload={handleReload}
+        onOverwrite={handleOverwrite}
+        isLoading={isAdding}
+      />
+
+      {showMissingModal && <ItemMissingModal onReload={() => window.location.reload()} />}
     </div>
   )
 }

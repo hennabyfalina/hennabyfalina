@@ -15,8 +15,6 @@ import StarRating from '@/components/product/StarRating'
 import ProductWishlistButton from '@/components/product/ProductWishlistButton'
 import { siteConfig } from '@/config/site'
 import ArtworkDownloadButton from '@/components/order/ArtworkDownloadButton'
-
-// 🆕 Client component to clear drafts after successful order
 import ClearDraftsOnMount from '@/components/order/ClearDraftsOnMount'
 
 interface OrderPageProps {
@@ -89,11 +87,32 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
   const shippingCost = order.shipping_cost ?? (order.total_amount > 1000 ? 0 : 50)
   const subtotal = order.total_amount - shippingCost
 
-  const isStorePickup = order.delivery_method === 'pickup' || 
+  // 🆕 IMPROVED: Better detection for store pickup
+  const isStorePickup = order.shipping_method === 'pickup' || 
+                        order.delivery_method === 'pickup' ||
                         order.addresses?.delivery_method === 'pickup' ||
                         order.addresses?.address_line1?.toLowerCase().includes('pickup') || 
-                        order.addresses?.address?.toLowerCase().includes('pickup')
+                        order.addresses?.address?.toLowerCase().includes('pickup') ||
+                        (order.pickup_contact && Object.keys(order.pickup_contact).length > 0)
+  
   const deliveryMethodLabel = isStorePickup ? 'Store Pickup' : 'Standard Delivery'
+
+  // 🆕 Helper to get address data from order (with fallbacks)
+  const getAddressField = (field: string, fallback: string = 'N/A'): string => {
+    // 1. Try from addresses relation
+    if (order.addresses && order.addresses[field]) {
+      return order.addresses[field]
+    }
+    // 2. Try from pending_address (for newly created orders)
+    if (order.pending_address && order.pending_address[field]) {
+      return order.pending_address[field]
+    }
+    // 3. Try from pickup_contact (for pickup orders)
+    if (isStorePickup && order.pickup_contact && order.pickup_contact[field]) {
+      return order.pickup_contact[field]
+    }
+    return fallback
+  }
 
   const formatPhoneNumber = (phone?: string) => {
     if (!phone) return ''
@@ -108,9 +127,20 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
   // Extract product IDs from this order (for clearing drafts)
   const productIds = order.order_items.map((item: any) => item.product_id)
 
+  // 🆕 Get address display values with fallbacks
+  const customerName = getAddressField('name')
+  const customerPhone = getAddressField('phone')
+  const customerAddressLine1 = getAddressField('address_line1')
+  const customerAddressLine2 = getAddressField('address_line2')
+  const customerCity = getAddressField('city')
+  const customerState = getAddressField('state')
+  const customerPincode = getAddressField('pincode')
+  const customerLandmark = getAddressField('landmark')
+  const customerInstructions = getAddressField('delivery_instructions')
+  const customerCountry = getAddressField('country', 'India')
+
   return (
     <Container className="py-8 md:py-12 max-w-4xl">
-      {/* 🆕 Clear drafts for products in this order (only if payment is paid) */}
       <ClearDraftsOnMount productIds={productIds} />
 
       <div className="mb-6 flex items-center justify-between">
@@ -119,12 +149,10 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
         </Link>
       </div>
 
-      {/* 🚨 ONE-TIME WHATSAPP TRUST BANNER FOR NEW ORDERS 🚨 */}
       {isNewOrder && (
         <div className="mb-6 p-4 md:p-5 bg-white border border-gray-200 rounded-2xl flex items-start justify-between gap-3 md:gap-4 shadow-sm relative animate-in fade-in slide-in-from-top-4">
           <div className="flex items-start gap-3 md:gap-4">
             <div className="w-12 h-12 bg-[#25D366]/10 rounded-full flex items-center justify-center shrink-0">
-              {/* WhatsApp Logo */}
               <svg className="w-7 h-7 text-[#25D366]" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.305-.88-.653-1.473-1.46-1.646-1.758-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.347-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.876 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
               </svg>
@@ -168,7 +196,6 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
 
       <div className="space-y-6 md:space-y-8">
         
-        {/* 🚨 HEADER INFORMATION CARD 🚨 */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <div className="flex items-center gap-3 flex-wrap">
@@ -236,51 +263,61 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-            <h3 className="font-bold text-gray-900 mb-4 border-b border-gray-200 pb-3">Billing & Shipping Address</h3>
+            <h3 className="font-bold text-gray-900 mb-4 border-b border-gray-200 pb-3">Billing &amp; Shipping Address</h3>
             <div className="grid gap-2 text-sm text-gray-800">
               <div className="flex gap-2">
                 <span className="font-semibold text-gray-500 w-28 shrink-0">Delivery method:</span> 
                 <span className="font-medium text-gray-900">{deliveryMethodLabel}</span>
               </div>
+              
+              {/* 🆕 SAFE ADDRESS DISPLAY WITH FALLBACKS */}
               <div className="flex gap-2">
                 <span className="font-semibold text-gray-500 w-28 shrink-0">Name:</span> 
-                <span className="font-medium text-gray-900">{order.addresses.name}</span>
+                <span className="font-medium text-gray-900">{customerName}</span>
               </div>
               
               {!isStorePickup ? (
-                <div className="flex gap-2">
-                  <span className="font-semibold text-gray-500 w-28 shrink-0">Address:</span> 
-                  <span className="font-medium text-gray-900 leading-snug">
-                    {[order.addresses.address_line1 || order.addresses.address, order.addresses.address_line2].filter(Boolean).join(', ')}
-                    <br />
-                    {order.addresses.city} - {order.addresses.pincode}
-                    <br />
-                    {order.addresses.state}, {order.addresses.country || 'India'}
-                  </span>
-                </div>
+                <>
+                  <div className="flex gap-2">
+                    <span className="font-semibold text-gray-500 w-28 shrink-0">Address:</span> 
+                    <span className="font-medium text-gray-900 leading-snug">
+                      {customerAddressLine1 !== 'N/A' ? (
+                        <>
+                          {[customerAddressLine1, customerAddressLine2].filter(Boolean).join(', ')}
+                          <br />
+                          {customerCity} - {customerPincode}
+                          <br />
+                          {customerState}, {customerCountry}
+                        </>
+                      ) : (
+                        'Address information will be updated shortly'
+                      )}
+                    </span>
+                  </div>
+                </>
               ) : (
                 <div className="flex gap-2">
                   <span className="font-semibold text-gray-500 w-28 shrink-0">Pincode:</span> 
-                  <span className="font-medium text-gray-900">{order.addresses.pincode}</span>
+                  <span className="font-medium text-gray-900">{customerPincode}</span>
                 </div>
               )}
 
               <div className="flex gap-2 mt-1">
                 <span className="font-semibold text-gray-500 w-28 shrink-0">Mobile number:</span> 
-                <span className="text-gray-900">{formatPhoneNumber(order.addresses?.phone)}</span>
+                <span className="text-gray-900">{formatPhoneNumber(customerPhone)}</span>
               </div>
 
-              {order.addresses?.landmark && (
+              {customerLandmark && customerLandmark !== 'N/A' && (
                 <div className="flex gap-2 mt-1">
                   <span className="font-semibold text-gray-500 w-28 shrink-0">Landmark:</span> 
-                  <span className="text-gray-900">{order.addresses.landmark}</span>
+                  <span className="text-gray-900">{customerLandmark}</span>
                 </div>
               )}
 
-              {order.addresses?.delivery_instructions && (
+              {customerInstructions && customerInstructions !== 'N/A' && (
                 <div className="flex gap-2 mt-1">
                   <span className="font-semibold text-gray-500 w-28 shrink-0">Instructions:</span> 
-                  <span className="text-gray-900">{order.addresses.delivery_instructions}</span>
+                  <span className="text-gray-900">{customerInstructions}</span>
                 </div>
               )}
             </div>
@@ -357,9 +394,6 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
                         {item.original_price && item.original_price > item.price && (
                           <span className="text-xs text-gray-500 line-through whitespace-nowrap">{formatCurrency(item.original_price)}</span>
                         )}
-                        {item.is_bulk_pricing && (
-                          <span className="text-[10px] font-bold bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded-sm">Bulk Price Applied</span>
-                        )}
                         <span className="text-xs text-gray-600 ml-1">Qty: <span className="font-medium text-gray-900">{item.quantity}</span></span>
                       </div>
 
@@ -372,7 +406,7 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
                             )}
                           </p>
                           {item.printing_instructions && (
-                            <p className="text-gray-600 italic mt-0.5">Note: "{item.printing_instructions}"</p>
+                            <p className="text-gray-600 italic mt-0.5">Note: &quot;{item.printing_instructions}&quot;</p>
                           )}
                           
                           {item.signed_artwork_urls && item.signed_artwork_urls.length > 0 && (

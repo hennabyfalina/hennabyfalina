@@ -8,9 +8,10 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { signOut } from '@/services/auth.service'
+import Image from 'next/image'
 import { useCartStore } from '@/store/cart.store'
 import { useWishlistStore } from '@/store/wishlist.store'
-import { ShoppingCart, UserCircle2, Search, ChevronDown, X, Heart } from 'lucide-react'
+import { ShoppingCart, UserCircle2, Search, ChevronDown, X, Heart, Loader2 } from 'lucide-react'
 import { EXPLORE_LINKS, CATEGORIES_LIST } from '@/config/navigation'
 import NameModal from '@/components/auth/NameModal'
 import { searchProductsWithSignedUrls } from '@/services/product.service'
@@ -35,6 +36,7 @@ export default function Navbar() {
   // New states for autocomplete
   const [suggestions, setSuggestions] = useState<any[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
   const searchContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -73,12 +75,15 @@ export default function Navbar() {
   useEffect(() => {
     const timer = setTimeout(async () => {
       if (searchQuery.trim().length >= 2 && searchQuery.trim() !== searchParams.get('q')) {
+        setIsSearching(true)
         try {
           const results = await searchProductsWithSignedUrls(searchQuery.trim(), 6)
           setSuggestions(results)
           setShowSuggestions(true)
         } catch (error) {
           console.error('Failed to fetch suggestions', error)
+        } finally {
+          setIsSearching(false)
         }
       } else {
         setSuggestions([])
@@ -146,7 +151,17 @@ export default function Navbar() {
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 xl:gap-6" suppressHydrationWarning>
             
             <div className="flex items-center justify-between shrink-0 w-full xl:w-auto" suppressHydrationWarning>
-              <Link href="/" className="block text-lg sm:text-xl lg:text-2xl font-extrabold tracking-tight text-gray-900 hover:text-[#f08804] transition-opacity flex items-center p-1 rounded-sm">
+              <Link href="/" className="flex items-center gap-2 text-lg sm:text-xl lg:text-2xl font-extrabold tracking-tight text-gray-900 hover:text-[#f08804] transition-opacity p-1 rounded-sm">
+                <div className="relative w-8 h-8 sm:w-9 sm:h-9 overflow-hidden rounded-full border border-gray-100 shadow-sm shrink-0">
+                  <Image
+                    src="/logo.png"
+                    alt={`${siteConfig.name} Logo`}
+                    fill
+                    sizes="(max-width: 640px) 32px, 36px"
+                    className="object-cover"
+                    priority
+                  />
+                </div>
                 <span className="hidden sm:inline">{siteConfig.name}</span>
                 <span className="sm:hidden">{siteConfig.shortName}</span>
               </Link>
@@ -178,6 +193,11 @@ export default function Navbar() {
                   placeholder="Search for packaging materials, boxes..."
                   className="w-full pl-4 pr-14 sm:pr-16 py-2 text-sm text-gray-900 bg-transparent focus:outline-none transition-colors placeholder-gray-500"
                 />
+                {searchQuery && (
+                  <div className="absolute right-20 sm:right-24 top-1/2 -translate-y-1/2 flex items-center">
+                    {isSearching && <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />}
+                  </div>
+                )}
                 {searchQuery && (
                   <button
                     type="button"

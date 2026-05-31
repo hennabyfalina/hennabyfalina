@@ -14,7 +14,6 @@ import { formatCurrency } from '@/lib/utils'
 import { siteConfig } from '@/config/site'
 import { useWishlistStore } from '@/store/wishlist.store'
 import { showToast } from '@/components/ui/Toast'
-import { B2B_CONSTANTS } from '@/config/b2b-rules' // 🚨 B2B Engine Imported
 
 function HighlightMatch({ text, query }: { text: string, query: string }) {
   if (!query) return <span>{text}</span>;
@@ -35,16 +34,17 @@ function HighlightMatch({ text, query }: { text: string, query: string }) {
 
 interface ProductHorizontalCardProps {
   product: {
+    min_order_qty: number
     id: string
     name: string
     slug: string
     price: number
     selling_price?: number | null
-    bulk_price?: number | null
     images: string[]
     stock: number
     rating?: number | null
     review_count?: number | null
+    pricing_tiers?: any[]
   }
   priority?: boolean
   searchQuery?: string
@@ -53,20 +53,27 @@ interface ProductHorizontalCardProps {
 
 export default function ProductHorizontalCard({ product, priority = false, searchQuery = '', productList = [] }: ProductHorizontalCardProps) {
   const router = useRouter()
-  const { openQuickView } = useQuickViewStore()
+  const openQuickView = useQuickViewStore((state) => state.openQuickView)
   
+  // 🔒 SECURE DYNAMIC CALCULATION: Find the real starting tier quantity
+  const tiers = product.pricing_tiers || []
+  const dynamicMinQuantity = product.min_order_qty ?? 100;
+
   const rawImage = product.images?.[0]
   const imageUrl = !rawImage 
     ? '/placeholder-product.svg' 
     : (rawImage.startsWith('http') || rawImage.startsWith('/') ? rawImage : getPublicUrl(rawImage))
 
-  // 🚨 B2B Validation
-  const retailMin = B2B_CONSTANTS.RETAIL_MIN_QTY
-  const safeStock = product.stock ?? retailMin
-  const isOutOfStock = safeStock < retailMin
+  // 🚨 SMART MATH: Grabs pricing from dynamic tiers, or falls back to legacy (min_quantity 1)
+  const activeTiers = product.pricing_tiers && product.pricing_tiers.length > 0 
+    ? product.pricing_tiers 
+    : [{ mrp: product.price || 0, selling_price: product.selling_price || product.price || 0, min_quantity: 1 }];
 
-  const sellingPrice = product.selling_price ?? product.price ?? 0
-  const regularPrice = product.price ?? 0
+  const defaultTier = activeTiers[0];
+  const regularPrice = defaultTier.mrp;
+  const sellingPrice = defaultTier.selling_price;
+
+  const isOutOfStock = product.stock === 0
   const hasDiscount = regularPrice > sellingPrice
 
   const rating = product.rating ?? 4.5;
@@ -79,7 +86,6 @@ export default function ProductHorizontalCard({ product, priority = false, searc
     e.preventDefault()
     e.stopPropagation()
     const willBeSaved = !isSaved
-    // 🚨 Trigger Toast Instantly before awaiting DB
     showToast(willBeSaved ? 'Saved to Wishlist' : 'Removed from Wishlist', 'success')
     try {
       await toggleItem(product.id)
@@ -107,7 +113,12 @@ export default function ProductHorizontalCard({ product, priority = false, searc
 
   return (
     <div className="bg-white p-3 border-b border-gray-200 flex flex-row gap-3 overflow-hidden shadow-sm rounded-sm relative active:scale-[0.99] transition-transform duration-100">
-      
+      <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
+        <span className="bg-[#CC0C39] text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm shadow-sm animate-pulse">
+          MIN {dynamicMinQuantity}
+        </span>
+      </div>
+
       <Link href={`/product/${product.slug}`} className="block shrink-0 relative w-[120px] h-[120px] bg-[#F8F8F8] rounded-sm overflow-hidden p-2 flex items-center justify-center">
         <div className="w-full h-full relative">
           <Image
@@ -143,13 +154,6 @@ export default function ProductHorizontalCard({ product, priority = false, searc
             <StarRating rating={rating} reviewCount={reviewCount} size="sm" />
           </div>
           
-          {/* 🚨 B2B Transparency Badge 🚨 */}
-          <div className="mb-1.5">
-            <span className="inline-flex text-[10px] font-bold text-[#007185] bg-[#F0F8FF] border border-[#007185]/20 px-1.5 py-0.5 rounded-sm">
-              Min. Order: {retailMin}
-            </span>
-          </div>
-
           <div className="flex flex-col gap-0.5">
             <div className="flex items-baseline gap-1.5">
               <span className="text-xl font-bold text-gray-900">
@@ -168,19 +172,17 @@ export default function ProductHorizontalCard({ product, priority = false, searc
         </div>
 
         <div className="flex flex-col gap-2 mt-2">
-          {/* 🚨 Stock Alerts */}
           {isOutOfStock && (
           <span className="text-xs font-bold text-[#B12704] block mt-1">Currently unavailable.</span>
           )}
           
           <div className="w-full flex items-center gap-2">
             <div className="flex-1 min-w-0">
-              {/* 🚨 B2B Quantity Forcing */}
               <AddToCartButton 
                 product={product as any} 
-                quantity={retailMin}
-                minQuantity={retailMin}
-              requireCustomizationChoice={true}
+                quantity={dynamicMinQuantity}
+                minQuantity={dynamicMinQuantity}
+                requireCustomizationChoice={true}
                 className="w-full h-9 text-sm font-medium bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-full shadow-sm"
               />
             </div>

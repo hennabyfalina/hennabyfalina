@@ -5,15 +5,13 @@ import { createClient } from '@/lib/supabase/server'
 import { verifyAdmin } from '@/lib/admin-auth'
 import { z } from 'zod'
 
-// Similar to productSchema, but allows partial updates
+// 🚨 FIX: Only the new schema runs.
 const productUpdateSchema = z.object({
   name: z.string().min(1).optional(),
   slug: z.string().min(1).optional(),
   description: z.string().nullable().optional(),
   price: z.number().nonnegative().optional(),
   selling_price: z.number().nonnegative().nullable().optional(),
-  bulk_price: z.number().nonnegative().nullable().optional(),
-  bulk_min_quantity: z.number().int().positive().nullable().optional(),
   stock: z.number().int().nonnegative().optional(),
   category_id: z.string().nullable().optional().or(z.literal('').transform(() => null)),
   images: z.array(z.string()).optional(),
@@ -26,6 +24,9 @@ const productUpdateSchema = z.object({
   rating: z.number().min(0).max(5).nullable().optional(),
   review_count: z.number().int().nonnegative().nullable().optional(),
   frequently_bought_together: z.array(z.string()).optional(),
+  is_featured: z.boolean().optional(),
+  weight_unit: z.enum(['kg', 'g']).nullable().optional(),
+  gsm: z.number().nonnegative().nullable().optional(),
 })
 
 export async function PUT(

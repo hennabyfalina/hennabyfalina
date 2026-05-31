@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 
 interface AvatarProps {
   name?: string | null
@@ -19,6 +20,8 @@ const sizeClasses = {
 export default function Avatar({ name, email, avatarUrl, size = 'md', className = '' }: AvatarProps) {
   const [imageError, setImageError] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const pathname = usePathname()
+  const isAdmin = pathname?.startsWith('/admin')
 
   // Reset error state when avatarUrl changes
   useEffect(() => {
@@ -51,7 +54,10 @@ export default function Avatar({ name, email, avatarUrl, size = 'md', className 
     for (let i = 0; i < str.length; i++) {
       hash = str.charCodeAt(i) + ((hash << 5) - hash)
     }
-    const colors = [
+    const colors = isAdmin ? [
+      'admin-bg-primary border admin-border admin-text-primary',
+      'admin-bg-elevated border admin-border admin-text-accent',
+    ] : [
       'bg-red-100 text-red-700',
       'bg-blue-100 text-blue-700',
       'bg-green-100 text-green-700',

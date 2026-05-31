@@ -49,8 +49,10 @@ razack-packaging-centre/
 │   │   │   │   └── page.tsx
 │   │   │   ├── product/
 │   │   │   │   └── [slug]/
+│   │   │   │       ├── loading.tsx
 │   │   │   │       └── page.tsx
 │   │   │   ├── products/
+│   │   │   │   ├── loading.tsx
 │   │   │   │   ├── page.tsx
 │   │   │   │   └── ProductsClientView.tsx
 │   │   │   ├── profile/
@@ -68,11 +70,13 @@ razack-packaging-centre/
 │   │   │   │   │   └── SecurityClient.tsx
 │   │   │   │   ├── settings/
 │   │   │   │   │   └── page.tsx
+│   │   │   │   ├── loading.tsx
 │   │   │   │   ├── page.tsx
 │   │   │   │   └── ProfileClient.tsx
 │   │   │   ├── returns-refunds/
 │   │   │   │   └── page.tsx
 │   │   │   ├── search/
+│   │   │   │   ├── loading.tsx
 │   │   │   │   └── page.tsx
 │   │   │   ├── support/
 │   │   │   │   └── page.tsx
@@ -111,6 +115,8 @@ razack-packaging-centre/
 │   │   │   │   └── page.tsx
 │   │   │   ├── products/
 │   │   │   │   └── page.tsx
+│   │   │   ├── settings/
+│   │   │   │   └── page.tsx
 │   │   │   └── layout.tsx
 │   │   ├── admin-gate/
 │   │   │   └── page.tsx
@@ -134,6 +140,9 @@ razack-packaging-centre/
 │   │   │   │       └── route.ts
 │   │   │   ├── artwork/
 │   │   │   │   └── route.ts
+│   │   │   ├── checkout/
+│   │   │   │   └── reserve-stock/
+│   │   │   │       └── route.ts
 │   │   │   ├── clear-admin-cookie/
 │   │   │   │   └── route.ts
 │   │   │   ├── invoice/
@@ -167,7 +176,9 @@ razack-packaging-centre/
 │   ├── components/
 │   │   ├── admin/
 │   │   │   ├── layout/
+│   │   │   │   ├── AdminAlertBanner.tsx
 │   │   │   │   ├── AdminConfirmModal.tsx
+│   │   │   │   ├── AdminHeader.tsx
 │   │   │   │   ├── AdminMobileNav.tsx
 │   │   │   │   └── AdminSidebar.tsx
 │   │   │   ├── AdminCommandPalette.tsx
@@ -190,11 +201,19 @@ razack-packaging-centre/
 │   │   │   ├── GoogleOneTap.tsx
 │   │   │   └── NameModal.tsx
 │   │   ├── cart/
-│   │   │   └── CartRecommendations.tsx
+│   │   │   ├── CartRecommendations.tsx
+│   │   │   └── StickyCartBar.tsx
 │   │   ├── checkout/
 │   │   │   ├── AddressForm.tsx
+│   │   │   ├── AddressFormContainer.tsx
+│   │   │   ├── AddressSelector.tsx
+│   │   │   ├── CartChangedModal.tsx
+│   │   │   ├── CheckoutErrorAlert.tsx
+│   │   │   ├── CheckoutHeader.tsx
+│   │   │   ├── CheckoutStepCard.tsx
 │   │   │   ├── DeliveryMethod.tsx
 │   │   │   ├── OrderSummary.tsx
+│   │   │   ├── PersistentCheckoutBar.tsx
 │   │   │   ├── ReviewOrderModal.tsx
 │   │   │   ├── SecureLoadingOverlay.tsx
 │   │   │   └── StorePickupInfo.tsx
@@ -227,11 +246,14 @@ razack-packaging-centre/
 │   │   │   └── InvoiceDocument.tsx
 │   │   ├── product/
 │   │   │   ├── AddToCartButton.tsx
+│   │   │   ├── B2BTermsAgreement.tsx
 │   │   │   ├── BuyNowButton.tsx
 │   │   │   ├── EditCartConfirmModal.tsx
+│   │   │   ├── EditConflictModal.tsx
 │   │   │   ├── FilterDrawer.tsx
 │   │   │   ├── FilterSidebar.tsx
 │   │   │   ├── FrequentlyBoughtTogether.tsx
+│   │   │   ├── ItemMissingModal.tsx
 │   │   │   ├── PrintingOptions.tsx
 │   │   │   ├── ProductCard.tsx
 │   │   │   ├── ProductHorizontalCard.tsx
@@ -248,12 +270,15 @@ razack-packaging-centre/
 │   │   │   ├── SaveViewedProduct.tsx
 │   │   │   ├── ShareButton.tsx
 │   │   │   ├── StarRating.tsx
+│   │   │   ├── StickyBuyBar.tsx
 │   │   │   └── TrustBadges.tsx
 │   │   ├── providers/
+│   │   │   ├── BroadcastListener.tsx
 │   │   │   └── WishlistProvider.tsx
 │   │   ├── ui/
 │   │   │   ├── AnimatedIcon.tsx
 │   │   │   ├── Avatar.tsx
+│   │   │   ├── CartSkeleton.tsx
 │   │   │   ├── ClientOnly.tsx
 │   │   │   ├── Container.tsx
 │   │   │   ├── GeminiToast.tsx
@@ -273,13 +298,17 @@ razack-packaging-centre/
 │   │   └── CartSyncProvider.tsx
 │   ├── config/
 │   │   ├── admin.ts
-│   │   ├── b2b-rules.ts
+│   │   ├── checkout.ts
 │   │   ├── navigation.ts
 │   │   └── site.ts
 │   ├── hooks/
 │   │   ├── useAuth.ts
 │   │   ├── useCart.ts
-│   │   └── useIdleTimeout.ts
+│   │   ├── useCartSignature.ts
+│   │   ├── useCheckoutState.ts
+│   │   ├── useIdleTimeout.ts
+│   │   ├── useRazorpayCheckout.ts
+│   │   └── useThemeObserver.ts
 │   ├── lib/
 │   │   ├── supabase/
 │   │   │   ├── admin.ts
@@ -288,6 +317,8 @@ razack-packaging-centre/
 │   │   │   ├── server.ts
 │   │   │   └── storage.ts
 │   │   ├── admin-auth.ts
+│   │   ├── broadcast.ts
+│   │   ├── compression.ts
 │   │   ├── constants.ts
 │   │   ├── idempotency.ts
 │   │   ├── states.ts
@@ -307,6 +338,7 @@ razack-packaging-centre/
 │   │   ├── cart.store.ts
 │   │   ├── productDraft.store.ts
 │   │   ├── quickview.store.ts
+│   │   ├── theme.store.ts
 │   │   └── wishlist.store.ts
 │   ├── types/
 │   │   └── database.types.ts
@@ -320,6 +352,7 @@ razack-packaging-centre/
 ├── components.json
 ├── eslint.config.mjs
 ├── FOLDER TREE.TXT
+├── FOLDER_TREE_AUTO.TXT
 ├── next-env.d.ts
 ├── next.config.ts
 ├── package-lock.json
