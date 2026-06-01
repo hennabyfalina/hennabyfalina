@@ -1,7 +1,10 @@
+// src/app/(shop)/checkout/page.tsx
+
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { useCartStore } from '@/store/cart.store'
 import { calculateTaxBreakdown } from '@/lib/tax'
 import { checkoutConfig } from '@/config/checkout'
@@ -19,9 +22,9 @@ import AddressFormContainer from '@/components/checkout/AddressFormContainer'
 import DeliveryMethod from '@/components/checkout/DeliveryMethod'
 import StorePickupInfo from '@/components/checkout/StorePickupInfo'
 import OrderSummary from '@/components/checkout/OrderSummary'
+import PersistentCheckoutBar from '@/components/checkout/PersistentCheckoutBar'
 import ReviewOrderModal from '@/components/checkout/ReviewOrderModal'
 import SecureLoadingOverlay from '@/components/checkout/SecureLoadingOverlay'
-import PersistentCheckoutBar from '@/components/checkout/PersistentCheckoutBar'
 import CartChangedModal from '@/components/checkout/CartChangedModal'
 
 // Extracted Logic Hooks

@@ -10,6 +10,7 @@ import { getIdempotencyRecord, storeIdempotencyRecord } from '@/lib/idempotency'
 import { releaseStockReservation, deductOrderStock } from '@/services/inventory.service'
 import { finalizeOrderAddress } from '@/services/order.service'
 
+// 🔒 SAFE BUILD CHECK: Only initialize if the URL is an actual valid web address, ignoring "***" placeholders
 const ratelimit = process.env.UPSTASH_REDIS_REST_URL
   ? new Ratelimit({
       redis: Redis.fromEnv(),

@@ -6,6 +6,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { getPublicUrl, deleteProductImage } from '@/lib/supabase/storage'
 import { z } from 'zod'
 import { verifyAdmin } from '@/lib/admin-auth'
+import { revalidateTag } from 'next/cache'
 
 export interface Category {
   meta_title: string
@@ -40,6 +41,41 @@ function invalidateCache() {
   lastCacheInvalidation = Date.now()
 }
 
+// ⚡ HIGH-PERFORMANCE EDGE CACHING FETCH ENGINE
+async function fetchFromEdge(queryString: string, cacheTag: string): Promise<any[]> {
+  const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!baseUrl || !anonKey) {
+    console.error('[Edge Cache Error] Supabase environment keys are missing.')
+    return []
+  }
+
+  try {
+    const response = await fetch(
+      `${baseUrl}/rest/v1/categories?${queryString}`,
+      {
+        method: 'GET',
+        headers: {
+          'apikey': anonKey,
+          'Authorization': `Bearer ${anonKey}`,
+          'Content-Type': 'application/json',
+        },
+        next: {
+          revalidate: 3600, // ⚡ Store publicly on Vercel's global CDN nodes for 1 hour
+          tags: [cacheTag]  // Cache tag pointer for instant, on-demand purges
+        }
+      }
+    )
+
+    if (!response.ok) throw new Error('CDN response was not OK.')
+    return await response.json()
+  } catch (error) {
+    console.error('[Edge CDN Bypass] Fetch error falling back:', error)
+    return []
+  }
+}
+
 // Helper to convert category image path to public URL
 function addPublicUrlToCategory<T extends Category>(category: T): T {
   if (!category.image) return category
@@ -64,70 +100,23 @@ const categorySchema = z.object({
 
 // Fetch all categories with product counts
 export async function getCategoriesWithCounts(useCache: boolean = true): Promise<Category[]> {
-  // Check cache
-  if (useCache && categoriesWithCountsCache && isCacheValid(lastCacheInvalidation)) {
-    return categoriesWithCountsCache
-  }
-  
-  const supabase = await createServerClient()
-  
-  const { data: categories, error } = await supabase
-    .from('categories')
-    .select(`
-      *,
-      products:products(count)
-    `)
-    .order('display_order', { ascending: true })
-  
-  if (error) {
-    console.error('Error fetching categories with counts:', error)
-    return []
-  }
-  
+  // Pull structured datasets through our new edge caching engine
+  const queryString = 'select=*,products:products(count)&order=display_order.asc'
+  const categories = await fetchFromEdge(queryString, 'categories-with-counts')
+
   const result = categories.map(cat => ({
     ...cat,
     product_count: cat.products?.[0]?.count || 0
   })) || []
-  
-  // Add public URLs to images
-  const resultWithUrls = addPublicUrlsToCategories(result)
-  
-  // Update cache
-  if (useCache) {
-    categoriesWithCountsCache = resultWithUrls
-  }
-  
-  return resultWithUrls
+
+  return addPublicUrlsToCategories(result)
 }
 
 // Fetch all categories (without counts)
 export async function getCategories(useCache: boolean = true): Promise<Category[]> {
-  // Check cache
-  if (useCache && categoriesCache && isCacheValid(lastCacheInvalidation)) {
-    return categoriesCache
-  }
-  
-  const supabase = await createServerClient()
-  
-  const { data, error } = await supabase
-    .from('categories')
-    .select('*')
-    .order('display_order', { ascending: true })
-  
-  if (error) {
-    console.error('Error fetching categories:', error)
-    return []
-  }
-  
-  // Add public URLs to images
-  const resultWithUrls = addPublicUrlsToCategories(data || [])
-  
-  // Update cache
-  if (useCache) {
-    categoriesCache = resultWithUrls
-  }
-  
-  return resultWithUrls
+  const queryString = 'select=*&order=display_order.asc'
+  const data = await fetchFromEdge(queryString, 'categories-list')
+  return addPublicUrlsToCategories(data || [])
 }
 
 // Get a single category by ID
@@ -246,8 +235,9 @@ export async function createCategory(data: {
   
   if (error) throw error
   
-  // Invalidate cache
-  invalidateCache()
+  // ⚡ FLASH CDN REFRESH: Purges cache across global data hubs instantly on admin update
+  revalidateTag('categories-list', 'default')
+  revalidateTag('categories-with-counts', 'default')
   
   return addPublicUrlToCategory(category)
 }
@@ -298,8 +288,9 @@ export async function updateCategory(
   
   if (error) throw error
   
-  // Invalidate cache
-  invalidateCache()
+  // ⚡ FIXED FOR NEXT.JS 16: Clear the edge layout cache globally
+  revalidateTag('categories-list', 'default')
+  revalidateTag('categories-with-counts', 'default')
   
   return addPublicUrlToCategory(data)
 }
@@ -354,8 +345,9 @@ export async function deleteCategory(id: string): Promise<void> {
   
   if (error) throw error
   
-  // Invalidate cache
-  invalidateCache()
+  // ⚡ FIXED FOR NEXT.JS 16: Force clear categories from CDN memory paths
+  revalidateTag('categories-list', 'default')
+  revalidateTag('categories-with-counts', 'default')
 }
 
 // Update display order (drag & drop)
@@ -371,8 +363,9 @@ export async function updateCategoryOrder(orderedIds: string[]): Promise<void> {
     if (error) throw error
   }
   
-  // Invalidate cache
-  invalidateCache()
+  // ⚡ FIXED FOR NEXT.JS 16: Ensure menu sorting updates clear immediately
+  revalidateTag('categories-list', 'default')
+  revalidateTag('categories-with-counts', 'default')
 }
 
 // Toggle category active status
@@ -409,7 +402,9 @@ export async function bulkUpdateCategoryOrder(updates: Array<{ id: string; displ
     if (error) throw error
   }
   
-  // Invalidate cache
+  // ⚡ FIXED FOR NEXT.JS 16: Ensure menu sorting updates clear immediately
+  revalidateTag('categories-list', 'default')
+  revalidateTag('categories-with-counts', 'default')
   invalidateCache()
 }
 

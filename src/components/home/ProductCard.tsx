@@ -114,16 +114,6 @@ export default function ProductCard({ product, searchQuery = '', priority = fals
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .animate-spin {
-          animation: spin 1s linear infinite;
-        }
-      `}</style>
     </Link>
   )
 }

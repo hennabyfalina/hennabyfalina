@@ -36,8 +36,6 @@
     overscroll-behavior-y: auto;
     overscroll-behavior-x: auto;
     -webkit-overflow-scrolling: touch;
-    
-    /* Hardware acceleration for smoother scrolling */
     will-change: scroll-position;
   }
 
