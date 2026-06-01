@@ -21,21 +21,13 @@ interface CheckoutPayload {
 }
 
 // 🆕 Helper to check if Razorpay script is loaded
-const ensureRazorpayScript = (): Promise<boolean> => {
-  return new Promise((resolve) => {
-    if (typeof window !== 'undefined' && (window as any).Razorpay) {
-      resolve(true)
-      return
-    }
-    
-    const script = document.createElement('script')
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-    script.async = true
-    script.onload = () => resolve(true)
-    script.onerror = () => resolve(false)
-    document.body.appendChild(script)
-  })
-}
+const ensureRazorpayScript = async (): Promise<boolean> => {
+  // Script is already preloaded by Next.js <Script strategy="lazyOnload">
+  if (typeof window !== 'undefined' && (window as any).Razorpay) return true;
+  // Quick fallback just in case
+  await new Promise(resolve => setTimeout(resolve, 500));
+  return !!(window as any).Razorpay;
+};
 
 export function useRazorpayCheckout() {
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false)
@@ -240,13 +232,11 @@ export function useRazorpayCheckout() {
       setCheckoutError(err.message || 'An unexpected error occurred during checkout.')
       setIsProcessingCheckout(false)
       isProcessingRef.current = false
-      currentIdempotencyKeyRef.current = null
     }
   }, [clearCart])
 
   const resetProcessing = useCallback(() => {
     isProcessingRef.current = false
-    currentIdempotencyKeyRef.current = null
     setIsProcessingCheckout(false)
     setCheckoutError(null)
   }, [])

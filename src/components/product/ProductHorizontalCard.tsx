@@ -126,7 +126,6 @@ export default function ProductHorizontalCard({ product, priority = false, searc
             alt={product.name}
             fill
             sizes="120px"
-            unoptimized={imageUrl.startsWith('http') || imageUrl.includes('supabase')}
             className="object-contain mix-blend-multiply"
             priority={priority}
             loading={priority ? 'eager' : 'lazy'}

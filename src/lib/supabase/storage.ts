@@ -3,13 +3,19 @@
 import { createClient } from './client'
 import path from 'path'
 
-export function getPublicUrl(imagePath: string): string {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  if (!supabaseUrl) return '/placeholder-product.svg'
-  
-  // Clean path traversal attempts safely using base extraction normalization 
-  const cleanPath = imagePath.replace(/^(\.\.\/|\/)+/, '')
-  return `${supabaseUrl}/storage/v1/object/public/products/${cleanPath}`
+export function getPublicUrl(imagePath: string, width?: number, height?: number): string {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) return '/placeholder-product.svg';
+
+  const bucketUrl = `${supabaseUrl}/storage/v1/object/public/products/`;
+  const cleanPath = imagePath.replace(/^(\.\.\/|\/)+/, '');
+
+  if (!width) {
+    return `${bucketUrl}${cleanPath}`;
+  }
+
+  // 🔒 Ask Supabase to scale, compress, and output in WebP format automatically
+  return `${bucketUrl}${cleanPath}?width=${width}&height=${height || ''}&resize=contain&format=webp&quality=80`;
 }
 
 export function getProductImageUrl(imagePath: string | null | undefined): string {

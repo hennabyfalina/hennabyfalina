@@ -174,7 +174,7 @@ export default function CartPage() {
   const handleProceedToBuy = () => {
     setIsCheckingOut(true)
     router.prefetch('/checkout')
-    setTimeout(() => router.push('/checkout'), 450)
+    router.push('/checkout')
   }
 
   const totalPriceForSticky = totalPrice
@@ -208,8 +208,12 @@ export default function CartPage() {
                 }
 
                 // 🚨 DYNAMIC TIER PARSING
+                // 🔒 THE FIX (Replace lines 143-144)
                 const tier = item.pricing_tiers?.find(t => t.tier_name === item.printing_type)
-                const minQuantity = tier?.min_quantity ?? 1
+                // Secure fallback: If the tier lacks a defined minimum, default to your wholesale floor (100)
+                // instead of letting users drop the quantity down to 1.
+                const fallbackMinQty = 100
+                const minQuantity = tier?.min_quantity && tier.min_quantity > 0 ? tier.min_quantity : fallbackMinQty
                 const dynamicDeliveryDays = tier?.delivery_days ?? 7
                 
                 return (

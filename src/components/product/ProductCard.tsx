@@ -131,10 +131,9 @@ export default function ProductCard({ product, priority = false, productList = [
           src={imageUrl} 
           alt={product.name} 
           fill 
-          sizes="(max-width: 768px) 100vw, 300px"
-          className="object-contain p-2 group-hover:scale-105 transition-transform duration-500" 
           priority={priority}
-          unoptimized={imageUrl.startsWith('http') || imageUrl.includes('supabase')}
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className="object-contain p-2 group-hover:scale-105 transition-transform duration-500" 
         />
       </Link>
 
@@ -175,7 +174,7 @@ export default function ProductCard({ product, priority = false, productList = [
               router.push(`/product/${product.slug}`)
             }}
             disabled={isOutOfStock}
-            className="flex-1 h-9 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-full text-[10px] xs:text-[11px] sm:text-[13px] font-bold transition-all shadow-sm active:scale-[0.98] cursor-pointer disabled:opacity-60 whitespace-nowrap px-1"
+            className="flex-1 h-9 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-full text-[11px] sm:text-[13px] font-bold transition-all shadow-sm active:scale-[0.98] cursor-pointer disabled:opacity-60 whitespace-nowrap px-1 sm:px-2"
           >
             View Options
           </button>

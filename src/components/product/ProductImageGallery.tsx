@@ -11,9 +11,10 @@ import { getPublicUrl } from '@/lib/supabase/storage'
 interface ProductImageGalleryProps {
   images: string[]
   productName: string
+  priority?: boolean
 }
 
-export default function ProductImageGallery({ images, productName }: ProductImageGalleryProps) {
+export default function ProductImageGallery({ images, productName, priority = false }: ProductImageGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [isZoomed, setIsZoomed] = useState(false)
   const [zoomOrigin, setZoomOrigin] = useState('50% 50%')
@@ -163,9 +164,9 @@ export default function ProductImageGallery({ images, productName }: ProductImag
           <Image
           src={mainImage}
           alt={productName}
-          fill
-          priority
-          sizes="(max-width: 768px) 100vw, 50vw"
+          fill // 🔒 Direct priority hook alignment
+          priority={priority}
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // 🔒 Responsive sizes hint stops oversized layout painting
           unoptimized={mainImage.includes('token=') || mainImage.includes('supabase')}
           className="object-contain transition-transform duration-200"
           style={{

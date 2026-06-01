@@ -75,7 +75,7 @@ export default function FeaturedProductsSection({ products, title }: FeaturedPro
             <div key={product.id} className="w-[220px] sm:w-[240px] flex-shrink-0 h-full snap-start">
               <ProductCard 
                 product={product} 
-                priority={index < 4}
+                priority={index < 2}
                 productList={products} 
               />
             </div>

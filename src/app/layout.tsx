@@ -2,6 +2,7 @@
 
 import type { Metadata, Viewport } from 'next'
 import localFont from 'next/font/local'
+import Script from 'next/script'
 import './globals.css'
 import CartSyncProvider from '@/components/CartSyncProvider'
 import InstallPrompt from '@/components/ui/InstallPrompt'
@@ -88,8 +89,8 @@ const globalJsonLd = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5,
+  userScalable: true,
   viewportFit: 'cover',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
@@ -133,6 +134,8 @@ export default function RootLayout({
           <Analytics />
           <QuickViewModal />
           <BroadcastListener />
+          {/* ⚡ Pre-fetches in the background without blocking page load */}
+          <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
         </WishlistProvider>
       </body>
     </html>

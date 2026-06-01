@@ -24,11 +24,11 @@ export default function ProductImage({ imageUrl, productName, priority = false }
         src={finalImageUrl}
         alt={productName}
         fill
+        priority={priority}
         sizes="(max-width: 768px) 100vw, 50vw"
         unoptimized={finalImageUrl.includes('token=') || finalImageUrl.includes('supabase')}
         // 🚨 REMOVED mix-blend-multiply for pristine image clarity
         className="object-contain p-2 group-hover:scale-105 transition-transform duration-500"
-        priority={priority}
         onError={() => {
           setImgError(true)
         }}
