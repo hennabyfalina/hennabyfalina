@@ -175,7 +175,7 @@ export default function ProductCard({ product, priority = false, productList = [
               router.push(`/product/${product.slug}`)
             }}
             disabled={isOutOfStock}
-            className="flex-1 h-9 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-full text-[11px] sm:text-[13px] font-bold transition-all shadow-sm active:scale-[0.98] cursor-pointer disabled:opacity-60 whitespace-nowrap px-1 sm:px-2"
+            className="flex-1 h-9 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-full text-[10px] xs:text-[11px] sm:text-[13px] font-bold transition-all shadow-sm active:scale-[0.98] cursor-pointer disabled:opacity-60 whitespace-nowrap px-1"
           >
             View Options
           </button>
