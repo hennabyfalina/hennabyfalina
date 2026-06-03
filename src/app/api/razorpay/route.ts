@@ -12,7 +12,6 @@ import {
   getIdempotencyRecord, 
   storeIdempotencyRecord 
 } from '@/lib/idempotency'
-import { checkBotId } from 'botid/server' // 🛡️ Import the server verifier
 
 const ratelimit = process.env.UPSTASH_REDIS_REST_URL
   ? new Ratelimit({
@@ -30,7 +29,6 @@ function getRazorpayInstance() {
     throw new Error('Razorpay credentials not configured')
   }
   
-  console.log('[Razorpay API] Initializing Razorpay with KEY_ID:', keyId.substring(0, 8) + '...')
   return new Razorpay({ key_id: keyId, key_secret: keySecret })
 }
 
@@ -38,11 +36,15 @@ export async function POST(request: NextRequest) {
   const requestId = crypto.randomUUID()
   console.log(`[Razorpay API ${requestId}] Received payment initialization request`)
   
-  // 1. 🛡️ VERCEL BOTID: THE FINAL 10%
-  const verification = await checkBotId();
-  if (verification.isBot) {
-    console.error(`[Security Firewall] Blocked malicious headless payment attempt.`);
-    return NextResponse.json({ error: 'Access denied. Automated scripts are prohibited.' }, { status: 403 });
+  // 🔒 VERCEL NATIVE FIREWALL SHIELD
+  // Checks the edge network score directly (0 = absolute bot, 100 = absolute human)
+  const botScoreHeader = request.headers.get('x-vercel-bot-score');
+  if (botScoreHeader !== null) {
+    const botScore = parseInt(botScoreHeader, 10);
+    if (botScore < 20) {
+      console.error(`[Security Firewall] Blocked automated Razorpay setup. Score: ${botScore}`);
+      return NextResponse.json({ error: 'Automated requests are prohibited.' }, { status: 403 });
+    }
   }
 
   try {
@@ -166,14 +168,9 @@ export async function POST(request: NextRequest) {
     }
 
     const taxBreakdown = calculateTaxBreakdown(order.total_amount)
-    
-    // Use client-provided idempotency key if available, otherwise generate new one
     const finalIdempotencyKey = clientIdempotencyKey || generateIdempotencyKey('payment')
     
-    // Keep the original order creation idempotency key in the DB.
-    // We only use finalIdempotencyKey for Razorpay initialization caching.
-
-    // 🆕 Validate amount before creating Razorpay order
+    // Validate amount before creating Razorpay order
     const amountInPaise = Math.round(order.total_amount * 100)
     if (amountInPaise <= 0) {
       console.error(`[Razorpay API ${requestId}] Invalid amount: ${order.total_amount} (${amountInPaise} paise)`)
@@ -229,7 +226,6 @@ export async function POST(request: NextRequest) {
 
     if (updateError) {
       console.error(`[Razorpay API ${requestId}] Failed to update order with Razorpay ID:`, updateError)
-      // Don't fail the request – the order is still usable
     }
 
     console.log(`[Razorpay API ${requestId}] ✅ Successfully created Razorpay order: ${razorpayOrder.id}`)
@@ -241,7 +237,6 @@ export async function POST(request: NextRequest) {
       keyId: process.env.RAZORPAY_KEY_ID
     }
 
-    // Store successful response for idempotency
     if (clientIdempotencyKey) {
       await storeIdempotencyRecord(clientIdempotencyKey, successResponse, 200)
     }
@@ -250,8 +245,6 @@ export async function POST(request: NextRequest) {
     
   } catch (error: any) {
     console.error(`[Razorpay API] Unhandled error:`, error)
-    
-    // Don't cache 500 errors – allow retry
     return NextResponse.json(
       { error: error.message || 'Failed to initialize payment' },
       { status: 500 }

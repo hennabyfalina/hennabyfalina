@@ -2,7 +2,6 @@
 
 import type { NextConfig } from "next";
 import withPWAInit from "@ducanh2912/next-pwa";
-import { withBotId } from 'botid/next/config'; // 🛡️ Import BotID wrapper
 
 const withPWA = withPWAInit({
   dest: "public",
@@ -138,5 +137,5 @@ const nextConfig: NextConfig = {
   },
 };
 
-// ⚡ Wrap and export the config with both PWA and BotID
-export default withBotId(withPWA(nextConfig));
+// ⚡ Export pure withPWA profile
+export default withPWA(nextConfig);

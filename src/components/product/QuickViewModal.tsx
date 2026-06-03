@@ -151,7 +151,7 @@ export default function QuickViewModal() {
             {tiers.length > 1 && (
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-5">
                 <p className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#007185]" /> Pricing Tiers
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#007185]" /> Customization Tiers
                 </p>
                 <div className="space-y-2">
                   {tiers.map((t: any, i: number) => (

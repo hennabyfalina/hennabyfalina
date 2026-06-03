@@ -1,5 +1,6 @@
 // src/services/whatsapp.service.ts
 
+import 'server-only'; // 🔒 ENTERPRISE LOCK: This file can NEVER be exposed to the internet
 import { siteConfig } from '@/config/site';
 import { formatCurrency } from '@/lib/utils';
 

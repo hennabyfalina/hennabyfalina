@@ -12,7 +12,6 @@ import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { getIdempotencyRecord, storeIdempotencyRecord } from '@/lib/idempotency'
 import { verifyReservations, reserveStock } from '@/services/inventory.service'
-import { checkBotId } from 'botid/server'
 
 export interface CreateOrderInput {
   items: Array<{
@@ -51,11 +50,15 @@ const ratelimit = new Ratelimit({
 })
 
 export async function createOrder(input: CreateOrderInput) {
-  // 1. 🛡️ VERCEL BOTID: THE FINAL 10%
-  // Run the background integrity check before spending any database compute
-  const verification = await checkBotId();
-  if (verification.isBot) {
-    console.error(`[Security Firewall] Blocked malicious headless checkout attempt.`);
+  const requestHeaders = await headers();
+
+  // 🔒 VERCEL NATIVE FIREWALL SHIELD
+  // Vercel auto-injects 'x-vercel-bot-score' (0 = absolute bot, 100 = absolute human)
+  const botScoreHeader = requestHeaders.get('x-vercel-bot-score');
+
+  if (botScoreHeader !== null && parseInt(botScoreHeader, 10) < 20) {
+    const botScore = parseInt(botScoreHeader, 10);
+    console.error(`[Security Firewall] Blocked automated checkout attempt. Score: ${botScore}`);
     throw new Error('Access denied. Automated checkout scripts are strictly prohibited.');
   }
 
@@ -127,7 +130,11 @@ export async function createOrder(input: CreateOrderInput) {
     // 🔒 ZERO-TRUST ENGINE: Calculate everything on the server
     let calculatedSubtotal = 0
     const secureOrderItems = []
+    
+    // Initialize Admin Client early for secure file transfers
+    const supabaseAdmin = createAdminClient()
 
+    // 🔒 VARIATION SHIELD: Process artwork files safely mapping by distinct array rows
     for (const item of items) {
       const product = products.find(p => p.id === item.product_id)
       if (!product) throw new Error(`Product not found: ${item.product_id}`)
@@ -138,12 +145,31 @@ export async function createOrder(input: CreateOrderInput) {
 
       // 🛑 IGNORING CLIENT PRICE: We strictly use expectedPrice fetched from Supabase
       calculatedSubtotal += expectedPrice * item.quantity
+      
+      let processingUrls = item.artwork_urls || []
 
-      // Store the secure data for our database insertion later
+      // Securely transfer files out of temp storage paths if marked as temporary
+      if (processingUrls.length > 0 && item.is_temp) {
+        try {
+          processingUrls = await moveAllTempToFinal(item.artwork_urls!, user.id, supabaseAdmin)
+        } catch (error: any) {
+          console.error(`Error moving files for product variation ${item.product_id}:`, error)
+          if (error.message?.includes('already exists')) {
+            processingUrls = item.artwork_urls!.map((url: string) => 
+              url.replace('/temp/', `/${user.id}/`)
+            )
+          } else {
+            throw new Error('Failed to process artwork files. Please try again.')
+          }
+        }
+      }
+
+      // Append verified entities cleanly directly onto our final stack
       secureOrderItems.push({
         ...item,
         secure_price: expectedPrice,
-        secure_original_price: selectedTier?.mrp ?? product.price
+        secure_original_price: selectedTier?.mrp ?? product.price,
+        artwork_urls: processingUrls
       })
     }
 
@@ -161,7 +187,6 @@ export async function createOrder(input: CreateOrderInput) {
       let { valid, errors } = await verifyReservations(sessionId, groupedItems)
       
       // If quantity mismatch or missing, try to re-reserve once before failing
-      // This handles edge cases where cart quantity changed just before clicking 'Place Order' or reservation expired
       if (!valid) {
         console.warn(`[OrderService ${requestId}] Reservation invalid, attempting re-reservation: ${errors?.join(', ')}`)
         const reReserve = await reserveStock(sessionId, groupedItems, user.id)
@@ -183,31 +208,7 @@ export async function createOrder(input: CreateOrderInput) {
 
     const orderNumber = generateOrderNumber()
 
-    // Process artwork files
-    const supabaseAdmin = createAdminClient()
-    const finalArtworkUrls: Record<string, string[]> = {}
-
-    for (const item of items) {
-      if (item.artwork_urls && item.artwork_urls.length > 0 && item.is_temp) {
-        try {
-          const finalPaths = await moveAllTempToFinal(item.artwork_urls, user.id, supabaseAdmin)
-          finalArtworkUrls[item.product_id] = finalPaths
-        } catch (error: any) {
-          console.error(`Error moving files for product ${item.product_id}:`, error)
-          if (error.message?.includes('already exists')) {
-            finalArtworkUrls[item.product_id] = item.artwork_urls.map((url: string) => 
-              url.replace('/temp/', `/${user.id}/`)
-            )
-          } else {
-            throw new Error('Failed to process artwork files. Please try again.')
-          }
-        }
-      } else {
-        finalArtworkUrls[item.product_id] = item.artwork_urls || []
-      }
-    }
-
-    // Handle address/pickup data (NOT saved to addresses table yet for new addresses)
+    // Handle address/pickup data
     let finalAddressId: string | null = null
     let pickupContactData: any = null
 
@@ -219,7 +220,6 @@ export async function createOrder(input: CreateOrderInput) {
         throw new Error('A valid delivery address is required.')
       }
     } else {
-      // Pickup: store contact info in pickup_contact column
       if (addressData?.pickupContact) {
         pickupContactData = addressData.pickupContact
         console.log(`[OrderService ${requestId}] Pickup contact: ${pickupContactData.name}`)
@@ -240,12 +240,10 @@ export async function createOrder(input: CreateOrderInput) {
       shipping_method: shippingMethod,
     }
 
-    // Add address_id only if it exists (existing address)
     if (finalAddressId) {
       orderInsertData.address_id = finalAddressId
     }
 
-    // Add pickup_contact for pickup orders
     if (shippingMethod === 'pickup' && pickupContactData) {
       orderInsertData.pickup_contact = pickupContactData
     }
@@ -263,7 +261,7 @@ export async function createOrder(input: CreateOrderInput) {
 
     console.log(`[OrderService ${requestId}] Order created successfully: ${order.id} (${orderNumber})`)
 
-    // Create order items
+    // Create order items directly mapping from our isolated, secured variant models
     const orderItems = secureOrderItems.map(item => {
       return {
         order_id: order.id,
@@ -272,7 +270,7 @@ export async function createOrder(input: CreateOrderInput) {
         price: item.secure_price,
         original_price: item.secure_original_price,
         printing_type: item.printing_type || 'Retail (Readymade)',
-        artwork_urls: finalArtworkUrls[item.product_id] || [],
+        artwork_urls: item.artwork_urls || [],
         printing_instructions: item.printing_instructions || null,
       }
     })
@@ -458,13 +456,11 @@ export async function getSavedAddresses(method?: 'delivery' | 'pickup') {
   return data || []
 }
 
-// Helper function to finalize address after payment success
 export async function finalizeOrderAddress(orderId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Unauthorized')
 
-  // Get order with address_id
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .select('id, shipping_method, address_id')
@@ -474,15 +470,12 @@ export async function finalizeOrderAddress(orderId: string) {
 
   if (orderError || !order) throw new Error('Order not found')
 
-  // Only process delivery orders with a linked address
   if (order.shipping_method === 'delivery' && order.address_id) {
-    // 1. Update the linked address to be permanent and default
     await supabase
       .from('addresses')
       .update({ is_temp: false, is_default: true, updated_at: new Date().toISOString() })
       .eq('id', order.address_id)
 
-    // 2. Clear default flag from other addresses
     await supabase
       .from('addresses')
       .update({ is_default: false })
@@ -490,7 +483,6 @@ export async function finalizeOrderAddress(orderId: string) {
       .neq('id', order.address_id)
       .eq('delivery_method', 'delivery')
 
-    // 3. Enforce the 2-Address LRU Limit
     const { data: permanentAddresses } = await supabase
       .from('addresses')
       .select('id, is_default, updated_at')
@@ -500,7 +492,6 @@ export async function finalizeOrderAddress(orderId: string) {
       .order('updated_at', { ascending: true })
 
     if (permanentAddresses && permanentAddresses.length > 2) {
-      // Identify the oldest non-default address to delete
       const nonDefaultAddresses = permanentAddresses.filter(a => !a.is_default)
       const addressToDelete = nonDefaultAddresses.length > 0 
         ? nonDefaultAddresses[0] 
