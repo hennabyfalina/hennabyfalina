@@ -27,16 +27,15 @@ export default function AdminMobileNav({
 }: AdminMobileNavProps) {
   const { isSuperAdmin } = useAuth()
 
-  // ✅ Filter nav items based on role (hide Settings & Users from regular admins, but keep Appearance)
-  const filteredNavItems = ADMIN_NAV_ITEMS.filter(item => {
-    if (isSuperAdmin) return true
-    const lowerHref = item.href.toLowerCase()
-    if (lowerHref === '/admin/settings') {
-      return true
-    }
-    if (lowerHref.includes('users')) return false
-    return true
-  })
+  // ✅ Filter nav items based on role (hide finance from regular admins, but keep Appearance)
+const filteredNavItems = ADMIN_NAV_ITEMS.filter(item => {
+  if (isSuperAdmin) return true;
+  const lowerHref = item.href.toLowerCase();
+  if (lowerHref === '/admin/finance') return false;
+  if (lowerHref === '/admin/settings') return true;
+  if (lowerHref.includes('users')) return false;
+  return true;
+});
 
   // Bottom bar uses first 4 items from filtered list
   const bottomItems = filteredNavItems.slice(0, 4)

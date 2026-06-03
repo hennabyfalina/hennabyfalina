@@ -30,7 +30,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   }
 
   const { count: totalOrders } = await adminSupabase.from('orders').select('*', { count: 'exact', head: true })
-  const { count: totalProducts } = await adminSupabase.from('products').select('*', { count: 'exact', head: true })
+  const { count: totalProducts } = await adminSupabase.from('products').select('*', { count: 'exact', head: true }).eq('is_deleted', false).eq('is_active', true)
   const { count: totalCustomers } = await adminSupabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'customer')
 
   const { data: lowStockItems } = await adminSupabase.from('products').select('name, stock').lte('stock', 10).limit(3)

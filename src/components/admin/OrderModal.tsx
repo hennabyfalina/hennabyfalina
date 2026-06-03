@@ -292,11 +292,6 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                       <h4 className="font-medium admin-text-primary text-[15px] sm:text-base leading-tight">
                         {order.order_items.length > 1 ? `${index + 1}. ` : ''}{item.products?.name || 'Product'}
                       </h4>
-                      {item.original_price && item.price < item.original_price && (
-                        <span className="mt-2 inline-block px-2 py-0.5 bg-[#214332]/40 text-[#93D7A4] rounded text-[9px] font-bold tracking-widest">
-                          TIER PRICING
-                        </span>
-                      )}
                     </div>
                     <div className="text-right shrink-0">
                       <div className="font-medium admin-text-primary text-base">
@@ -319,7 +314,7 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                       <div className="flex flex-col sm:flex-row sm:items-start gap-3 justify-between">
                         <div>
                           <div className="flex items-center gap-1.5 text-[11px] font-bold admin-text-accent uppercase tracking-wider mb-1">
-                            <Printer className="w-3.5 h-3.5" /> {item.printing_type}
+                            <span className="admin-text-muted">Customization Type:</span> {item.printing_type}
                           </div>
                           {item.printing_instructions && (
                             <div className="text-xs admin-text-secondary">
@@ -393,7 +388,7 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                       <p className="text-[11px] admin-text-muted uppercase tracking-widest font-bold">Recipient</p>
                       <p className="text-base font-bold admin-text-primary">{address.name || 'N/A'}</p>
                       <a href={`tel:${address.phone}`} className="text-sm font-medium admin-text-accent flex items-center gap-1.5 hover:underline w-fit">
-                        <Phone className="w-3.5 h-3.5" /> {address.phone || 'N/A'}
+                        {address.phone || 'N/A'}
                       </a>
                     </div>
                     <div className="flex-[2] space-y-1.5 border-t sm:border-t-0 sm:border-l admin-border pt-5 sm:pt-0 sm:pl-8">

@@ -5,13 +5,13 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import OrderStatusBadge from '@/components/admin/OrderStatusBadge'
 import OrderModal from '@/components/admin/OrderModal'
-import AdminLoader from '@/components/admin/AdminLoader'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Printer, ExternalLink, MapPin, ChevronLeft, Calendar, Hash, CreditCard, Package, Phone, MessageSquare } from 'lucide-react'
 import InvoiceLink from '@/components/order/InvoiceLink'
 import { showToast } from '@/components/ui/Toast'
 import { siteConfig } from '@/config/site'
 import { createClient } from '@/lib/supabase/client'
+import { OrderDetailSkeleton } from './OrderDetailSkeleton';
 
 interface OrderDetailPageProps {
   params: Promise<{ id: string }>
@@ -71,7 +71,8 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
     }
   }
 
-  if (loading) return <AdminLoader fullScreen={false} message="Loading order details..." />
+  // Show skeleton if loading and no order data yet (initial load)
+if (loading) return <OrderDetailSkeleton />;
 
   if (error || !order) {
     return (

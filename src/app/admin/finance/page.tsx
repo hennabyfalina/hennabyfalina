@@ -1,9 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import StatsCard from '@/components/admin/StatsCard'
-import AdminLoader from '@/components/admin/AdminLoader'
 import { formatCurrency, formatCompactIndianCurrency, formatDate } from '@/lib/utils'
 import { showToast } from '@/components/ui/Toast'
 import { Wallet, IndianRupee, TrendingDown, FileText, Download, Search, Filter, ReceiptText, Lock } from 'lucide-react'
@@ -14,6 +12,7 @@ import FinanceCharts from '@/components/admin/FinanceCharts'
 import FinanceLedgerTable from '@/components/admin/FinanceLedgerTable'
 
 import { FINANCE_TRANSACTION_TYPES, FINANCE_SORT_OPTIONS } from '@/lib/constants'
+import AdminFinanceLoading from './loading'
 
 interface LedgerEntry {
   id: string
@@ -44,52 +43,21 @@ export default function AdminFinance() {
   const startParam = searchParams?.get('start') || ''
   const endParam = searchParams?.get('end') || ''
 
-  const supabase = createClient()
-
   const loadFinancials = async () => {
     setIsLoading(true)
     try {
-      let startDate = new Date()
-      let endDate = new Date()
+      const params = new URLSearchParams()
+      if (range) params.append('range', range)
+      if (startParam) params.append('start', startParam)
+      if (endParam) params.append('end', endParam)
 
-      if (range === 'custom' && startParam && endParam) {
-        startDate = new Date(startParam)
-        endDate = new Date(endParam)
-        endDate.setHours(23, 59, 59, 999)
-      } else {
-        let daysToFetch = 30
-        if (range === '3m') daysToFetch = 90
-        else if (range === '6m') daysToFetch = 180
-        else if (range === '1y') daysToFetch = 365
-        
-        startDate.setDate(startDate.getDate() - (daysToFetch - 1))
-        startDate.setHours(0, 0, 0, 0)
-      }
-
-      const { data, error } = await supabase
-        .from('orders')
-        .select('id, order_number, created_at, total_amount, payment_status, razorpay_payment_id')
-        .in('payment_status', ['paid', 'refunded'])
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-
-      if (error) throw error
-
-      const formattedLedger: LedgerEntry[] = (data || []).map(order => {
-        const taxable_value = order.total_amount / (1 + GST_RATE)
-        const gst_amount = order.total_amount - taxable_value
-
-        return {
-          ...order,
-          type: order.payment_status === 'refunded' ? 'debit' : 'credit',
-          taxable_value,
-          gst_amount,
-        }
-      })
-
-      setLedger(formattedLedger)
+      const res = await fetch(`/api/admin/finance?${params.toString()}`)
+      if (!res.ok) throw new Error('Failed to load ledger')
+      
+      const { ledger: data } = await res.json()
+      setLedger(data)
     } catch (error) {
-      showToast('Failed to load general ledger', 'error')
+      showToast('Failed to load ledger', 'error')
     } finally {
       setIsLoading(false)
     }
@@ -170,13 +138,10 @@ export default function AdminFinance() {
   })
   const timelineData = Array.from(timelineMap.values())
 
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <AdminLoader message="Verifying permissions..." />
-      </div>
-    )
-  }
+// Show loader if auth state is still loading
+if (authLoading) {
+  return <AdminFinanceLoading />
+}
 
   if (!isSuperAdmin) {
     return (
@@ -195,13 +160,10 @@ export default function AdminFinance() {
     )
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <AdminLoader message="Reconciling financial ledger..." />
-      </div>
-    )
-  }
+// Show loader if we're still loading and have no ledger entries yet (initial load)
+if (isLoading) {
+  return <AdminFinanceLoading />;
+}
 
   return (
     <>

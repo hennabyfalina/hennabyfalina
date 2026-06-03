@@ -109,6 +109,21 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Missing target validation identifier' }, { status: 400 })
       }
 
+      // 🔒 ENTERPRISE DISTRIBUTED LOCK: Prevent Millisecond Webhook Concurrency Race Conditions
+      if (process.env.UPSTASH_REDIS_REST_URL) {
+        const redis = Redis.fromEnv()
+        const lockKey = `lock:webhook:payment:${razorpayPaymentId}`
+        
+        // SETNX atomic equivalent: Try to acquire an exclusive lock for 5 minutes
+        const acquiredLock = await redis.set(lockKey, 'processing', {
+          nx: true,
+          ex: 300
+        })
+        if (!acquiredLock) {
+          return NextResponse.json({ received: true, message: 'Concurrent request is already being processed.' })
+        }
+      }
+
       if (idempotencyKey) {
         const existingRecord = await getIdempotencyRecord(idempotencyKey)
         if (existingRecord) {

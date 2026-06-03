@@ -20,16 +20,17 @@ interface AdminSidebarProps {
 export default function AdminSidebar({ pathname, isSidebarOpen, setIsSidebarOpen, onLeaveAdmin, onSignOut }: AdminSidebarProps) {
   const { isSuperAdmin } = useAuth()
 
-  // ✅ Filter nav items based on role (hide Settings/Users from regular admins, but keep Appearance)
-  const filteredNavItems = ADMIN_NAV_ITEMS.filter(item => {
-    if (isSuperAdmin) return true
-    const lowerHref = item.href.toLowerCase()
-    if (lowerHref === '/admin/settings') {
-      return true
-    }
-    if (lowerHref.includes('users')) return false
-    return true
-  })
+  // ✅ Filter nav items based on role (hide finance from regular admins, but keep Appearance)
+const filteredNavItems = ADMIN_NAV_ITEMS.filter(item => {
+  if (isSuperAdmin) return true;
+  // For regular admins: hide Finance and anything else you don't want
+  const lowerHref = item.href.toLowerCase();
+  if (lowerHref === '/admin/finance') return false;   // 👈 hide finance
+  if (lowerHref === '/admin/settings') return true;   // keep settings
+  if (lowerHref.includes('users')) return false;      // hide users
+  return true;
+});
+
 
   return (
     <aside

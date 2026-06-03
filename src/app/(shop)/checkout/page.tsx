@@ -294,7 +294,7 @@ export default function CheckoutPageNew() {
   if (items.length === 0) return null
 
   // Action Handlers
-  const handleInitiateCheckout = () => {
+  const handleInitiateCheckout = async () => {
     if (!canPlaceOrder) {
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
@@ -302,6 +302,31 @@ export default function CheckoutPageNew() {
     if (hasCartChanged) {
       return
     }
+
+    // 🔒 LIGHTNING PRICE STALE CHECK: Validate values directly against database architecture
+    try {
+      setIsRefreshingPrices(true) // Turn on secure loader overlay
+
+      // Fetch live prices from our Edge CDN cached service layer
+      await refreshCartPrices()
+
+      // Recalculate values directly following the refresh synchronization loop
+      const updatedSubtotal = useCartStore.getState().items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+      const updatedShipping = shippingMethod === 'pickup' ? 0 : (updatedSubtotal > SHIPPING_THRESHOLD ? 0 : SHIPPING_COST)
+      const updatedTotal = updatedSubtotal + updatedShipping
+
+      // If the live total conflicts with the value displayed on the user's screen, halt execution
+      if (Math.abs(updatedTotal - finalTotal) > 0.01) {
+        showToast('Prices have been updated to reflect the latest catalog updates. Please review your total.', 'error')
+        setIsRefreshingPrices(false)
+        return
+      }
+    } catch (err) {
+      console.error('[Price Check Fault] Validation bypassed safely:', err)
+    } finally {
+      setIsRefreshingPrices(false)
+    }
+
     setShowConfirmModal(true)
   }
 

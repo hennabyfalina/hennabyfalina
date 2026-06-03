@@ -5,7 +5,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Package, ShoppingCart, User, X, ArrowRight, Loader2, Sparkles, CornerDownLeft } from 'lucide-react'
+import { Search, Package, ShoppingCart, User, X, ArrowRight, Loader2, Sparkles, CornerDownLeft, FileText } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 
 interface SearchResults {
   products: any[]
@@ -14,6 +15,7 @@ interface SearchResults {
 }
 
 export default function AdminCommandPalette() {
+  const { isSuperAdmin } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResults>({ products: [], orders: [], customers: [] })
@@ -100,10 +102,25 @@ export default function AdminCommandPalette() {
     router.push(path)
   }
 
+  const getQuickActions = () => {
+    const actions = [
+      { name: 'View Orders', icon: ShoppingCart, path: '/admin/orders' },
+      { name: 'Manage Products', icon: Package, path: '/admin/products' },
+      { name: 'Customer Directory', icon: User, path: '/admin/customers' },
+    ]
+
+    if (isSuperAdmin) {
+      actions.push({ name: 'Financial Ledger', icon: FileText, path: '/admin/finance' })
+    }
+
+    return actions
+  }
+
   if (!isOpen) return null
 
   const hasResults = results.products.length > 0 || results.orders.length > 0 || results.customers.length > 0
   const isTyping = query.length > 0
+  const quickActions = getQuickActions()
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-24 sm:pt-32 px-4">
@@ -136,13 +153,38 @@ export default function AdminCommandPalette() {
         <div className="overflow-y-auto no-scrollbar flex-1 admin-bg-card p-2">
           
           {!isTyping && (
-            <div className="p-8 text-center text-[#565959] flex flex-col items-center">
-              <Sparkles className="w-10 h-10 mb-3 opacity-20" />
-              <p className="text-sm">Type to search across your workspace.</p>
-              <div className="flex gap-2 mt-4 text-[10px] font-mono tracking-widest uppercase">
-                <span className="admin-bg-primary border admin-border px-3 py-1.5 rounded-full admin-text-muted flex items-center gap-1.5">Press Enter <CornerDownLeft className="w-3 h-3" /></span>
+            <>
+              <div className="p-8 text-center text-[#565959] flex flex-col items-center">
+                <Sparkles className="w-10 h-10 mb-3 opacity-20" />
+                <p className="text-sm">Type to search across your workspace.</p>
+                <div className="flex gap-2 mt-4 text-[10px] font-mono tracking-widest uppercase">
+                  <span className="admin-bg-primary border admin-border px-3 py-1.5 rounded-full admin-text-muted flex items-center gap-1.5">Press Enter <CornerDownLeft className="w-3 h-3" /></span>
+                </div>
               </div>
-            </div>
+
+              <div className="mt-2">
+                <p className="px-3 py-2 text-[10px] font-bold admin-text-muted uppercase tracking-widest">Quick Actions</p>
+                <div className="space-y-1">
+                  {quickActions.map((action) => (
+                    <button
+                      key={action.path}
+                      onClick={() => handleNavigate(action.path)}
+                      className="w-full flex items-center justify-between px-3 py-3 rounded-2xl hover:admin-bg-elevated group transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full admin-bg-primary border admin-border flex items-center justify-center">
+                          <action.icon className="w-4 h-4 admin-text-accent" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-medium admin-text-primary group-hover:admin-text-accent transition-colors">{action.name}</p>
+                        </div>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-[#565959] group-hover:admin-text-accent opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
 
           {isTyping && !hasResults && !isLoading && (

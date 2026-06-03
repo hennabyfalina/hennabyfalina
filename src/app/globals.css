@@ -599,6 +599,10 @@ html {
   --admin-warning: #F9AB00;
   --admin-danger: #F2B8B5;
   --admin-success: #93D7A4;
+    /* ... existing variables ... */
+  --admin-action-bg: #8AB4F8;      /* Light blue for dark mode */
+  --admin-action-text: #1A1A1A;     /* Black/dark text for contrast */
+  --admin-action-hover: #8AB4F8;    /* Lighter blue on hover */
   
   /* Status badge colors */
   --admin-status-pending-bg: #4A4431;
@@ -630,6 +634,10 @@ html {
   --admin-warning: #b45309;
   --admin-danger: #dc2626;
   --admin-success: #16a34a;
+    /* ... existing variables ... */
+  --admin-action-bg: #1A73E8;       /* Dark blue for light mode */
+  --admin-action-text: #FFFFFF;      /* White text */
+  --admin-action-hover: #1A73E8;    /* Darker blue on hover */
   
   /* Status badge colors - Light mode */
   --admin-status-pending-bg: #fef3c7;
@@ -644,6 +652,18 @@ html {
   --admin-status-delivered-text: #166534;
   --admin-status-cancelled-bg: #fee2e2;
   --admin-status-cancelled-text: #b91c1c;
+}
+
+@layer components {
+  .admin-action-button {
+    background-color: var(--admin-action-bg);
+    color: var(--admin-action-text);
+    transition: background-color 0.2s ease;
+  }
+  
+  .admin-action-button:hover {
+    background-color: var(--admin-action-hover);
+  }
 }
 
 /* Semantic Tailwind-like classes for admin components */

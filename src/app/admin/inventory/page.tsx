@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import StatsCard from '@/components/admin/StatsCard'
-import AdminLoader from '@/components/admin/AdminLoader'
 import StockUpdateModal from '@/components/admin/StockUpdateModal' 
 import { showToast } from '@/components/ui/Toast'
 import { getPublicUrl } from '@/lib/supabase/storage'
@@ -13,6 +12,7 @@ import { Boxes, AlertTriangle, XCircle, TrendingUp, Search, Filter, Edit, Image 
 
 import { INVENTORY_STATUS_FILTERS, INVENTORY_SORT_OPTIONS } from '@/lib/constants'
 import { restoreProduct } from '@/services/product.service'
+import AdminInventoryLoading from './loading'
 
 interface InventoryItem {
   id: string
@@ -123,13 +123,10 @@ export default function AdminInventory() {
   const lowStockCount = activeItems.filter(i => i.stock > 0 && i.stock <= LOW_STOCK_THRESHOLD).length
   const outOfStockCount = activeItems.filter(i => i.stock === 0).length
 
-  if (isLoading && inventory.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <AdminLoader message="Auditing inventory records..." />
-      </div>
-    )
-  }
+// Show skeleton if loading and no inventory yet (initial load)
+if (isLoading && inventory.length === 0) {
+  return <AdminInventoryLoading />;
+}
 
   return (
     <>

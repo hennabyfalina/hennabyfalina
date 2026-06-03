@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { getAllInventoryLogs } from '@/services/inventory.service'
 import { formatDate } from '@/lib/utils'
-import AdminLoader from '@/components/admin/AdminLoader'
 import { History, ChevronLeft, TrendingUp, TrendingDown, Minus, User, Calendar } from 'lucide-react'
+import InventoryLogsLoading from './loading'
 
 export default function InventoryLogsPage() {
   const [logs, setLogs] = useState<any[]>([])
@@ -27,13 +27,10 @@ export default function InventoryLogsPage() {
     loadLogs()
   }, [])
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <AdminLoader message="Fetching inventory audit trail..." />
-      </div>
-    )
-  }
+// Show loader if we're still loading and have no logs yet (initial load)
+if (isLoading) {
+  return <InventoryLogsLoading />;
+}
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500">

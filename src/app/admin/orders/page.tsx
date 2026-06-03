@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react'
 import OrderModal from '@/components/admin/OrderModal'
 import OrderStatusBadge from '@/components/admin/OrderStatusBadge'
-import AdminLoader from '@/components/admin/AdminLoader'
 import { formatCurrency } from '@/lib/utils'
 import { ShoppingBag, Clock, RefreshCw, CheckCircle2, XOctagon, Search, Filter } from 'lucide-react'
 import { ORDER_STATUS_FILTERS, PAYMENT_METHOD_FILTERS } from '@/lib/constants'
+import { OrdersSkeleton } from './OrdersSkeleton';
 
 interface Order {
   payment_method: string | undefined
@@ -98,13 +98,10 @@ export default function AdminOrders() {
     }
   }
 
-  if (isLoading && orders.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <AdminLoader message="Fetching order database..." />
-      </div>
-    )
-  }
+  // Show skeleton if loading and no orders yet (initial load)
+if (isLoading) {
+  return <OrdersSkeleton />;
+}
 
   return (
     <>

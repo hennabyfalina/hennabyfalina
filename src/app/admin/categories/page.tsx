@@ -16,12 +16,12 @@ import Modal from '@/components/ui/Modal'
 import CategoryForm from '@/components/admin/CategoryForm'
 import StatsCard from '@/components/admin/StatsCard'
 import AdminConfirmModal from '@/components/admin/layout/AdminConfirmModal'
-import AdminLoader from '@/components/admin/AdminLoader'
 import { showToast } from '@/components/ui/Toast'
 import { Layers, CheckCircle, Package, GripVertical, Search, Filter, Edit, Trash2, Image as ImageIcon } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 
 import { CATEGORY_SORT_OPTIONS } from '@/lib/constants'
+import AdminCategoriesLoading from './loading'
 
 const formatIST = (dateString?: string) => {
   if (!dateString) return '-'
@@ -134,13 +134,9 @@ export default function AdminCategories() {
   const activeCategories = categories.filter(c => c.is_active).length
   const totalProducts = categories.reduce((sum, cat) => sum + (cat.product_count || 0), 0)
 
-  if (isLoading && categories.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <AdminLoader message="Fetching category hierarchy..." />
-      </div>
-    )
-  }
+if (isLoading && categories.length === 0) {
+  return <AdminCategoriesLoading />;
+}
 
   return (
     <>
@@ -156,7 +152,7 @@ export default function AdminCategories() {
               setEditingCategory(null)
               setIsModalOpen(true)
             }}
-            className="w-full sm:w-auto px-6 py-3 text-sm font-bold bg-[#0B57D0] text-white rounded-full hover:bg-[#0842A0] transition-colors shadow-lg shadow-blue-900/20 active:scale-[0.98] cursor-pointer whitespace-nowrap"
+            className="w-full sm:w-auto px-6 py-3 text-sm font-bold rounded-full cursor-pointer admin-action-button"
           >
             + Add New Category
           </button>

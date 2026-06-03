@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import StatsCard from '@/components/admin/StatsCard'
-import AdminLoader from '@/components/admin/AdminLoader'
 import CustomerModal from '@/components/admin/CustomerModal'
 import { Users, UserPlus, UserCheck, Search, Filter, Edit } from 'lucide-react'
 import { formatCurrency, formatCompactIndianCurrency } from '@/lib/utils'
 import { showToast } from '@/components/ui/Toast'
 import { CUSTOMER_SORT_OPTIONS } from '@/lib/constants'
+import AdminCustomersLoading from './loading'
 
 interface Customer {
   id: string
@@ -89,13 +89,10 @@ export default function AdminCustomers() {
   const newCustomers = customers.filter(c => new Date(c.created_at) >= thirtyDaysAgo).length
   const activeCustomers = customers.filter(c => c.total_orders > 0).length
 
-  if (isLoading && customers.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <AdminLoader message="Fetching user database..." />
-      </div>
-    )
-  }
+// Show loader if we're still loading and have no customers yet (initial load)
+if (isLoading && customers.length === 0) {
+  return <AdminCustomersLoading />;
+}
 
   return (
     <>
@@ -108,7 +105,7 @@ export default function AdminCustomers() {
           </div>
           <button
             onClick={() => { setSelectedCustomer(undefined); setIsModalOpen(true); }}
-            className="w-full sm:w-auto px-6 py-3 text-sm font-bold bg-[#0B57D0] text-white rounded-full hover:bg-[#0842A0] transition-colors shadow-lg shadow-blue-900/20 active:scale-[0.98] cursor-pointer"
+            className="w-full sm:w-auto px-6 py-3 text-sm font-bold rounded-full cursor-pointer admin-action-button"
           >
             + Add Customer
           </button>

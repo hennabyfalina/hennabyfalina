@@ -20,15 +20,6 @@ interface CheckoutPayload {
   formData: any
 }
 
-// 🆕 Helper to check if Razorpay script is loaded
-const ensureRazorpayScript = async (): Promise<boolean> => {
-  // Script is already preloaded by Next.js <Script strategy="lazyOnload">
-  if (typeof window !== 'undefined' && (window as any).Razorpay) return true;
-  // Quick fallback just in case
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return !!(window as any).Razorpay;
-};
-
 export function useRazorpayCheckout() {
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
@@ -37,17 +28,6 @@ export function useRazorpayCheckout() {
   // Prevent double-click and track idempotency
   const isProcessingRef = useRef(false)
   const currentIdempotencyKeyRef = useRef<string | null>(null)
-
-  // 🆕 Ensure Razorpay script is loaded when component mounts
-  useEffect(() => {
-    ensureRazorpayScript().then((loaded) => {
-      if (!loaded) {
-        console.warn('[Razorpay] Failed to load Razorpay script')
-      } else {
-        console.log('[Razorpay] Script loaded successfully')
-      }
-    })
-  }, [])
 
   const processPayment = useCallback(async (payload: CheckoutPayload) => {
     const { user, items, finalTotal, shippingMethod, shippingCost, selectedAddressId, formData, checkoutSessionId } = payload
@@ -184,10 +164,29 @@ export function useRazorpayCheckout() {
         throw new Error('Invalid payment configuration received from server.')
       }
 
-      // 🆕 Ensure Razorpay script is loaded before opening modal
-      const razorpayLoaded = await ensureRazorpayScript()
-      if (!razorpayLoaded) {
-        throw new Error('Payment gateway failed to load. Please refresh and try again.')
+      // 🔒 GATEWAY CIRCUIT BREAKER: Enforce strict execution timeouts
+      const GATEWAY_TIMEOUT_MS = 8000;
+      const waitForGatewayScript = new Promise((resolve, reject) => {
+        if ((window as any).Razorpay) {
+          resolve(true);
+          return;
+        }
+        const interval = setInterval(() => {
+          if ((window as any).Razorpay) {
+            clearInterval(interval);
+            resolve(true);
+          }
+        }, 250);
+        setTimeout(() => {
+          clearInterval(interval);
+          reject(new Error('Gateway connectivity timeout exceeded.'));
+        }, GATEWAY_TIMEOUT_MS);
+      });
+
+      try {
+        await waitForGatewayScript;
+      } catch (scriptError: any) {
+        throw new Error('Payment network is currently congested. Please try again or choose an alternative option.');
       }
 
       // 3. Open Razorpay Checkout Modal

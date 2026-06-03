@@ -45,7 +45,7 @@ export default function AdminSettingsPage() {
           </div>
           <button
             onClick={handleToggle}
-            className="px-4 sm:px-6 py-3 bg-[#0B57D0] text-white rounded-full text-xs sm:text-sm font-bold hover:bg-[#0842A0] transition-all cursor-pointer shadow-lg shadow-blue-900/20 active:scale-95 whitespace-nowrap shrink-0"
+            className="w-full sm:w-auto px-6 py-3 text-sm font-bold rounded-full cursor-pointer admin-action-button"
           >
             Switch to {theme === 'dark' ? 'Light' : 'Dark'}
           </button>

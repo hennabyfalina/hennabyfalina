@@ -10,7 +10,6 @@ import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import ProductForm from '@/components/admin/ProductForm'
 import AdminConfirmModal from '@/components/admin/layout/AdminConfirmModal'
-import AdminLoader from '@/components/admin/AdminLoader'
 import { Product as BaseProduct } from '@/types/database.types'
 import { getPublicUrl } from '@/lib/supabase/storage'
 import { formatCurrency } from '@/lib/utils'
@@ -20,6 +19,8 @@ import { Package, CheckCircle, Search, Filter, Trash2, Edit } from 'lucide-react
 import { PRODUCT_STATUS_FILTERS, PRODUCT_SORT_OPTIONS } from '@/lib/constants'
 import { useAuth } from '@/hooks/useAuth'
 import { createProduct, updateProduct, deleteProduct } from '@/services/product.service'
+import AdminProductsLoading from './loading'
+
 
 const formatIST = (dateString?: string) => {
   if (!dateString) return '-'
@@ -171,13 +172,9 @@ export default function AdminProducts() {
     }
   }
 
-  if (isLoading && products.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <AdminLoader message="Fetching product database..." />
-      </div>
-    )
-  }
+if (isLoading && products.length === 0) {
+  return <AdminProductsLoading />;
+}
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -214,7 +211,7 @@ export default function AdminProducts() {
           </div>
           <button
             onClick={handleAddNew}
-            className="w-full sm:w-auto px-6 py-3 text-sm font-bold bg-[#0B57D0] text-white rounded-full hover:bg-[#0842A0] transition-colors shadow-lg shadow-blue-900/20 active:scale-[0.98] cursor-pointer whitespace-nowrap"
+            className="w-full sm:w-auto px-6 py-3 text-sm font-bold rounded-full cursor-pointer admin-action-button"
           >
             + Add New Product
           </button>

@@ -2,10 +2,25 @@
 
 'use client'
 
-import { FileText } from 'lucide-react'
+import { FileText, Lock } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function FinanceLedgerTable({ sortedLedger }: { sortedLedger: any[] }) {
+  const { isSuperAdmin } = useAuth()
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="admin-bg-card rounded-[32px] border admin-border overflow-hidden">
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <Lock className="w-12 h-12 text-[#F9AB00] mb-4" />
+          <p className="admin-text-primary font-medium">Transaction Ledger Restricted</p>
+          <p className="admin-text-muted text-sm mt-1">Super Admin access required to view financial records</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="admin-bg-card rounded-[32px] border admin-border overflow-hidden">
       <div className="overflow-x-auto no-scrollbar">

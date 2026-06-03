@@ -4,8 +4,9 @@
 
 import { useState, useEffect } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
-import { FileLineChart, Wallet } from 'lucide-react'
+import { FileLineChart, Wallet, Lock } from 'lucide-react'
 import { formatCurrency, formatCompactIndianCurrency } from '@/lib/utils'
+import { useAuth } from '@/hooks/useAuth'
 
 const formatCompactNumber = (value: number) => {
   if (value >= 1000000) return `₹${(value / 1000000).toFixed(1)}M`
@@ -42,8 +43,26 @@ const EmptyState = ({ icon: Icon, title, message }: any) => (
 )
 
 export default function FinanceCharts({ timelineData, cashflowData }: { timelineData: any[], cashflowData: any[] }) {
+  const { isSuperAdmin } = useAuth()
   const [isMounted, setIsMounted] = useState(false)
   useEffect(() => { setIsMounted(true) }, [])
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 w-full">
+        <div className="xl:col-span-2 admin-bg-card border admin-border rounded-[32px] p-12 shadow-sm flex flex-col items-center justify-center min-h-[300px]">
+          <Lock className="w-12 h-12 text-[#F9AB00] mb-4" />
+          <p className="admin-text-primary font-medium text-center">Financial Charts Restricted</p>
+          <p className="admin-text-muted text-sm text-center mt-1">Super Admin access required</p>
+        </div>
+        <div className="admin-bg-card border admin-border rounded-[32px] p-12 shadow-sm flex flex-col items-center justify-center min-h-[300px]">
+          <Lock className="w-12 h-12 text-[#F9AB00] mb-4" />
+          <p className="admin-text-primary font-medium text-center">Cashflow Distribution Restricted</p>
+          <p className="admin-text-muted text-sm text-center mt-1">Super Admin access required</p>
+        </div>
+      </div>
+    )
+  }
 
   const hasTimeline = timelineData?.length > 0 && timelineData.some(d => d.income > 0 || d.gst > 0 || d.refunds > 0)
   const hasCashflow = cashflowData?.length > 0 && cashflowData.some(d => d.value > 0)
