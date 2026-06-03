@@ -31,7 +31,11 @@ export default function InstallPrompt() {
     }
 
     // 3. iOS Detection (Apple devices do not support the native install prompt event)
-    const isDeviceIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
+    // Includes iPadOS workaround (Modern iPads report as MacIntel but have touch points)
+    const isDeviceIOS = 
+      (/iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+
     if (isDeviceIOS) {
       setIsIOS(true)
       setShowPrompt(true)
@@ -96,9 +100,16 @@ export default function InstallPrompt() {
         <div className="flex-1 pr-4">
           <h3 className="text-sm font-bold text-gray-900">Install {siteConfig.shortName || 'Our App'}</h3>
           {isIOS ? (
-            <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-              To install, tap the Share icon <Share2 className="inline w-3 h-3 mx-0.5 text-gray-800" /> below and select <span className="font-bold">"Add to Home Screen"</span>.
-            </p>
+            <>
+              <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                To install, tap the Share icon <Share2 className="inline w-4 h-4 mx-0.5 text-[#007185]" /> on your Safari menu and select <span className="font-bold">&quot;Add to Home Screen&quot;</span>.
+              </p>
+              <div className="flex mt-3">
+                <button onClick={handleDismiss} className="w-full bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-900 px-3 py-2 rounded-xl text-sm font-bold transition-colors shadow-sm">
+                  Got It
+                </button>
+              </div>
+            </>
           ) : (
             <>
               <p className="text-xs text-gray-600 mt-1">Faster access and better experience.</p>

@@ -41,17 +41,19 @@ export default function PWAUpdater() {
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!refreshing) {
           refreshing = true
-          window.location.reload()
+          // 🚨 Show the banner and delay the hard reload so users can read it
+          setIsUpdating(true)
+          setTimeout(() => {
+            window.location.reload()
+          }, 2500)
         }
       })
     }
 
     function triggerUpdate(worker: ServiceWorker) {
-      setIsUpdating(true)
-      // Wait exactly 2.5 seconds so the user reads the "App Updated" banner before reloading
-      setTimeout(() => {
-        worker.postMessage({ type: 'SKIP_WAITING' })
-      }, 2500)
+      // If the worker is waiting manually, force it to activate. 
+      // The 'controllerchange' listener above will catch it, show the UI, and reload smoothly.
+      worker.postMessage({ type: 'SKIP_WAITING' })
     }
   }, [])
 
