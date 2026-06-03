@@ -354,6 +354,7 @@ razack-packaging-centre/
 │   │   └── wishlist.store.ts
 │   ├── types/
 │   │   └── database.types.ts
+│   ├── instrumentation-client.ts
 │   └── proxy.ts
 ├── .env.local
 ├── .gitignore

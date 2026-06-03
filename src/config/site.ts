@@ -1,7 +1,7 @@
 export const siteConfig = {
   name: "Razack Packaging Centre",
   shortName: "Razack Packaging Centre",
-  description: "We are a packaging materials supplier based in India serving retail & wholesale customers since 1990. Your trusted partner for premium packaging solutions.",
+  description: "We are a packaging materials supplier based in India serving retail & wholesale customers since 1995. Your trusted partner for premium packaging solutions.",
   contact: {
     phone: {
       primary: "+91 63831 51922",

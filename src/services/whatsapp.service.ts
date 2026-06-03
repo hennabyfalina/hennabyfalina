@@ -26,10 +26,13 @@ function summarizeForCustomer(orderItems: any[]): string {
 function summarizeForAdmin(orderItems: any[]): string {
   if (!orderItems || orderItems.length === 0) return '0 items';
   const totalQty = orderItems.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
-  const hasCustom = orderItems.some(i => i.printing_type && i.printing_type !== 'None' && i.printing_type !== 'Retail (Readymade)');
   
-  if (hasCustom) {
-    return `${totalQty} item${totalQty > 1 ? 's' : ''} [Includes Custom Artwork & Notes]`;
+  const hasFiles = orderItems.some(i => i.artwork_urls && i.artwork_urls.length > 0);
+  const hasNotes = orderItems.some(i => i.printing_instructions && i.printing_instructions.trim().length > 0);
+  
+  if (hasFiles || hasNotes) {
+    const detail = hasFiles && hasNotes ? 'Artwork & Notes' : hasFiles ? 'Artwork' : 'Notes';
+    return `${totalQty} item${totalQty > 1 ? 's' : ''} [Includes ${detail}]`;
   }
   return `${totalQty} item${totalQty > 1 ? 's' : ''} [Standard Retail]`;
 }

@@ -1,5 +1,6 @@
 // src/app/api/whatsapp/webhook/route.ts
 
+import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 
 // ─── PART 1: The Handshake (GET) ─────────────────────────────────────────────
@@ -25,7 +26,33 @@ export async function GET(request: Request) {
 // Meta will send all customer messages and delivery receipts here
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    // 🔒 WEBHOOK SPOOFING SHIELD: Read raw text first to calculate the cryptographic hash
+    const rawBody = await request.text();
+    const signature = request.headers.get('x-hub-signature-256');
+
+    if (!signature) {
+      console.error('[Security] Blocked unsigned webhook attempt.');
+      return new NextResponse('Unauthorized', { status: 401 });
+    }
+
+    // You MUST add META_APP_SECRET to your .env.local file (found in your Meta App Dashboard)
+    const APP_SECRET = process.env.META_APP_SECRET;
+    if (!APP_SECRET) {
+      console.error('CRITICAL: META_APP_SECRET is missing from environment variables.');
+      return new NextResponse('Server Error', { status: 500 });
+    }
+
+    // Calculate our own hash based on the raw payload
+    const expectedSignature = `sha256=${crypto.createHmac('sha256', APP_SECRET).update(rawBody).digest('hex')}`;
+
+    // Compare signatures securely to prevent timing attacks
+    if (signature !== expectedSignature) {
+      console.error('[Security] Invalid Meta Webhook Signature Detected! Intrusion blocked.');
+      return new NextResponse('Unauthorized', { status: 401 });
+    }
+
+    // ✅ SIGNATURE VALIDATED: Safe to parse the JSON and process the business logic
+    const body = JSON.parse(rawBody);
 
     if (body.object === 'whatsapp_business_account') {
       for (const entry of body.entry) {

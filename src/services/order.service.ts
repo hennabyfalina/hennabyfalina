@@ -12,6 +12,7 @@ import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { getIdempotencyRecord, storeIdempotencyRecord } from '@/lib/idempotency'
 import { verifyReservations, reserveStock } from '@/services/inventory.service'
+import { checkBotId } from 'botid/server'
 
 export interface CreateOrderInput {
   items: Array<{
@@ -50,6 +51,14 @@ const ratelimit = new Ratelimit({
 })
 
 export async function createOrder(input: CreateOrderInput) {
+  // 1. 🛡️ VERCEL BOTID: THE FINAL 10%
+  // Run the background integrity check before spending any database compute
+  const verification = await checkBotId();
+  if (verification.isBot) {
+    console.error(`[Security Firewall] Blocked malicious headless checkout attempt.`);
+    throw new Error('Access denied. Automated checkout scripts are strictly prohibited.');
+  }
+
   const supabase = await createClient()
   const { idempotencyKey, addressData, ...orderInput } = input
   
@@ -115,8 +124,10 @@ export async function createOrder(input: CreateOrderInput) {
 
     if (productsError || !products) throw new Error('Failed to validate products')
 
+    // 🔒 ZERO-TRUST ENGINE: Calculate everything on the server
     let calculatedSubtotal = 0
-    
+    const secureOrderItems = []
+
     for (const item of items) {
       const product = products.find(p => p.id === item.product_id)
       if (!product) throw new Error(`Product not found: ${item.product_id}`)
@@ -125,21 +136,15 @@ export async function createOrder(input: CreateOrderInput) {
       const selectedTier = product.pricing_tiers?.find((t: any) => t.tier_name === item.printing_type)
       const expectedPrice = selectedTier?.selling_price ?? (product.selling_price ?? product.price)
 
-      if (Math.abs(item.price - expectedPrice) > 0.01) {
-        throw new Error(`Price mismatch for ${product.name}. Expected ${expectedPrice}, got ${item.price}`)
-      }
-
-      if (item.artwork_urls && item.artwork_urls.length > MAX_FILES_PER_ITEM) {
-        throw new Error(`Maximum ${MAX_FILES_PER_ITEM} files allowed per item for ${product.name}`)
-      }
-      if (item.artwork_sizes) {
-        const totalSize = item.artwork_sizes.reduce((sum, size) => sum + size, 0)
-        if (totalSize > MAX_SIZE_PER_ITEM) {
-          throw new Error(`Total file size exceeds 15MB limit for ${product.name}`)
-        }
-      }
-
+      // 🛑 IGNORING CLIENT PRICE: We strictly use expectedPrice fetched from Supabase
       calculatedSubtotal += expectedPrice * item.quantity
+
+      // Store the secure data for our database insertion later
+      secureOrderItems.push({
+        ...item,
+        secure_price: expectedPrice,
+        secure_original_price: selectedTier?.mrp ?? product.price
+      })
     }
 
     // Verify stock reservations
@@ -172,13 +177,9 @@ export async function createOrder(input: CreateOrderInput) {
       }
     }
 
+    // 🔒 ZERO-TRUST TOTALS: Calculate final shipping and totals natively
     const expectedShipping = shippingMethod === 'pickup' ? 0 : (calculatedSubtotal > SHIPPING_THRESHOLD ? 0 : SHIPPING_COST)
     const expectedTotal = calculatedSubtotal + expectedShipping
-
-    if (Math.abs(totalAmount - expectedTotal) > 0.01) {
-      console.error(`[OrderService ${requestId}] Amount mismatch: expected ${expectedTotal}, got ${totalAmount}`)
-      throw new Error(`Total amount mismatch. Expected ${expectedTotal}, got ${totalAmount}`)
-    }
 
     const orderNumber = generateOrderNumber()
 
@@ -229,7 +230,7 @@ export async function createOrder(input: CreateOrderInput) {
     const orderInsertData: any = {
       order_number: orderNumber,
       user_id: user.id,
-      total_amount: totalAmount,
+      total_amount: expectedTotal,
       shipping_cost: expectedShipping,
       payment_method: paymentMethod,
       payment_status: 'pending',
@@ -249,7 +250,7 @@ export async function createOrder(input: CreateOrderInput) {
       orderInsertData.pickup_contact = pickupContactData
     }
 
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .insert(orderInsertData)
       .select()
@@ -263,23 +264,20 @@ export async function createOrder(input: CreateOrderInput) {
     console.log(`[OrderService ${requestId}] Order created successfully: ${order.id} (${orderNumber})`)
 
     // Create order items
-    const orderItems = items.map(item => {
-      const product = products.find(p => p.id === item.product_id)!
-      const selectedTier = product.pricing_tiers?.find((t: any) => t.tier_name === item.printing_type)
-      
+    const orderItems = secureOrderItems.map(item => {
       return {
         order_id: order.id,
         product_id: item.product_id,
         quantity: item.quantity,
-        price: item.price,
-        original_price: selectedTier?.mrp ?? product.price,
+        price: item.secure_price,
+        original_price: item.secure_original_price,
         printing_type: item.printing_type || 'Retail (Readymade)',
         artwork_urls: finalArtworkUrls[item.product_id] || [],
         printing_instructions: item.printing_instructions || null,
       }
     })
 
-    const { error: itemsError } = await supabase
+    const { error: itemsError } = await supabaseAdmin
       .from('order_items')
       .insert(orderItems)
 

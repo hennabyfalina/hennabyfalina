@@ -29,7 +29,7 @@ export default function LoginPage() {
   const [lastUsedMethod, setLastUsedMethod] = useState<'google' | 'email' | null>(null)
   
   // Turnstile State
-  const [turnstileKey, setTurnstileKey] = useState(Date.now())
+  const [turnstileKey, setTurnstileKey] = useState(0)
   const [captchaToken, setCaptchaToken] = useState<string>('')
   
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
@@ -37,6 +37,7 @@ export default function LoginPage() {
 
   // ─── Fetch Last Used Method on Mount ──────────────────────────────────────
   useEffect(() => {
+    setTurnstileKey(Date.now())
     const storedMethod = localStorage.getItem('last_login_method') as 'google' | 'email' | null
     if (storedMethod) setLastUsedMethod(storedMethod)
   }, [])
@@ -140,7 +141,14 @@ export default function LoginPage() {
     sessionStorage.setItem('oauth_start_time', Date.now().toString())
     
     const params = new URLSearchParams(window.location.search)
-    const redirectPath = params.get('next') || params.get('redirect') || '/products'
+    let redirectPath = params.get('next') || params.get('redirect') || '/products'
+
+    // 🔒 OPEN REDIRECT SHIELD: Ensure the path is strictly an internal relative route
+    // It MUST start with a single '/' and MUST NOT start with '//' (protocol-relative URLs)
+    if (!redirectPath.startsWith('/') || redirectPath.startsWith('//')) {
+      console.warn(`[Security] Blocked malicious redirect attempt to: ${redirectPath}`)
+      redirectPath = '/products'
+    }
 
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithOAuth({
@@ -327,7 +335,15 @@ export default function LoginPage() {
 
     setLoading(false)
     const params = new URLSearchParams(window.location.search)
-    const redirectPath = params.get('next') || params.get('redirect') || '/products'
+    let redirectPath = params.get('next') || params.get('redirect') || '/products'
+
+    // 🔒 OPEN REDIRECT SHIELD: Ensure the path is strictly an internal relative route
+    // It MUST start with a single '/' and MUST NOT start with '//' (protocol-relative URLs)
+    if (!redirectPath.startsWith('/') || redirectPath.startsWith('//')) {
+      console.warn(`[Security] Blocked malicious redirect attempt to: ${redirectPath}`)
+      redirectPath = '/products'
+    }
+
     router.push(redirectPath)
   }
 
@@ -347,7 +363,7 @@ export default function LoginPage() {
   }
 
   const handleOtpChange = (index: number, value: string) => {
-    let digits = value.replace(/\D/g, '')
+    const digits = value.replace(/\D/g, '')
     if (digits.length === 6) {
       setOtpCode(digits)
       inputRefs.current[5]?.focus()
@@ -589,7 +605,7 @@ export default function LoginPage() {
 
             <div className="mt-3 text-center">
               <p className="text-xs text-gray-600 mb-2">
-                Didn't receive the code?{' '}
+                Didn&apos;t receive the code?{' '}
                 {resendTimer > 0 && (
                   <span className="text-gray-400 font-medium">Resend in {resendTimer}s</span>
                 )}

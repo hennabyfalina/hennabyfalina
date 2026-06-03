@@ -96,20 +96,27 @@ export function useRazorpayCheckout() {
         items: items.map(item => ({
           product_id: item.product_id,
           quantity: item.quantity,
-          price: item.price,
           printing_type: item.printing_type,
           artwork_urls: item.artwork_urls,
           artwork_sizes: item.artwork_sizes,
           printing_instructions: item.printing_instructions,
+          price: 0,
           is_temp: true 
         })),
-        totalAmount: finalTotal,
+        totalAmount: 0,
+        shippingCost: 0,
         paymentMethod: 'razorpay',
         shippingMethod,
-        shippingCost,
         sessionId: checkoutSessionId,
         idempotencyKey: `${baseIdempotencyKey}_order`,
         addressData,
+      }
+
+      // our custom verification tracking fields safely if your type signature supports metadata properties:
+      const completePayload = {
+        ...orderData,
+        expected_total_for_logging: finalTotal,
+        client_shipping_cost: shippingCost
       }
 
       const order = await createOrder(orderData)

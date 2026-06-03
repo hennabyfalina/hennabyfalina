@@ -428,7 +428,7 @@ export default function CartPage() {
 
               <div className="flex items-start gap-2 mb-4 text-sm text-green-700">
                 <ShieldCheck className="w-5 h-5 flex-shrink-0" />
-                <span><span className="font-bold text-gray-900">B2B Guarantee:</span> Your order includes 100% compliant 18% GST Invoicing for Input Tax Credit.</span>
+                <span><span className="font-bold text-gray-900">B2B Guarantee:</span> Your order includes 100% compliant and 18% GST Invoicing for Input Tax Credit.</span>
               </div>
 
               <div className="mb-6 border-b border-gray-200 pb-4">

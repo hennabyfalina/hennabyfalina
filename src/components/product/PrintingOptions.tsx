@@ -208,7 +208,7 @@ export default function PrintingOptions({ b2bState, onChange, pricingTiers }: Pr
   return (
     <>
       <div className="flex flex-col gap-4 my-6 bg-white p-4 border border-gray-200 rounded-xl shadow-sm">
-        <h3 className="text-base font-bold text-gray-900 border-b pb-2">Select Pricing & Customization</h3>
+        <h3 className="text-base font-bold text-gray-900 border-b pb-2">Select Customization</h3>
 
         <div className={`grid gap-3 ${
           pricingTiers.length === 1 

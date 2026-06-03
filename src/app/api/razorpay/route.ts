@@ -12,6 +12,7 @@ import {
   getIdempotencyRecord, 
   storeIdempotencyRecord 
 } from '@/lib/idempotency'
+import { checkBotId } from 'botid/server' // 🛡️ Import the server verifier
 
 const ratelimit = process.env.UPSTASH_REDIS_REST_URL
   ? new Ratelimit({
@@ -37,6 +38,13 @@ export async function POST(request: NextRequest) {
   const requestId = crypto.randomUUID()
   console.log(`[Razorpay API ${requestId}] Received payment initialization request`)
   
+  // 1. 🛡️ VERCEL BOTID: THE FINAL 10%
+  const verification = await checkBotId();
+  if (verification.isBot) {
+    console.error(`[Security Firewall] Blocked malicious headless payment attempt.`);
+    return NextResponse.json({ error: 'Access denied. Automated scripts are prohibited.' }, { status: 403 });
+  }
+
   try {
     // Extract idempotency key from headers
     const idempotencyKeyFromHeader = request.headers.get('Idempotency-Key')
