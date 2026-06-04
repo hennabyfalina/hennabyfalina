@@ -35,7 +35,7 @@ function summarizeForAdmin(orderItems: any[]): string {
     const detail = hasFiles && hasNotes ? 'Artwork & Notes' : hasFiles ? 'Artwork' : 'Notes';
     return `${totalQty} item${totalQty > 1 ? 's' : ''} [Includes ${detail}]`;
   }
-  return `${totalQty} item${totalQty > 1 ? 's' : ''} [Standard Retail]`;
+  return `${totalQty} item${totalQty > 1 ? 's' : ''} [Retail]`;
 }
 
 // 🚨 CORE TEMPLATE SENDER ENGINE

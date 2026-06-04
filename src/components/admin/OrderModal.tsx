@@ -326,45 +326,47 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                     </div>
                   </div>
 
-                  {item.printing_type && item.printing_type !== 'None' && (
-                    <div className={`pt-3 mt-1 ${((item.artwork_urls && item.artwork_urls.length > 0) || item.printing_instructions) ? 'border-t-0 bg-[#0B57D0]/10 p-3 sm:p-4 rounded-xl border border-[#0B57D0]/30' : 'border-t admin-border/50'}`}>
-                      <div className="flex flex-col sm:flex-row sm:items-start gap-3 justify-between">
-                        <div>
-                          <div className="flex items-center gap-1.5 text-[11px] font-bold admin-text-accent uppercase tracking-wider mb-1">
-                            <span className="admin-text-muted">Customization Type:</span> {item.printing_type}
+                  {item.artwork_urls && item.artwork_urls.length > 0 && (
+                    <div className="pt-3 mt-1 bg-[#0B57D0]/10 p-3 sm:p-4 rounded-xl border border-[#0B57D0]/30">
+                      <div className="flex items-center gap-2 text-[11px] font-bold admin-text-accent uppercase tracking-wider mb-3">
+                        <ExternalLink className="w-3.5 h-3.5" /> Attached File{item.artwork_urls.length > 1 ? 's' : ''}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {item.artwork_urls.map((url: string, idx: number) => (
+                          <div key={idx} className="flex flex-row items-center admin-bg-elevated border admin-border rounded-full overflow-hidden shrink-0 w-full sm:w-auto transition-colors focus-within:border-[#A8C7FA]">
+                            <button 
+                              onClick={() => handleSecureDownload(url, 'view')}
+                              disabled={downloadingArtwork === url}
+                              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 hover:admin-bg-hover text-xs font-medium admin-text-primary transition-colors cursor-pointer disabled:opacity-50 flex-1 border-r admin-border"
+                            >
+                              {downloadingArtwork === url ? (
+                                <><div className="w-3 h-3 border-2 border-[#A8C7FA] border-t-transparent rounded-full animate-spin" /> Fetching...</>
+                              ) : (
+                                <><ExternalLink className="w-3 h-3 admin-text-accent" /> View {idx + 1}</>
+                              )}
+                            </button>
+                            <button 
+                              onClick={() => handleSecureDownload(url, 'download')}
+                              disabled={downloadingArtwork === url}
+                              className="inline-flex items-center justify-center px-3 py-2 sm:py-1.5 hover:admin-bg-hover text-xs font-medium text-[#93D7A4] transition-colors cursor-pointer disabled:opacity-50"
+                              title={`Download File ${idx + 1}`}
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
                           </div>
-                          {item.printing_instructions && (
-                            <div className="text-xs admin-text-secondary">
-                              <span className="admin-text-muted">Note:</span> {item.printing_instructions}
-                            </div>
-                          )}
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {item.printing_type && item.printing_type !== 'None' && (
+                    <div className={`pt-3 mt-1 ${item.printing_instructions ? 'border-t-0 bg-[#0B57D0]/10 p-3 sm:p-4 rounded-xl border border-[#0B57D0]/30' : 'border-t admin-border/50'}`}>
+                      <div>
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold admin-text-accent uppercase tracking-wider mb-1">
+                          <span className="admin-text-muted">Customization Type:</span> {item.printing_type}
                         </div>
-                        
-                        {item.artwork_urls && item.artwork_urls.length > 0 && (
-                          <div className="flex flex-wrap gap-2 justify-end w-full sm:w-auto">
-                            {item.artwork_urls.map((url: string, idx: number) => (
-                              <div key={idx} className="flex flex-row items-center admin-bg-elevated border admin-border rounded-full overflow-hidden shrink-0 w-full sm:w-auto transition-colors focus-within:border-[#A8C7FA]">
-                                <button 
-                                  onClick={() => handleSecureDownload(url, 'view')}
-                                  disabled={downloadingArtwork === url}
-                                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 hover:admin-bg-hover text-xs font-medium admin-text-primary transition-colors cursor-pointer disabled:opacity-50 flex-1 border-r admin-border"
-                                >
-                                  {downloadingArtwork === url ? (
-                                    <><div className="w-3 h-3 border-2 border-[#A8C7FA] border-t-transparent rounded-full animate-spin" /> ...</>
-                                  ) : (
-                                    <><ExternalLink className="w-3 h-3 admin-text-accent" /> View {idx + 1}</>
-                                  )}
-                                </button>
-                                <button 
-                                  onClick={() => handleSecureDownload(url, 'download')}
-                                  disabled={downloadingArtwork === url}
-                                  className="inline-flex items-center justify-center px-3 py-2 sm:py-1.5 hover:admin-bg-hover text-xs font-medium text-[#93D7A4] transition-colors cursor-pointer disabled:opacity-50"
-                                  title={`Download File ${idx + 1}`}
-                                >
-                                  <Download className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ))}
+                        {item.printing_instructions && (
+                          <div className="text-xs admin-text-secondary">
+                            <span className="admin-text-muted">Note:</span> {item.printing_instructions}
                           </div>
                         )}
                       </div>
@@ -390,12 +392,21 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                     {siteConfig.address.line1}, {siteConfig.address.line2}<br />
                     {siteConfig.address.city} - <span className="font-bold admin-text-primary">{siteConfig.address.pincode}</span>
                   </p>
-                  <div className="mt-4 pt-4 border-t admin-border">
-                    <p className="text-[11px] admin-text-muted uppercase tracking-widest font-bold mb-1">Customer to pickup</p>
-                    <p className="text-sm admin-text-primary">{address.name || 'N/A'}</p>
-                    <a href={`tel:${address.phone}`} className="text-sm font-medium admin-text-accent flex items-center gap-1.5 hover:underline w-fit mt-1">
-                      <Phone className="w-3.5 h-3.5" /> {address.phone || 'N/A'}
-                    </a>
+                  <div className="mt-4 pt-4 border-t admin-border grid grid-cols-1 gap-3">
+                    <div>
+                      <p className="text-[11px] admin-text-muted uppercase tracking-widest font-bold mb-1">Customer Name</p>
+                      <p className="text-sm admin-text-primary">{address.full_name || address.name || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] admin-text-muted uppercase tracking-widest font-bold mb-1">Phone</p>
+                      <a href={`tel:${address.phone}`} className="text-sm font-medium admin-text-accent hover:underline">
+                        {address.phone || 'N/A'}
+                      </a>
+                    </div>
+                    <div>
+                      <p className="text-[11px] admin-text-muted uppercase tracking-widest font-bold mb-1">Pincode</p>
+                      <p className="text-sm admin-text-primary">{address.pincode || 'N/A'}</p>
+                    </div>
                   </div>
                 </div>
               ) : (
