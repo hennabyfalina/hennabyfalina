@@ -162,9 +162,9 @@ export default function CustomerModal({ isOpen, onClose, customer, onSuccess }: 
 
   const isDirty = JSON.stringify(formData) !== JSON.stringify(initialData)
 
-  const inputClass = (hasError: boolean) => `w-full px-4 py-3 admin-bg-primary border ${hasError ? 'border-red-500 dark:border-[#8C1D18] ring-1 ring-red-500 dark:ring-[#8C1D18]' : 'admin-border'} admin-text-primary placeholder:admin-text-muted rounded-2xl focus:outline-none focus:border-[#A8C7FA] focus:ring-1 focus:ring-[#A8C7FA] transition-all`
+  const inputClass = (hasError: boolean) => `w-full px-4 py-3 admin-bg-primary border ${hasError ? 'border-[var(--admin-danger)] ring-1 ring-[var(--admin-danger)]' : 'admin-border'} admin-text-primary placeholder:admin-text-muted rounded-2xl focus:outline-none focus:border-[var(--admin-accent)] focus:ring-1 focus:ring-[var(--admin-accent)] transition-all`
   const labelClass = "block text-[11px] font-bold admin-text-muted mb-1.5 ml-1 uppercase tracking-wider"
-  const errorClass = "text-red-600 dark:text-[#F2B8B5] text-[10px] font-medium mt-1 ml-1"
+  const errorClass = "text-[var(--admin-danger)] text-[10px] font-medium mt-1 ml-1"
 
   return (
     <div>
@@ -183,12 +183,12 @@ export default function CustomerModal({ isOpen, onClose, customer, onSuccess }: 
           {activeTab === 'profile' && (
             <div className="space-y-5 animate-in fade-in">
               <div>
-                <label className={labelClass}><User className="w-3 h-3 inline mr-1" /> Full Name <span className="text-red-500 dark:text-[#F2B8B5]">*</span></label>
+                <label className={labelClass}><User className="w-3 h-3 inline mr-1" /> Full Name <span className="text-[var(--admin-danger)]">*</span></label>
                 <input type="text" name="name" value={formData.name} onChange={handleChange} className={inputClass(!!errors.name)} placeholder="e.g. John Doe" />
                 {errors.name && <p className={errorClass}>{errors.name}</p>}
               </div>
               <div>
-                <label className={labelClass}><Mail className="w-3 h-3 inline mr-1" /> Email Address <span className="text-red-500 dark:text-[#F2B8B5]">*</span></label>
+                <label className={labelClass}><Mail className="w-3 h-3 inline mr-1" /> Email Address <span className="text-[var(--admin-danger)]">*</span></label>
                 <input type="email" name="email" title="Email Address" value={formData.email} onChange={handleChange} disabled={!!customer} className={`${inputClass(!!errors.email)} ${customer ? 'opacity-50 cursor-not-allowed' : ''}`} placeholder="customer@example.com" />
                 {customer && <p className="text-[10px] text-[#565959] mt-1 ml-1">Email cannot be changed after account creation.</p>}
                 {errors.email && <p className={errorClass}>{errors.email}</p>}
@@ -251,7 +251,10 @@ export default function CustomerModal({ isOpen, onClose, customer, onSuccess }: 
             <div className="space-y-4 animate-in fade-in">
               {isLoadingHistory ? (
                 <div className="flex flex-col items-center justify-center py-10">
-                  <div className="w-8 h-8 border-4 border-[#333538] border-t-[#A8C7FA] rounded-full animate-spin mb-4" />
+                  <svg className="w-8 h-8 animate-spin admin-text-accent mb-4" viewBox="0 0 50 50">
+                    <circle className="opacity-25" cx="25" cy="25" r="20" fill="none" stroke="currentColor" strokeWidth="4" />
+                    <circle className="opacity-100" cx="25" cy="25" r="20" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeDasharray="90 150" strokeDashoffset="0" />
+                  </svg>
                   <p className="text-sm admin-text-muted">Loading purchase history...</p>
                 </div>
               ) : orderHistory.length === 0 ? (
@@ -283,7 +286,7 @@ export default function CustomerModal({ isOpen, onClose, customer, onSuccess }: 
                           <div>
                             <span className="admin-text-muted block mb-0.5">Payment</span> 
                             <span className="font-medium capitalize">{order.payment_method_detail || 'Standard'}</span>
-                            <span className={`ml-1 ${order.payment_status === 'paid' ? 'text-[#93D7A4]' : 'text-[#F9AB00]'}`}>({order.payment_status})</span>
+                            <span className={`ml-1 font-bold ${order.payment_status === 'paid' ? 'text-[var(--admin-success)]' : 'text-[var(--admin-warning)]'}`}>({order.payment_status})</span>
                           </div>
                           <div>
                             <span className="admin-text-muted block mb-0.5">Delivery</span> 

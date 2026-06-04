@@ -406,10 +406,10 @@ if (isLoading && products.length === 0) {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-3 py-1 rounded-full text-[11px] font-bold tracking-widest uppercase ${
                             product.status === 'published'
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
+                              ? 'admin-badge-delivered border border-[var(--admin-status-delivered-text)]/20'
                               : product.status === 'draft'
-                              ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700'
-                              : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+                              ? 'admin-bg-elevated admin-text-secondary border admin-border'
+                              : 'admin-badge-pending border border-[var(--admin-status-pending-text)]/20'
                           }`}>
                             {product.status === 'published' ? 'PUBLISHED' : product.status === 'draft' ? 'DRAFT' : 'ARCHIVED'}
                           </span>
@@ -423,10 +423,10 @@ if (isLoading && products.length === 0) {
                           <div className="flex items-center justify-end gap-2">
                             <button 
                                onClick={(e) => handleEdit(product, e)}
-                               className="p-2 rounded-full hover:admin-bg-elevated transition-all duration-200 cursor-pointer"
+                               className="p-2 admin-text-accent hover:bg-[#0B57D0]/20 rounded-full transition-colors cursor-pointer"
                                title="Edit Product"
                              >
-                               <Edit className="w-4 h-4 text-blue-500 hover:text-blue-400" />
+                               <Edit className="w-4 h-4" />
                              </button>
                              {isSuperAdmin && (
                                <button 

@@ -113,7 +113,7 @@ if (isLoading && customers.length === 0) {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatsCard title="Total Accounts" value={customers.length} icon={<Users className="w-5 h-5" />} />
-          <StatsCard title="New This Month" value={newCustomers} icon={<UserPlus className="w-5 h-5 text-green-400" />} />
+          <StatsCard title="New This Month" value={newCustomers} icon={<UserPlus className="w-5 h-5 text-[var(--admin-success)]" />} />
           <StatsCard title="Active Buyers" value={activeCustomers} icon={<UserCheck className="w-5 h-5 admin-text-accent" />} />
         </div>
 
@@ -183,7 +183,7 @@ if (isLoading && customers.length === 0) {
                       <td className="px-6 py-5 text-sm admin-text-secondary font-mono">{customer.phone || '—'}</td>
                       <td className="px-6 py-5 text-sm admin-text-secondary">{new Date(customer.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
                       <td className="px-6 py-5">
-                        <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold ${customer.total_orders > 0 ? 'bg-[#214332]/30 text-[#93D7A4] border border-[#214332]' : 'admin-bg-elevated admin-text-muted border admin-border'}`}>
+                        <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase border ${customer.total_orders > 0 ? 'admin-badge-delivered border-[var(--admin-status-delivered-text)]/20' : 'admin-bg-elevated admin-text-muted admin-border'}`}>
                           {customer.total_orders} ORDERS
                         </span>
                        </td>

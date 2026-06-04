@@ -257,11 +257,11 @@ if (isLoading && inventory.length === 0) {
                           {item.is_deleted ? (
                              <span className="inline-flex px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase admin-bg-elevated admin-text-muted border admin-border">Archived</span>
                           ) : isOut ? (
-                            <span className="inline-flex px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border border-red-200 dark:border-red-800">Out of Stock</span>
+                            <span className="inline-flex px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase admin-badge-cancelled border border-[var(--admin-status-cancelled-text)]/20">Out of Stock</span>
                           ) : isLow ? (
-                            <span className="inline-flex px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">Low Stock</span>
+                            <span className="inline-flex px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase admin-badge-pending border border-[var(--admin-status-pending-text)]/20">Low Stock</span>
                           ) : (
-                            <span className="inline-flex px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 border border-green-200 dark:border-green-800">In Stock</span>
+                            <span className="inline-flex px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase admin-badge-delivered border border-[var(--admin-status-delivered-text)]/20">In Stock</span>
                           )}
                         </td>
                         <td className="px-6 py-5 text-right">
@@ -275,9 +275,9 @@ if (isLoading && inventory.length === 0) {
                           ) : (
                             <button
                               onClick={() => setAdjustingItem(item)}
-                              className="inline-flex items-center gap-2 px-4 py-2 bg-[#0B57D0]/10 hover:bg-[#0B57D0]/20 admin-text-accent text-xs font-bold uppercase tracking-wider rounded-full transition-colors cursor-pointer border border-[#0B57D0]/30"
+                              className="p-2 admin-text-accent hover:bg-[#0B57D0]/20 rounded-full transition-colors cursor-pointer"
                             >
-                              <Edit className="w-3.5 h-3.5" /> Adjust
+                              <Edit className="w-4 h-4" />
                             </button>
                           )}
                         </td>

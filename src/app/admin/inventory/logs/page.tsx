@@ -79,10 +79,10 @@ if (isLoading) {
                     </td>
                     <td className="px-6 py-5 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <div className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-bold ${
-                          diff > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 
-                          diff < 0 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 
-                          'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                        <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase border ${
+                          diff > 0 ? 'admin-badge-delivered border-[var(--admin-status-delivered-text)]/20' : 
+                          diff < 0 ? 'admin-badge-cancelled border-[var(--admin-status-cancelled-text)]/20' : 
+                          'admin-bg-elevated admin-text-secondary admin-border'
                         }`}>
                           {diff > 0 ? <TrendingUp className="w-3 h-3" /> : 
                            diff < 0 ? <TrendingDown className="w-3 h-3" /> : 
