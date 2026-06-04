@@ -397,7 +397,7 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
                         <span className="text-xs text-gray-600 ml-1">Qty: <span className="font-medium text-gray-900">{item.quantity}</span></span>
                       </div>
 
-                      {item.printing_type && item.printing_type !== 'None' && item.printing_type !== 'Retail (Readymade)' && (
+                      {item.printing_type && item.printing_type !== 'None' && (
                         <div className="mt-2.5 pl-3 border-l-2 border-[#007185] text-xs">
                           <p className="font-bold text-[#007185] flex items-center gap-1.5 uppercase tracking-wide">
                             <Package className="w-3.5 h-3.5" /> {item.printing_type}

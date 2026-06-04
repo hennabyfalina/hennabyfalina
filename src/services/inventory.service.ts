@@ -43,7 +43,7 @@ export async function reserveStock(
   items: Array<{ product_id: string; quantity: number }>,
   userId: string
 ): Promise<{ success: boolean; errors?: string[] }> {
-  const supabase = await createServerClient()
+  const supabase = createAdminClient()
   const errors: string[] = []
 
   for (const item of items) {
@@ -115,7 +115,7 @@ export async function releaseStockReservation(
   checkoutSessionId: string,
   productId?: string
 ): Promise<void> {
-  const supabase = await createServerClient()
+  const supabase = createAdminClient()
 
   let query = supabase
     .from('stock_reservations')
@@ -139,7 +139,7 @@ export async function releaseStockReservation(
 export async function getReservationsForSession(
   checkoutSessionId: string
 ): Promise<StockReservation[]> {
-  const supabase = await createServerClient()
+  const supabase = createAdminClient()
 
   const { data, error } = await supabase
     .from('stock_reservations')
@@ -163,7 +163,7 @@ export async function verifyReservations(
   checkoutSessionId: string,
   items: Array<{ product_id: string; quantity: number }>
 ): Promise<{ valid: boolean; errors?: string[] }> {
-  const supabase = await createServerClient()
+  const supabase = createAdminClient()
   const errors: string[] = []
 
   for (const item of items) {
@@ -202,7 +202,7 @@ export async function extendReservationExpiry(
   checkoutSessionId: string,
   additionalMinutes: number = RESERVATION_EXPIRY_MINUTES
 ): Promise<void> {
-  const supabase = await createServerClient()
+  const supabase = createAdminClient()
   const newExpiry = new Date(Date.now() + additionalMinutes * 60 * 1000)
 
   const { error } = await supabase
@@ -220,7 +220,7 @@ export async function extendReservationExpiry(
  * 🆕 Clean up expired reservations (called by cron job)
  */
 export async function cleanupExpiredReservations(): Promise<number> {
-  const supabase = await createServerClient()
+  const supabase = createAdminClient()
 
   const { data, error } = await supabase
     .from('stock_reservations')
@@ -240,7 +240,7 @@ export async function cleanupExpiredReservations(): Promise<number> {
  * 🆕 Get available stock for a product (considering active reservations)
  */
 export async function getAvailableStock(productId: string): Promise<number> {
-  const supabase = await createServerClient()
+  const supabase = createAdminClient()
 
   // Get current stock
   const { data: product, error: productError } = await supabase

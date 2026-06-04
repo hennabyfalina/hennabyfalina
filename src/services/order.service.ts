@@ -122,7 +122,7 @@ export async function createOrder(input: CreateOrderInput) {
     const productIds = items.map(i => i.product_id)
     const { data: products, error: productsError } = await supabase
       .from('products')
-      .select('id, price, selling_price, stock, name, pricing_tiers:product_pricing_tiers(*)')
+      .select('id, price, selling_price, stock, name, is_deleted, is_active, pricing_tiers:product_pricing_tiers(*)')
       .in('id', productIds)
 
     if (productsError || !products) throw new Error('Failed to validate products')
@@ -140,10 +140,27 @@ export async function createOrder(input: CreateOrderInput) {
       if (!product) throw new Error(`Product not found: ${item.product_id}`)
       if (product.stock < item.quantity) throw new Error(`Insufficient stock for ${product.name}`)
 
-      const selectedTier = product.pricing_tiers?.find((t: any) => t.tier_name === item.printing_type)
+      // 🔒 PRODUCT DELETION SHIELD: Ensure the base product hasn't been soft-deleted or deactivated
+      if (product.is_deleted || !product.is_active) {
+        throw new Error(`The product "${product.name}" is no longer available in our catalog. Please remove it from your cart to proceed.`)
+      }
+
+      // 🔒 TIER VALIDATION: Ensure the requested tier hasn't been soft-deleted or deactivated by an admin
+      const selectedTier = product.pricing_tiers?.find((t: any) => t.tier_name === item.printing_type && !t.is_deleted && t.is_active)
+
+      if (item.printing_type && item.printing_type !== 'None' && item.printing_type !== 'Retail (Readymade)' && !selectedTier) {
+        throw new Error(`The customization option "${item.printing_type}" for ${product.name} is no longer available. Please remove it from your cart and select a valid option.`)
+      }
+
       const expectedPrice = selectedTier?.selling_price ?? (product.selling_price ?? product.price)
 
-      // 🛑 IGNORING CLIENT PRICE: We strictly use expectedPrice fetched from Supabase
+      // 🔒 ITEM PRICE MISMATCH SHIELD: Ensure individual item prices haven't drifted or been manipulated
+      if (Math.abs(expectedPrice - item.price) > 0.01) {
+        console.error(`[OrderService ${requestId}] Item price mismatch for ${product.name}. Client: ₹${item.price}, Server: ₹${expectedPrice}`)
+        throw new Error(`The price for ${product.name} has changed. Please refresh your cart.`)
+      }
+
+      // � IGNORING CLIENT PRICE: We strictly use expectedPrice fetched from Supabase
       calculatedSubtotal += expectedPrice * item.quantity
       
       let processingUrls = item.artwork_urls || []
@@ -204,7 +221,20 @@ export async function createOrder(input: CreateOrderInput) {
 
     // 🔒 ZERO-TRUST TOTALS: Calculate final shipping and totals natively
     const expectedShipping = shippingMethod === 'pickup' ? 0 : (calculatedSubtotal > SHIPPING_THRESHOLD ? 0 : SHIPPING_COST)
+    
+    // 🔒 SHIPPING COST MISMATCH SHIELD: Ensure shipping logic matches
+    if (Math.abs(expectedShipping - shippingCost) > 0.01) {
+      console.error(`[OrderService ${requestId}] Shipping cost mismatch. Client: ₹${shippingCost}, Server: ₹${expectedShipping}`)
+      throw new Error('Delivery rates have been updated. Please review your total.')
+    }
+
     const expectedTotal = calculatedSubtotal + expectedShipping
+
+    // 🔒 PRICE MISMATCH SHIELD: Ensure the user agrees to the exact price the server calculated
+    if (Math.abs(expectedTotal - totalAmount) > 0.01) {
+      console.error(`[OrderService ${requestId}] Price mismatch. Client: ₹${totalAmount}, Server: ₹${expectedTotal}`)
+      throw new Error('Prices have been updated to reflect the latest catalog. Please refresh your cart and try again.')
+    }
 
     const orderNumber = generateOrderNumber()
 

@@ -9,7 +9,7 @@ import OrderStatusBadge from './OrderStatusBadge'
 import AdminLoader from './AdminLoader'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { showToast } from '@/components/ui/Toast'
-import { Package, Truck, MapPin, CreditCard, Calendar, Hash, ExternalLink, Printer, Trash2, Phone, Download } from 'lucide-react'
+import { Package, Truck, MapPin, CreditCard, Calendar, Hash, ExternalLink, Printer, Trash2, Phone, Download, Copy, Check } from 'lucide-react'
 import InvoiceLink from '@/components/order/InvoiceLink'
 import { siteConfig } from '@/config/site'
 import { ORDER_STATUS_FILTERS } from '@/lib/constants'
@@ -22,6 +22,12 @@ interface OrderModalProps {
   orderNumber?: string
   onSuccess?: () => void
 }
+
+const CopyButton = ({ text, id, copiedId, onClick }: { text: string, id: string, copiedId: string | null, onClick: (text: string, id: string) => void }) => (
+  <button onClick={() => onClick(text, id)} className="p-1.5 hover:admin-bg-elevated rounded-md transition-colors admin-text-muted hover:admin-text-accent cursor-pointer shrink-0">
+    {copiedId === id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+  </button>
+)
 
 export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSuccess }: OrderModalProps) {
   const { isSuperAdmin } = useAuth()
@@ -43,6 +49,7 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
   const [isDeleting, setIsDeleting] = useState(false)
   
   const [downloadingArtwork, setDownloadingArtwork] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const rawAvailableStatuses = ORDER_STATUS_FILTERS.filter(f => f.value !== 'all')
 
@@ -167,6 +174,13 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
     }
   }
 
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedId(id)
+    showToast('Copied to clipboard', 'success')
+    setTimeout(() => setCopiedId(null), 2000)
+  }
+
   if (loading) {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title="Order Details">
@@ -252,7 +266,10 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
               </div>
               <div>
                 <p className="text-[10px] admin-text-muted uppercase tracking-widest flex items-center gap-1.5 mb-1.5"><Hash className="w-3.5 h-3.5" /> Order ID</p>
-                <p className="text-sm font-mono admin-text-accent">{order.order_number}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-mono admin-text-accent">{order.order_number}</p>
+                  <CopyButton text={order.order_number} id="order_num" copiedId={copiedId} onClick={copyToClipboard} />
+                </div>
               </div>
               <div>
                 <p className="text-[10px] admin-text-muted uppercase tracking-widest flex items-center gap-1.5 mb-1.5"><Package className="w-3.5 h-3.5" /> Total</p>
@@ -309,8 +326,8 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                     </div>
                   </div>
 
-                  {item.printing_type && item.printing_type !== 'None' && item.printing_type !== 'Retail (Readymade)' && (
-                    <div className="border-t admin-border/50 pt-3 mt-1">
+                  {item.printing_type && item.printing_type !== 'None' && (
+                    <div className={`pt-3 mt-1 ${((item.artwork_urls && item.artwork_urls.length > 0) || item.printing_instructions) ? 'border-t-0 bg-[#0B57D0]/10 p-3 sm:p-4 rounded-xl border border-[#0B57D0]/30' : 'border-t admin-border/50'}`}>
                       <div className="flex flex-col sm:flex-row sm:items-start gap-3 justify-between">
                         <div>
                           <div className="flex items-center gap-1.5 text-[11px] font-bold admin-text-accent uppercase tracking-wider mb-1">
@@ -439,9 +456,21 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                 <OrderStatusBadge status={order.payment_status} type="payment" />
               </div>
               {order.razorpay_payment_id && (
-                <div className="flex justify-between items-center gap-4">
-                  <span className="text-sm admin-text-muted shrink-0">Txn ID</span>
-                  <span className="text-[11px] font-mono admin-text-accent truncate admin-bg-card px-2 py-1 rounded-md">{order.razorpay_payment_id}</span>
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                  <span className="text-sm admin-text-muted">Txn ID</span>
+                  <div className="flex items-center gap-2 admin-bg-card px-2 py-1 rounded-md border admin-border w-fit max-w-full">
+                    <span className="text-[11px] font-mono admin-text-accent break-all">{order.razorpay_payment_id}</span>
+                    <CopyButton text={order.razorpay_payment_id} id="pay_id" copiedId={copiedId} onClick={copyToClipboard} />
+                  </div>
+                </div>
+              )}
+              {order.razorpay_order_id && (
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                  <span className="text-sm admin-text-muted">Gateway Order</span>
+                  <div className="flex items-center gap-2 admin-bg-card px-2 py-1 rounded-md border admin-border w-fit max-w-full">
+                    <span className="text-[11px] font-mono admin-text-secondary break-all">{order.razorpay_order_id}</span>
+                    <CopyButton text={order.razorpay_order_id} id="razor_order_id" copiedId={copiedId} onClick={copyToClipboard} />
+                  </div>
                 </div>
               )}
             </div>

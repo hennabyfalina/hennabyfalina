@@ -29,25 +29,32 @@ export default function AdminSettingsPage() {
 
       {/* Settings Content */}
       <div className="max-w-2xl">
-        <div className="admin-bg-card border admin-border rounded-[32px] p-6 sm:p-8 transition-colors flex flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-            <div className={`p-3 rounded-2xl admin-bg-primary border admin-border transform transition-all duration-300 ${isAnimating ? 'rotate-180 scale-50 opacity-0' : 'rotate-0 scale-100 opacity-100'}`}>
+        <div className="admin-bg-card border admin-border rounded-[32px] p-6 sm:p-8 transition-colors flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className={`hidden sm:flex p-3 rounded-2xl admin-bg-primary border admin-border transition-all duration-200 ease-in-out ${isAnimating ? 'scale-90 opacity-50' : 'scale-100 opacity-100'}`}>
               {theme === 'dark' ? (
                 <Moon className="w-6 h-6 admin-text-accent" />
               ) : (
                 <Sun className="w-6 h-6 admin-text-accent" />
               )}
             </div>
-            <div className="truncate">
-              <p className="admin-text-primary font-bold text-base sm:text-lg truncate">{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</p>
-              <p className="text-xs admin-text-muted">Currently active theme</p>
+            <div className="flex flex-col">
+              <p className="admin-text-primary font-bold text-base sm:text-lg">Dark Mode</p>
             </div>
           </div>
+          
           <button
             onClick={handleToggle}
-            className="w-full sm:w-auto px-6 py-3 text-sm font-bold rounded-full cursor-pointer admin-action-button"
+            className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-300 focus:outline-none ${
+              theme === 'dark' ? 'bg-[#8AB4F8]' : 'bg-[#565959]/30'
+            }`}
           >
-            Switch to {theme === 'dark' ? 'Light' : 'Dark'}
+            <span className="sr-only">Toggle theme</span>
+            <span
+              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 ${
+                theme === 'dark' ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
           </button>
         </div>
       </div>

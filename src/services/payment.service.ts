@@ -50,15 +50,17 @@ export async function updatePaymentStatus(
     updateData.last_payment_error = 'Manual update'
   }
 
-  const { error } = await supabase
+  const { data: updatedOrder, error } = await supabase
     .from('orders')
     .update(updateData)
     .eq('id', orderId)
     .eq('payment_status', 'pending')
+    .select('id')
+    .maybeSingle()
 
-  if (error) {
-    console.error('Error updating payment status:', error)
-    throw new Error('Failed to update order status')
+  if (error || !updatedOrder) {
+    console.warn(`[Payment Service] Order ${orderId} update ignored (already processed or not found).`)
+    return { alreadyProcessed: true }
   }
 
   if (status === 'paid') {

@@ -10,6 +10,7 @@ import { calculateTaxBreakdown } from '@/lib/tax'
 import { checkoutConfig } from '@/config/checkout'
 import { SHIPPING_THRESHOLD, SHIPPING_COST } from '@/lib/constants'
 import { showToast } from '@/components/ui/Toast'
+import { AlertTriangle } from 'lucide-react'
 
 // Visual Components
 import Container from '@/components/ui/Container'
@@ -36,6 +37,8 @@ export default function CheckoutPageNew() {
   const router = useRouter()
   const items = useCartStore((state) => state.items)
   const refreshCartPrices = useCartStore((state) => state.refreshCartPrices)
+  const alerts = useCartStore((state) => state.alerts)
+  const clearAlerts = useCartStore((state) => state.clearAlerts)
 
   const [isRefreshingPrices, setIsRefreshingPrices] = useState(true)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
@@ -230,7 +233,19 @@ export default function CheckoutPageNew() {
   useEffect(() => {
     if (!checkoutSessionId) return
 
+    let elapsedMinutes = 0
+    const MAX_CHECKOUT_MINUTES = 15 // 🛑 Maximum time a user can hold inventory hostage
+
     const extendStock = async () => {
+      elapsedMinutes += 5
+      
+      if (elapsedMinutes >= MAX_CHECKOUT_MINUTES) {
+        clearInterval(interval)
+        showToast('Checkout session expired to release inventory for other customers. Please review your cart.', 'error')
+        router.push('/cart')
+        return
+      }
+
       await fetch('/api/checkout/reserve-stock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -246,7 +261,7 @@ export default function CheckoutPageNew() {
       clearInterval(interval)
       document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, [checkoutSessionId])
+  }, [checkoutSessionId, router])
 
   // Calculate Totals
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
@@ -370,6 +385,24 @@ export default function CheckoutPageNew() {
 
         <Container className="max-w-[1200px] mt-6 sm:mt-8">
           <CheckoutErrorAlert error={globalError} />
+
+          {/* 🚨 DEDICATED CART DRIFT BANNER */}
+          {alerts && alerts.length > 0 && (
+            <div className="bg-[#FFF4E5] border border-[#FBD8B4] p-4 rounded-md mb-6 shadow-sm flex gap-3 items-start animate-in fade-in duration-300">
+              <AlertTriangle className="w-5 h-5 text-[#C7511F] shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-[#C7511F] font-bold text-sm mb-1.5">Please review your order</h3>
+                <ul className="list-disc pl-4 text-sm text-gray-800 space-y-1 mb-2">
+                  {alerts.map((alert, i) => (
+                    <li key={i}>{alert}</li>
+                  ))}
+                </ul>
+                <button onClick={clearAlerts} className="text-xs font-bold text-[#007185] hover:text-[#C7511F] hover:underline transition-colors cursor-pointer">
+                  Dismiss these alerts
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start relative z-10">
             <div className="lg:col-span-8 space-y-6">

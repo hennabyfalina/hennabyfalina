@@ -69,8 +69,8 @@ export async function POST(request: NextRequest) {
 
     // 🔒 MAXIMUM PROTECTION: Verify signature using constant-time comparison BEFORE looking at event types
     const expectedSignature = crypto.createHmac('sha256', secret).update(body).digest('hex')
-    const expectedBuffer = Buffer.from(expectedSignature, 'hex')
-    const signatureBuffer = Buffer.from(signature, 'hex')
+    const expectedBuffer = Buffer.from(expectedSignature, 'utf8')
+    const signatureBuffer = Buffer.from(signature, 'utf8')
 
     if (expectedBuffer.length !== signatureBuffer.length || !crypto.timingSafeEqual(expectedBuffer, signatureBuffer)) {
       return NextResponse.json({ error: 'Invalid token verification' }, { status: 401 })
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
 
       const currentAttempts = existingOrder.payment_attempts || 0
 
-      const { error: updateError } = await supabase
+      const { data: updatedOrder, error: updateError } = await supabase
         .from('orders')
         .update({
           payment_status: 'paid',
@@ -175,8 +175,10 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', internalOrderId)
         .eq('payment_status', 'pending')
+        .select('id')
+        .maybeSingle()
 
-      if (updateError) {
+      if (updateError || !updatedOrder) {
         return NextResponse.json({ received: true, alreadyProcessed: true })
       }
 

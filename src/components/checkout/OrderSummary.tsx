@@ -98,9 +98,9 @@ function OrderSummary({
                       )}
                     </div>
                     
-                    {item.printing_type && item.printing_type !== 'None' && item.printing_type !== 'Retail (Readymade)' && (
+                    {item.printing_type && item.printing_type !== 'None' && (
                       <div className="mt-2 text-xs text-gray-700 bg-blue-50/50 p-2 rounded-md border border-blue-100/50 space-y-1">
-                        <p><span className="font-bold text-gray-900">Customization:</span> {item.printing_type}</p>
+                        <p><span className="font-bold text-gray-900">Type:</span> {item.printing_type}</p>
                         {/* Check both item.artwork_urls and nested customization_details */}
                         {(item.artwork_urls?.length || item.customization_details?.artwork_urls?.length) > 0 && (
                           <p className="text-[#007185] font-medium">

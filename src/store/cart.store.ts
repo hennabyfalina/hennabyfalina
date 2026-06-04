@@ -31,6 +31,8 @@ export interface CartItem {
 interface CartState {
   items: CartItem[]
   isLoading: boolean
+  alerts: string[] // 🚨 NEW: Array to hold persistent UI messages
+  clearAlerts: () => void
   addItem: (item: Omit<CartItem, 'id'>) => Promise<void>
   updateItem: (id: string, updates: Partial<Omit<CartItem, 'id'>>) => Promise<void>
   removeItem: (id: string) => Promise<void>
@@ -53,7 +55,8 @@ const calculateItemPrice = (
   printingType: string
 ) => {
   if (!tiers || tiers.length === 0) return basePrice
-  const selectedTier = tiers.find(t => t.tier_name === printingType)
+  // 🔒 Ignore soft-deleted or inactive tiers when calculating live cart totals
+  const selectedTier = tiers.find(t => t.tier_name === printingType && !t.is_deleted && t.is_active)
   return selectedTier?.selling_price ?? basePrice
 }
 
@@ -67,6 +70,8 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: [],
       isLoading: false,
+      alerts: [],
+      clearAlerts: () => set({ alerts: [] }),
 
       findCartItem: (productId, printingType) => {
         return get().items.find(
@@ -300,23 +305,49 @@ export const useCartStore = create<CartState>()(
         // 🚨 REFRESH WITH TIERS
         const { data: products, error } = await supabase
           .from('products')
-          .select('*, pricing_tiers:product_pricing_tiers(*)')
+          .select('id, name, price, selling_price, stock, is_deleted, is_active, pricing_tiers:product_pricing_tiers(*)')
           .in('id', productIds)
 
         if (!error && products) {
-          const updatedItems = currentItems.map((item) => {
+          const newAlerts: string[] = []
+          const validItems: CartItem[] = []
+
+          for (const item of currentItems) {
             const product = products.find((p) => p.id === item.product_id)
-            if (!product) return item
+            
+            // 1. PRODUCT DELETION SHIELD
+            if (!product || product.is_deleted || !product.is_active) {
+              newAlerts.push(`"${item.name}" is no longer available and has been safely removed from your cart.`)
+              continue // Discard from validItems array
+            }
+
+            // 2. TIER DELETION SHIELD
+            let currentTier = item.printing_type
+            const selectedTier = product.pricing_tiers?.find((t: any) => t.tier_name === item.printing_type && !t.is_deleted && t.is_active)
+            if (item.printing_type && item.printing_type !== 'None' && item.printing_type !== 'Retail (Readymade)' && !selectedTier) {
+              newAlerts.push(`The customization option "${item.printing_type}" for "${item.name}" is no longer available. It has been reverted to standard retail.`)
+              currentTier = 'Retail (Readymade)'
+            }
+
+            // 3. PRICE DRIFT SHIELD
             const basePrice = product.selling_price ?? product.price
-            return {
+            const newPrice = calculateItemPrice(basePrice, product.pricing_tiers, currentTier || 'None')
+            
+            if (item.price !== newPrice && item.price !== 0) {
+              newAlerts.push(`The price of "${item.name}" has changed from ₹${item.price} to ₹${newPrice}.`)
+            }
+
+            validItems.push({
               ...item,
-              price: calculateItemPrice(basePrice, product.pricing_tiers, item.printing_type || 'None'),
+              price: newPrice,
+              printing_type: currentTier,
               stock: product.stock,
               selling_price: product.selling_price,
               pricing_tiers: product.pricing_tiers || []
-            }
-          })
-          set({ items: updatedItems })
+            })
+          }
+          
+          set({ items: validItems, alerts: newAlerts })
         }
       },
 
@@ -326,7 +357,7 @@ export const useCartStore = create<CartState>()(
     {
       name: 'razack-cart-storage',
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ items: state.items }),
+      partialize: (state) => ({ items: state.items }), // Alerts aren't persisted, only shown on session load
     }
   )
 )

@@ -100,11 +100,11 @@ export function useRazorpayCheckout() {
           artwork_urls: item.artwork_urls,
           artwork_sizes: item.artwork_sizes,
           printing_instructions: item.printing_instructions,
-          price: 0,
+          price: item.price,
           is_temp: true 
         })),
-        totalAmount: 0,
-        shippingCost: 0,
+        totalAmount: finalTotal,
+        shippingCost: shippingCost,
         paymentMethod: 'razorpay',
         shippingMethod,
         sessionId: checkoutSessionId,
@@ -210,6 +210,11 @@ export function useRazorpayCheckout() {
           name: formData.name || user?.user_metadata?.full_name || '',
           email: user?.email || '',
           contact: formData.phone || ''
+        },
+        notes: {
+          order_number: order.order_number,
+          order_id: data.orderId,
+          shipping_method: shippingMethod
         },
         theme: { color: '#007185' },
         handler: async function (response: any) {

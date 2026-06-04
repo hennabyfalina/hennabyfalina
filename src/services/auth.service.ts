@@ -53,13 +53,9 @@ export async function signUp(
   })
 
   if (error) {
-    if (error.message?.toLowerCase().includes('already registered')) {
-      return {
-        success: false,
-        message: 'An account with this email already exists. Please log in.',
-      }
-    }
-    return { success: false, message: error.message }
+    // 🔒 ANTI-ENUMERATION: Never confirm whether an account exists or not during a failed signup
+    console.error(`[Auth] Signup failed: ${error.message}`);
+    return { success: false, message: 'Signup failed or account already exists. If you already have an account, please log in.' }
   }
 
   const user = data.user

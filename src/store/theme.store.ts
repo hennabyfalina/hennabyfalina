@@ -50,7 +50,7 @@ export const useAdminThemeStore = create<ThemeState>()(
       }
       
       return {
-        theme: 'dark',
+        theme: 'light',
         setTheme: (theme, broadcast = true) => {
           if (theme === get().theme) return
           

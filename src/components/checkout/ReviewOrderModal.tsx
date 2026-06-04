@@ -177,7 +177,20 @@ export default function ReviewOrderModal({
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-bold text-gray-900 truncate">{item.name}</p>
-                          <p className="text-[11px] text-gray-500">Qty: {item.quantity} | {item.printing_type}</p>
+                          <p className="text-[11px] text-gray-500 font-medium mt-0.5">Qty: {item.quantity}</p>
+                          {item.printing_type && item.printing_type !== 'None' && (
+                            <div className="mt-1.5 text-[10px] text-gray-700 bg-blue-50/50 p-1.5 rounded border border-blue-100/50 space-y-0.5">
+                              <p><span className="font-bold text-gray-900">Type:</span> {item.printing_type}</p>
+                              {(item.artwork_urls?.length > 0) && (
+                                <p className="text-[#007185] font-medium">({item.artwork_urls.length} file{item.artwork_urls.length > 1 ? 's' : ''} attached)</p>
+                              )}
+                              {item.printing_instructions && (
+                                <p className="text-gray-600 italic line-clamp-2" title={item.printing_instructions}>
+                                  <span className="font-semibold not-italic text-gray-800">Note:</span> &quot;{item.printing_instructions}&quot;
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="text-right shrink-0">
                           <p className="text-sm font-bold text-gray-900">{formatCurrency(item.price * item.quantity)}</p>

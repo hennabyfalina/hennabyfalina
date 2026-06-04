@@ -694,11 +694,7 @@ export default function ProductForm({
                         return (
                           <div key={path} className="relative group cursor-move" draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', idx.toString())} onDrop={(e) => { e.preventDefault(); reorderImages(parseInt(e.dataTransfer.getData('text/plain')), idx); }} onDragOver={(e) => e.preventDefault()}>
                             {publicUrl ? <img src={publicUrl} alt={`Product image ${idx + 1}`} title={`Product image ${idx + 1}`} className="w-24 h-24 object-cover rounded-2xl border admin-border opacity-90 group-hover:opacity-100 transition-opacity" /> : <div className="w-24 h-24 admin-bg-primary rounded-2xl flex items-center justify-center border admin-border"><ImageIcon className="w-6 h-6 text-[#565959] animate-pulse" /></div>}
-                            {isSuperAdmin ? (
-                              <button type="button" onClick={() => setDeleteConfirmPath(path)} className="absolute -top-2 -right-2 bg-red-100 dark:bg-[#4D2628] border border-red-300 dark:border-[#8C1D18] text-red-600 dark:text-[#F2B8B5] rounded-full w-7 h-7 flex items-center justify-center text-sm shadow-lg hover:bg-red-500 hover:text-white transition-all cursor-pointer z-10">✕</button>
-                            ) : (
-                              <div className="absolute -top-2 -right-2 admin-bg-primary border admin-border admin-text-muted rounded-full w-7 h-7 flex items-center justify-center text-xs z-10">🔒</div>
-                            )}
+                            <button type="button" onClick={() => setDeleteConfirmPath(path)} className="absolute -top-2 -right-2 bg-red-100 dark:bg-[#4D2628] border border-red-300 dark:border-[#8C1D18] text-red-600 dark:text-[#F2B8B5] rounded-full w-7 h-7 flex items-center justify-center text-sm shadow-lg hover:bg-red-500 hover:text-white transition-all cursor-pointer z-10">✕</button>
                             <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black/80 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{idx + 1}</div>
                           </div>
                         )

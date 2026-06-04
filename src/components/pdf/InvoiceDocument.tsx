@@ -1,7 +1,7 @@
 // src/components/pdf/InvoiceDocument.tsx
 
 import React from 'react'
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
 import { siteConfig } from '@/config/site'
 import { numberToIndianWords } from '@/lib/utils'
 import { calculateTaxBreakdown } from '@/lib/tax' 
@@ -24,6 +24,18 @@ const styles = StyleSheet.create({
   },
   headerLeft: {
     flex: 1,
+  },
+  brandContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  logo: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: 8,
+    objectFit: 'cover',
   },
   headerRight: {
     alignItems: 'flex-end',
@@ -257,7 +269,10 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.title}>{siteConfig.name}</Text>
+            <View style={styles.brandContainer}>
+              <Image src="/logo.png" style={styles.logo} />
+              <Text style={styles.title}>{siteConfig.name}</Text>
+            </View>
             <Text style={styles.text}>{siteConfig.address.line1}</Text>
             <Text style={styles.text}>{siteConfig.address.line2}</Text>
             <Text style={styles.text}>{siteConfig.address.city} - {siteConfig.address.pincode}, {siteConfig.address.state}, {siteConfig.address.country}</Text>
@@ -359,9 +374,9 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
               <View style={styles.col2}>
                 <Text style={[styles.text, { fontFamily: 'Helvetica-Bold' }]}>{item.products?.name}</Text>
                 
-                {item.printing_type && item.printing_type !== 'None' && item.printing_type !== 'Retail (Readymade)' && (
+                {item.printing_type && item.printing_type !== 'None' && (
                   <Text style={{ fontSize: 8, color: '#4b5563', marginTop: 2 }}>
-                    Print: {item.printing_type} {(item.artwork_urls && item.artwork_urls.length > 0) ? `[${item.artwork_urls.length} File(s) Uploaded]` : ''}
+                    Type: {item.printing_type} {(item.artwork_urls && item.artwork_urls.length > 0) ? `[${item.artwork_urls.length} File(s) Attached]` : ''}
                   </Text>
                 )}
 

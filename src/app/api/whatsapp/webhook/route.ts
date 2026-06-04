@@ -45,8 +45,12 @@ export async function POST(request: Request) {
     // Calculate our own hash based on the raw payload
     const expectedSignature = `sha256=${crypto.createHmac('sha256', APP_SECRET).update(rawBody).digest('hex')}`;
 
-    // Compare signatures securely to prevent timing attacks
-    if (signature !== expectedSignature) {
+    const sigBuffer = Buffer.from(signature);
+    const expectedSigBuffer = Buffer.from(expectedSignature);
+
+    // 🔒 TIMING-SAFE EQUAL: Compare signatures securely to prevent side-channel timing attacks
+    // We MUST check lengths first to prevent timingSafeEqual from throwing an unhandled DoS exception
+    if (sigBuffer.length !== expectedSigBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedSigBuffer)) {
       console.error('[Security] Invalid Meta Webhook Signature Detected! Intrusion blocked.');
       return new NextResponse('Unauthorized', { status: 401 });
     }

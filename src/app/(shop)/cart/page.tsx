@@ -35,6 +35,8 @@ export default function CartPage() {
   const clearCart = useCartStore((state) => state.clearCart)
   const updateQuantity = useCartStore((state) => state.updateQuantity)
   const totalPrice = useCartStore((state) => state.getTotalPrice())
+  const alerts = useCartStore((state) => state.alerts)
+  const clearAlerts = useCartStore((state) => state.clearAlerts)
   const { savedProductIds, toggleItem } = useWishlistStore()
   
   const [mounted, setMounted] = useState(false)
@@ -187,6 +189,24 @@ export default function CartPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
           <div className="lg:col-span-8 bg-white p-5 md:p-6 rounded-md border border-gray-200 shadow-sm">
+            {/* 🚨 DEDICATED CART DRIFT BANNER */}
+            {alerts && alerts.length > 0 && (
+              <div className="bg-[#FFF4E5] border border-[#FBD8B4] p-4 rounded-md mb-6 shadow-sm flex gap-3 items-start animate-in fade-in duration-300">
+                <AlertTriangle className="w-5 h-5 text-[#C7511F] shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="text-[#C7511F] font-bold text-sm mb-1.5">Please review your cart</h3>
+                  <ul className="list-disc pl-4 text-sm text-gray-800 space-y-1 mb-2">
+                    {alerts.map((alert, i) => (
+                      <li key={i}>{alert}</li>
+                    ))}
+                  </ul>
+                  <button onClick={clearAlerts} className="text-xs font-bold text-[#007185] hover:text-[#C7511F] hover:underline transition-colors cursor-pointer">
+                    Dismiss these alerts
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-end justify-between border-b border-gray-200 pb-2 mb-4">
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Shopping Cart</h1>
