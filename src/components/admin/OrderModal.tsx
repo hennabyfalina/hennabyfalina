@@ -277,14 +277,14 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
               </div>
               <div>
                 <p className="text-[10px] admin-text-muted uppercase tracking-widest flex items-center gap-1.5 mb-1.5"><Truck className="w-3.5 h-3.5" /> Delivery</p>
-                <p className="text-sm font-bold text-[#93D7A4] capitalize">{isPickup ? 'Store Pickup' : 'Home Delivery'}</p>
+                <p className="text-sm font-bold text-[#93D7A4] capitalize">{isPickup ? 'Store Pickup' : 'Standard Delivery'}</p>
               </div>
             </div>
             
             {order.payment_status === 'paid' && (
               <div className="flex flex-wrap items-center gap-3 mt-5 pt-5 border-t admin-border">
-                <InvoiceLink orderId={order.id} orderNumber={order.order_number} invoiceType="customer" textLabel="Customer Tax Invoice" className="flex-1 justify-center px-4 py-2 admin-bg-elevated admin-text-primary rounded-full text-xs font-medium hover:admin-bg-hover transition-colors flex items-center gap-2 border admin-border" />
-                <InvoiceLink orderId={order.id} orderNumber={order.order_number} invoiceType="merchant" textLabel="Owner Tax Invoice" className="flex-1 justify-center px-4 py-2 bg-[#3C1E0A]/40 text-[#F9AB00] rounded-full text-xs font-medium hover:bg-[#3C1E0A] transition-colors flex items-center gap-2 border border-[#4E270D]" />
+                <InvoiceLink orderId={order.id} orderNumber={order.order_number} invoiceType="customer" textLabel="Customer Invoice" className="flex-1 justify-center px-4 py-2 admin-bg-elevated admin-text-primary rounded-full text-xs font-medium hover:admin-bg-hover transition-colors flex items-center gap-2 border admin-border cursor-pointer" />
+                <InvoiceLink orderId={order.id} orderNumber={order.order_number} invoiceType="merchant" textLabel="Owner Tax Invoice" className="flex-1 justify-center px-4 py-2 admin-bg-elevated admin-text-primary rounded-full text-xs font-medium hover:admin-bg-hover transition-colors flex items-center gap-2 border admin-border cursor-pointer" />
               </div>
             )}
           </div>
@@ -468,7 +468,7 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                   <span className="text-sm admin-text-muted">Gateway Order</span>
                   <div className="flex items-center gap-2 admin-bg-card px-2 py-1 rounded-md border admin-border w-fit max-w-full">
-                    <span className="text-[11px] font-mono admin-text-secondary break-all">{order.razorpay_order_id}</span>
+                    <span className="text-[11px] font-mono admin-text-accent break-all">{order.razorpay_order_id}</span>
                     <CopyButton text={order.razorpay_order_id} id="razor_order_id" copiedId={copiedId} onClick={copyToClipboard} />
                   </div>
                 </div>
@@ -479,10 +479,10 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
           {/* ACTION ZONE: UPDATE STATUS */}
           <div className="pt-4 border-t admin-border">
             <h3 className="text-[11px] font-bold admin-text-muted uppercase tracking-widest mb-3">Workflow Action</h3>
-            <div className="space-y-4 admin-bg-primary p-5 rounded-[24px] border admin-border">
+            <div className="space-y-5 admin-bg-primary p-5 sm:p-6 rounded-[24px] border admin-border">
               
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <span className="text-sm admin-text-muted">Current Status</span>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-sm font-medium admin-text-muted">Current Status</span>
                 <OrderStatusBadge status={order.status} type="order" />
               </div>
               
@@ -490,7 +490,7 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                 value={newStatus}
                 title="Select new order status"
                 onChange={(e) => setNewStatus(e.target.value)}
-                className="w-full px-4 py-3.5 admin-bg-card border admin-border admin-text-primary rounded-full text-sm font-medium focus:outline-none focus:border-[#A8C7FA] transition-colors appearance-none cursor-pointer"
+                className="w-full px-5 py-3.5 admin-bg-card border admin-border admin-text-primary rounded-full text-sm font-bold focus:outline-none focus:border-[#A8C7FA] transition-colors appearance-none cursor-pointer text-center"
               >
                 {displayStatuses.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -529,7 +529,7 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="Required: Reason for cancellation..."
-                  rows={2}
+                  rows={3}
                   className="w-full px-4 py-3 admin-bg-card border admin-border admin-text-primary placeholder:admin-text-muted rounded-[20px] text-sm focus:outline-none focus:border-[#A8C7FA] transition-colors resize-none"
                 />
               )}

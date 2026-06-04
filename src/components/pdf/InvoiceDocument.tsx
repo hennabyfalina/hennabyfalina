@@ -270,7 +270,7 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <View style={styles.brandContainer}>
-              <Image src="/logo.png" style={styles.logo} />
+              <Image src={`${process.env.NEXT_PUBLIC_SITE_URL || ''}/logo.png`} style={styles.logo} />
               <Text style={styles.title}>{siteConfig.name}</Text>
             </View>
             <Text style={styles.text}>{siteConfig.address.line1}</Text>
@@ -320,6 +320,11 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
             <Text style={styles.addressValue}>{order.addresses?.name}</Text>
           </View>
           
+          <View style={[styles.addressRow, { marginBottom: 4 }]}>
+            <Text style={styles.addressLabel}>Mobile number:</Text>
+            <Text style={styles.addressValue}>{formatPhoneNumber(order.addresses?.phone)}</Text>
+          </View>
+          
           {!isStorePickup ? (
             <View style={styles.addressRow}>
               <Text style={styles.addressLabel}>Address:</Text>
@@ -337,11 +342,6 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
               <Text style={styles.addressValue}>{order.addresses?.pincode}</Text>
             </View>
           )}
-          
-          <View style={[styles.addressRow, { marginTop: 4 }]}>
-            <Text style={styles.addressLabel}>Mobile number:</Text>
-            <Text style={styles.addressValue}>{formatPhoneNumber(order.addresses?.phone)}</Text>
-          </View>
           
           {order.addresses?.landmark && (
             <View style={styles.addressRow}>
@@ -456,7 +456,7 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
             
             {order.total_amount > 0 && (
               <View style={{ marginTop: 6, paddingTop: 4, borderTopWidth: 1, borderTopColor: '#f3f4f6' }}>
-                <Text style={{ fontSize: 9, color: '#4b5563', fontStyle: 'italic', textAlign: 'right' }}>
+                <Text style={{ fontSize: 11, color: '#4b5563', fontStyle: 'italic', textAlign: 'right' }}>
                   Amount in words: {numberToIndianWords(order.total_amount)}
                 </Text>
               </View>
