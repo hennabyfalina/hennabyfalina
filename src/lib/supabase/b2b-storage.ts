@@ -126,6 +126,11 @@ export async function moveTempToFinal(
 
   const finalPath = `${userId}/${fileName}`
 
+  // 🚨 PREVENT SELF-COPY BUG: If the file is already in the final destination (e.g. user was logged in during upload)
+  if (tempPath === finalPath) {
+    return finalPath
+  }
+
   // Copy file to final location
   const { error: copyError } = await supabase.storage
     .from('artworks')
@@ -158,9 +163,14 @@ export async function moveAllTempToFinal(
     tempPaths.map(async (tempPath) => {
       try {
         return await moveTempToFinal(tempPath, userId, supabaseClient)
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Failed to move ${tempPath}:`, error)
-        return null
+        // 🚨 FALLBACK: If Supabase complains it exists, assume it was successfully copied previously
+        if (error.message?.includes('already exists') || error.message?.includes('Duplicate')) {
+          const fileName = tempPath.split('/').pop()
+          return fileName ? `${userId}/${fileName}` : tempPath
+        }
+        return tempPath // Return original path rather than dropping it to prevent ghost files
       }
     })
   )

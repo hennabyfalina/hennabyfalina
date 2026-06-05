@@ -151,7 +151,7 @@ export default function Navbar() {
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 xl:gap-6" suppressHydrationWarning>
             
             <div className="flex items-center justify-between shrink-0 w-full xl:w-auto" suppressHydrationWarning>
-              <Link href="/" className="flex items-center gap-2 text-lg sm:text-xl lg:text-2xl font-extrabold tracking-tight text-gray-900 hover:text-[#f08804] transition-opacity p-1 rounded-sm">
+              <Link href="/" className="flex items-center gap-2 text-lg sm:text-xl lg:text-2xl font-extrabold tracking-tight text-gray-900 transition-opacity p-1 rounded-sm">
                 <div className="relative w-8 h-8 sm:w-9 sm:h-9 overflow-hidden rounded-full border border-gray-100 shadow-sm shrink-0">
                   <Image
                     src="/logo.png"

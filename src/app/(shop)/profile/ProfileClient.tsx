@@ -104,7 +104,7 @@ export default function ProfileClient({ user, profile }: ProfileClientProps) {
           })}
 
           {/* Logout Button Card */}
-          <button onClick={() => setShowLogoutConfirm(true)} className="flex items-start gap-4 p-4 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-left group">
+          <button onClick={() => setShowLogoutConfirm(true)} className="flex items-start gap-4 p-4 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-left group cursor-pointer">
             <div className="w-14 h-14 flex items-center justify-center shrink-0">
               <LogOut className="w-8 h-8 text-red-600 stroke-[1.5]" />
             </div>

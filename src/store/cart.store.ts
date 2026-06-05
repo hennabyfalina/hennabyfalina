@@ -358,6 +358,21 @@ export const useCartStore = create<CartState>()(
       name: 'razack-cart-storage',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ items: state.items }), // Alerts aren't persisted, only shown on session load
+      version: 1,
+      migrate: (persistedState: any, version: number) => {
+        const state = persistedState as { items?: any[] }
+        if (state?.items) {
+          state.items = state.items.map((item: any) => ({
+            ...item,
+            artwork_urls: item.artwork_urls ?? [],
+            artwork_sizes: item.artwork_sizes ?? [],
+            printing_instructions: item.printing_instructions ?? null,
+            version: item.version ?? 1,
+            printing_type: item.printing_type ?? 'None',
+          }))
+        }
+        return state
+      },
     }
   )
 )

@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
-import { X, MapPin, Store } from 'lucide-react'
+import { X, MapPin, Store, ChevronDown, ChevronUp } from 'lucide-react'
 import { siteConfig } from '@/config/site'
 import { formatCurrency } from '@/lib/utils'
 import { getPublicUrl } from '@/lib/supabase/storage'
@@ -41,6 +41,8 @@ export default function ReviewOrderModal({
   finalTotal
 }: ReviewOrderModalProps) {
   const [mounted, setMounted] = useState(false)
+  const [isItemsExpanded, setIsItemsExpanded] = useState(true)
+  const [isAtBottom, setIsAtBottom] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -54,6 +56,13 @@ export default function ReviewOrderModal({
     }
     return () => { document.body.style.overflow = 'unset' }
   }, [isOpen])
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    const scrollBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+    // Use a small threshold (2px) to account for rounding errors
+    setIsAtBottom(scrollBottom <= 2);
+  };
 
   if (!isOpen || !mounted) return null
 
@@ -164,10 +173,21 @@ export default function ReviewOrderModal({
             </div>
 
             <div className="flex-1">
-              <h3 className="text-lg font-bold text-[#0F1111] mb-3 border-b border-gray-100 pb-2">Order Summary</h3>
+              <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2">
+                <h3 className="text-lg font-bold text-[#0F1111]">Order Summary</h3>
+                <button 
+                  onClick={() => setIsItemsExpanded(!isItemsExpanded)}
+                  className="p-1 text-[#007185] hover:bg-gray-100 rounded transition-colors cursor-pointer"
+                >
+                  {isItemsExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                </button>
+              </div>
               
               <div className="space-y-3">
-                <div className="max-h-[160px] overflow-y-auto pr-2 space-y-3 no-scrollbar border border-gray-100 p-2 rounded-sm bg-gray-50">
+                <div 
+                  onScroll={handleScroll}
+                  className={`overflow-y-auto pr-2 space-y-3 no-scrollbar border border-gray-100 p-2 rounded-sm bg-gray-50 transition-all duration-300 relative ${isItemsExpanded ? 'max-h-[280px] opacity-100' : 'max-h-0 py-0 border-0 opacity-0 overflow-hidden'}`}
+                >
                   {items.map((item, index) => {
                     const imgUrl = item.image ? (item.image.startsWith('http') ? item.image : getPublicUrl(item.image)) : '/placeholder-product.svg'
                     return (
@@ -181,12 +201,24 @@ export default function ReviewOrderModal({
                           {item.printing_type && item.printing_type !== 'None' && (
                             <div className="mt-1.5 text-[10px] text-gray-700 bg-blue-50/50 p-1.5 rounded border border-blue-100/50 space-y-0.5">
                               <p><span className="font-bold text-gray-900">Type:</span> {item.printing_type}</p>
-                              {(item.artwork_urls?.length > 0) && (
-                                <p className="text-[#007185] font-medium">({item.artwork_urls.length} file{item.artwork_urls.length > 1 ? 's' : ''} attached)</p>
-                              )}
-                              {item.printing_instructions && (
-                                <p className="text-gray-600 italic line-clamp-2" title={item.printing_instructions}>
-                                  <span className="font-semibold not-italic text-gray-800">Note:</span> &quot;{item.printing_instructions}&quot;
+                              {(() => {
+                                const parseUrls = (data: any): string[] => {
+                                  if (!data) return [];
+                                  if (Array.isArray(data)) return data;
+                                  if (typeof data === 'string') {
+                                    try { const parsed = JSON.parse(data); if (Array.isArray(parsed)) return parsed; } catch { if (data.trim().length > 0) return [data]; }
+                                  }
+                                  return [];
+                                };
+                                const urls = parseUrls(item.artwork_urls).length > 0 ? parseUrls(item.artwork_urls) : parseUrls(item.customization_details?.artwork_urls);
+                                if (urls.length > 0) {
+                                  return <p className="text-[#007185] font-medium">({urls.length} file{urls.length > 1 ? 's' : ''} attached)</p>;
+                                }
+                                return null;
+                              })()}
+                              {(item.printing_instructions || item.customization_details?.printing_instructions) && (
+                                <p className="text-gray-600 italic line-clamp-2" title={item.printing_instructions || item.customization_details?.printing_instructions}>
+                                  <span className="font-semibold not-italic text-gray-800">Note:</span> &quot;{item.printing_instructions || item.customization_details?.printing_instructions}&quot;
                                 </p>
                               )}
                             </div>
@@ -198,6 +230,13 @@ export default function ReviewOrderModal({
                       </div>
                     )
                   })}
+                  
+                  {/* Scroll Indicator for Mobile/Small views */}
+                  {items.length >= 2 && isItemsExpanded && !isAtBottom && (
+                    <div className="sticky bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none flex items-end justify-center pb-1">
+                      <ChevronDown className="w-6 h-6 text-gray-900 animate-bounce stroke-[3]" />
+                    </div>
+                  )}
                 </div>
                 
                 <div className="pt-2 space-y-1.5 text-sm text-[#0F1111]">

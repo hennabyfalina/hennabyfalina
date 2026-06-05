@@ -1,3 +1,5 @@
+// src/components/CartSyncProvider.tsx
+
 'use client'
 
 import { useEffect } from 'react'

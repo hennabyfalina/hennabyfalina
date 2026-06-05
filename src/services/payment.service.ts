@@ -1,6 +1,6 @@
 // src/services/payment.service.ts
 
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { releaseStockReservation, deductOrderStock } from '@/services/inventory.service'
 
 export async function updatePaymentStatus(
@@ -10,7 +10,7 @@ export async function updatePaymentStatus(
   idempotencyKey?: string,
   sessionId?: string
 ) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   
   // Get current order first
   const { data: existingOrder, error: fetchError } = await supabase
@@ -54,7 +54,6 @@ export async function updatePaymentStatus(
     .from('orders')
     .update(updateData)
     .eq('id', orderId)
-    .eq('payment_status', 'pending')
     .select('id')
     .maybeSingle()
 

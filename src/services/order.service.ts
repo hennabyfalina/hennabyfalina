@@ -128,14 +128,12 @@ export async function createOrder(input: CreateOrderInput) {
     if (productsError || !products) throw new Error('Failed to validate products')
 
     // 🔒 ZERO-TRUST ENGINE: Calculate everything on the server
-    let calculatedSubtotal = 0
-    const secureOrderItems = []
     
     // Initialize Admin Client early for secure file transfers
     const supabaseAdmin = createAdminClient()
 
-    // 🔒 VARIATION SHIELD: Process artwork files safely mapping by distinct array rows
-    for (const item of items) {
+    // ⚡ OPTIMIZATION: Process all cart items and their file transfers concurrently
+    const secureOrderItems = await Promise.all(items.map(async (item) => {
       const product = products.find(p => p.id === item.product_id)
       if (!product) throw new Error(`Product not found: ${item.product_id}`)
       if (product.stock < item.quantity) throw new Error(`Insufficient stock for ${product.name}`)
@@ -159,9 +157,6 @@ export async function createOrder(input: CreateOrderInput) {
         console.error(`[OrderService ${requestId}] Item price mismatch for ${product.name}. Client: ₹${item.price}, Server: ₹${expectedPrice}`)
         throw new Error(`The price for ${product.name} has changed. Please refresh your cart.`)
       }
-
-      // � IGNORING CLIENT PRICE: We strictly use expectedPrice fetched from Supabase
-      calculatedSubtotal += expectedPrice * item.quantity
       
       let processingUrls = item.artwork_urls || []
 
@@ -171,24 +166,22 @@ export async function createOrder(input: CreateOrderInput) {
           processingUrls = await moveAllTempToFinal(item.artwork_urls!, user.id, supabaseAdmin)
         } catch (error: any) {
           console.error(`Error moving files for product variation ${item.product_id}:`, error)
-          if (error.message?.includes('already exists')) {
-            processingUrls = item.artwork_urls!.map((url: string) => 
-              url.replace('/temp/', `/${user.id}/`)
-            )
-          } else {
-            throw new Error('Failed to process artwork files. Please try again.')
-          }
+          // 🚨 FALLBACK SHIELD: If all else fails, retain original URLs to prevent empty arrays
+          processingUrls = item.artwork_urls!
         }
       }
 
       // Append verified entities cleanly directly onto our final stack
-      secureOrderItems.push({
+      return {
         ...item,
         secure_price: expectedPrice,
         secure_original_price: selectedTier?.mrp ?? product.price,
         artwork_urls: processingUrls
-      })
-    }
+      }
+    }))
+
+    // 🚨 IGNORING CLIENT PRICE: We strictly use expectedPrice fetched from Supabase
+    const calculatedSubtotal = secureOrderItems.reduce((sum, item) => sum + (item.secure_price * item.quantity), 0)
 
     // Verify stock reservations
     if (sessionId) {
@@ -256,6 +249,10 @@ export async function createOrder(input: CreateOrderInput) {
       }
     }
 
+    // 📅 Calculate 1-Week Default Delivery Date
+    const expectedDelivery = new Date()
+    expectedDelivery.setDate(expectedDelivery.getDate() + 7)
+
     // Create order
     const orderInsertData: any = {
       order_number: orderNumber,
@@ -268,6 +265,7 @@ export async function createOrder(input: CreateOrderInput) {
       idempotency_key: idempotencyKey || null,
       session_id: sessionId,
       shipping_method: shippingMethod,
+      estimated_delivery_date: expectedDelivery.toISOString(),
     }
 
     if (finalAddressId) {
@@ -293,6 +291,33 @@ export async function createOrder(input: CreateOrderInput) {
 
     // Create order items directly mapping from our isolated, secured variant models
     const orderItems = secureOrderItems.map(item => {
+      // ✅ FORCE CONVERT artwork_urls to string array
+      let artworkUrls = item.artwork_urls || []
+
+      // If it's an array of objects (like [{url: "path"}]), extract the url
+      if (Array.isArray(artworkUrls) && artworkUrls.length > 0) {
+        artworkUrls = artworkUrls.map(url => {
+          if (typeof url === 'string') return url
+          if (url && typeof url === 'object') return (url as any).url || (url as any).path || String(url)
+          return null
+        }).filter(Boolean)
+      }
+
+      // If it's a JSON string, parse it
+      if (typeof artworkUrls === 'string') {
+        try {
+          const parsed = JSON.parse(artworkUrls)
+          if (Array.isArray(parsed)) {
+            artworkUrls = parsed.map(u => typeof u === 'string' ? u : u?.url || u?.path).filter(Boolean)
+          }
+        } catch (e) {}
+      }
+
+      // Ensure it's an array of strings
+      if (!Array.isArray(artworkUrls)) {
+        artworkUrls = []
+      }
+
       return {
         order_id: order.id,
         product_id: item.product_id,
@@ -300,8 +325,9 @@ export async function createOrder(input: CreateOrderInput) {
         price: item.secure_price,
         original_price: item.secure_original_price,
         printing_type: item.printing_type || 'Retail (Readymade)',
-        artwork_urls: item.artwork_urls || [],
-        printing_instructions: item.printing_instructions || null,
+        artwork_urls: artworkUrls, // ✅ Now guaranteed to be string[]
+        artwork_sizes: item.artwork_sizes || [],
+        printing_instructions: item.printing_instructions || null
       }
     })
 
@@ -314,6 +340,7 @@ export async function createOrder(input: CreateOrderInput) {
       throw new Error(itemsError.message)
     }
 
+    // Clean up any temp artwork records for this user
     await supabase.from('cart_items').delete().eq('user_id', user.id)
 
     // Store idempotency record

@@ -10,6 +10,11 @@ export async function GET(request: Request) {
 
   // 🔒 PATH TRAVERSAL SHIELD: Reject arbitrary directory traversal requests
   const normalizedPath = decodeURIComponent(path)
+  
+  if (normalizedPath.startsWith('http://') || normalizedPath.startsWith('https://')) {
+    return NextResponse.redirect(normalizedPath)
+  }
+
   if (normalizedPath.includes('../') || normalizedPath.includes('./') || normalizedPath.startsWith('/')) {
     return new NextResponse('Invalid path structure detected.', { status: 403 })
   }
@@ -19,17 +24,21 @@ export async function GET(request: Request) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
-    if (!user) {
+    const isTempUpload = normalizedPath.startsWith('temp_uploads/')
+
+    if (!user && !isTempUpload) {
       return new NextResponse('Unauthorized access.', { status: 401 })
     }
 
-    // Only allow users to access files in their UUID folder, unless they are an admin
-    const isOwner = normalizedPath.startsWith(`${user.id}/`) || normalizedPath.includes(user.id)
-    if (!isOwner) {
-      const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single()
-      if (profile?.role !== 'admin' && profile?.role !== 'super_admin') {
-        console.error(`[Security] User ${user.id} attempted to access artwork ${normalizedPath}`)
-        return new NextResponse('Forbidden access.', { status: 403 })
+    // Only allow users to access files in their UUID folder or temp folder, unless they are an admin
+    if (!isTempUpload) {
+      const isOwner = user && (normalizedPath.startsWith(`${user.id}/`) || normalizedPath.includes(user.id))
+      if (!isOwner) {
+        const { data: profile } = await supabase.from('users').select('role').eq('id', user?.id).single()
+        if (profile?.role !== 'admin' && profile?.role !== 'super_admin') {
+          console.error(`[Security] User ${user?.id} attempted to access artwork ${normalizedPath}`)
+          return new NextResponse('Forbidden access.', { status: 403 })
+        }
       }
     }
 

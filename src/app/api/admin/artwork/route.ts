@@ -10,6 +10,10 @@ export async function GET(request: Request) {
   
   if (!path) return new NextResponse('Artwork path is required', { status: 400 })
 
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return NextResponse.redirect(path)
+  }
+
   try {
     const { authorized, response } = await verifyAdmin(['admin', 'super_admin'])
     if (!authorized) return response!

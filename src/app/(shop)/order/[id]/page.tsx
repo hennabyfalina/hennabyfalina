@@ -122,7 +122,7 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
     return phone
   }
 
-  const deliveryDate = new Date(new Date(order.created_at).getTime() + 5 * 24 * 60 * 60 * 1000).toISOString()
+  const deliveryDate = order.estimated_delivery_date || new Date(new Date(order.created_at).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
   // Extract product IDs from this order (for clearing drafts)
   const productIds = order.order_items.map((item: any) => item.product_id)
@@ -140,6 +140,7 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
   const customerCountry = getAddressField('country', 'India')
 
   return (
+    <div className="min-h-screen bg-white">
     <Container className="py-8 md:py-12 max-w-4xl">
       <ClearDraftsOnMount productIds={productIds} />
 
@@ -445,5 +446,6 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
         </div>
       </div>
     </Container>
+    </div>
   )
 }

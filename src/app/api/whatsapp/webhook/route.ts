@@ -58,6 +58,8 @@ export async function POST(request: Request) {
     // ✅ SIGNATURE VALIDATED: Safe to parse the JSON and process the business logic
     const body = JSON.parse(rawBody);
 
+    const autoReplies: Promise<any>[] = [];
+
     if (body.object === 'whatsapp_business_account') {
       for (const entry of body.entry) {
         for (const change of entry.changes) {
@@ -85,7 +87,7 @@ export async function POST(request: Request) {
 
             if (META_ACCESS_TOKEN && META_PHONE_NUMBER_ID) {
               // We reply with a standard 'text' type. This is 100% FREE in a user-initiated 24h window.
-              await fetch(`https://graph.facebook.com/v19.0/${META_PHONE_NUMBER_ID}/messages`, {
+              autoReplies.push(fetch(`https://graph.facebook.com/v19.0/${META_PHONE_NUMBER_ID}/messages`, {
                 method: 'POST',
                 headers: {
                   'Authorization': `Bearer ${META_ACCESS_TOKEN}`,
@@ -102,11 +104,17 @@ export async function POST(request: Request) {
                     body: `Hi! \n\nThis is the automated dispatch system for Razack Packaging Centre.\n\nTo chat directly with our support team regarding your order or custom printing, please click the link below:\n\n https://wa.me/916383151922`
                   }
                 }),
-              });
+              }));
             }
           }
         }
       }
+      
+      // ⚡ OPTIMIZATION: Execute all auto-replies concurrently so we don't hold up Meta's webhook timeout
+      if (autoReplies.length > 0) {
+        await Promise.allSettled(autoReplies);
+      }
+
       return NextResponse.json({ status: 'success' }, { status: 200 });
     }
     

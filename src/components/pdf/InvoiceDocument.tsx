@@ -234,6 +234,30 @@ const formatPhoneNumber = (phone: string) => {
   return phone
 }
 
+const getFileCount = (item: any) => {
+  const parseUrls = (data: any): string[] => {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (typeof data === 'string') {
+      try { const parsed = JSON.parse(data); if (Array.isArray(parsed)) return parsed; } catch { if (data.trim().length > 0) return [data]; }
+    }
+    return [];
+  };
+  const urls = parseUrls(item.artwork_urls).length > 0 ? parseUrls(item.artwork_urls) : parseUrls(item.customization_details?.artwork_urls);
+  return urls.length;
+};
+
+const getNotes = (item: any) => {
+  return item.printing_instructions || item.customization_details?.printing_instructions || '';
+};
+
+const getAddressField = (order: any, field: string, isStorePickup: boolean) => {
+  if (order.addresses && order.addresses[field]) return order.addresses[field]
+  if (order.pending_address && order.pending_address[field]) return order.pending_address[field]
+  if (isStorePickup && order.pickup_contact && order.pickup_contact[field]) return order.pickup_contact[field]
+  return ''
+}
+
 export default function InvoiceDocument({ order, invoiceType = 'customer' }: { order: any, invoiceType?: 'customer' | 'merchant' }) {
   const shippingCost = order.shipping_cost ?? (order.total_amount > 1000 ? 0 : 50)
   const subtotal = order.total_amount - shippingCost
@@ -243,7 +267,8 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
   const isStorePickup = order.delivery_method === 'pickup' || 
                         order.addresses?.delivery_method === 'pickup' ||
                         order.addresses?.address_line1?.toLowerCase().includes('pickup') || 
-                        order.addresses?.address?.toLowerCase().includes('pickup')
+                        order.addresses?.address?.toLowerCase().includes('pickup') ||
+                        (order.pickup_contact && Object.keys(order.pickup_contact).length > 0)
   const deliveryMethodLabel = isStorePickup ? 'Store Pickup' : 'Standard Delivery'
 
   const capitalize = (str: string) => str ? str.charAt(0).toUpperCase() + str.slice(1) : ''
@@ -259,10 +284,10 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
     watermarkColor = '#15803d' 
   }
 
-  const line1 = order.addresses?.address || order.addresses?.address_line1 || ''
-  const line2 = order.addresses?.address_line2 || ''
-  const cityPin = `${order.addresses?.city || ''} - ${order.addresses?.pincode || ''}`
-  const stateCountry = `${order.addresses?.state || ''}, ${order.addresses?.country || 'India'}`
+  const line1 = getAddressField(order, 'address_line1', isStorePickup)
+  const line2 = getAddressField(order, 'address_line2', isStorePickup)
+  const cityPin = `${getAddressField(order, 'city', isStorePickup)} - ${getAddressField(order, 'pincode', isStorePickup)}`
+  const stateCountry = `${getAddressField(order, 'state', isStorePickup)}, ${getAddressField(order, 'country', isStorePickup) || 'India'}`
 
   return (
     <Document>
@@ -317,12 +342,12 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
           
           <View style={styles.addressRow}>
             <Text style={styles.addressLabel}>Name:</Text>
-            <Text style={styles.addressValue}>{order.addresses?.name}</Text>
+            <Text style={styles.addressValue}>{getAddressField(order, 'name', isStorePickup)}</Text>
           </View>
           
           <View style={[styles.addressRow, { marginBottom: 4 }]}>
             <Text style={styles.addressLabel}>Mobile number:</Text>
-            <Text style={styles.addressValue}>{formatPhoneNumber(order.addresses?.phone)}</Text>
+            <Text style={styles.addressValue}>{formatPhoneNumber(getAddressField(order, 'phone', isStorePickup))}</Text>
           </View>
           
           {!isStorePickup ? (
@@ -339,21 +364,21 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
           ) : (
             <View style={styles.addressRow}>
               <Text style={styles.addressLabel}>Pincode:</Text>
-              <Text style={styles.addressValue}>{order.addresses?.pincode}</Text>
+              <Text style={styles.addressValue}>{getAddressField(order, 'pincode', isStorePickup)}</Text>
             </View>
           )}
           
-          {order.addresses?.landmark && (
+          {getAddressField(order, 'landmark', isStorePickup) && (
             <View style={styles.addressRow}>
               <Text style={styles.addressLabel}>Landmark:</Text>
-              <Text style={styles.addressValue}>{order.addresses.landmark}</Text>
+              <Text style={styles.addressValue}>{getAddressField(order, 'landmark', isStorePickup)}</Text>
             </View>
           )}
           
-          {order.addresses?.delivery_instructions && (
+          {getAddressField(order, 'delivery_instructions', isStorePickup) && (
             <View style={styles.addressRow}>
               <Text style={styles.addressLabel}>Instructions:</Text>
-              <Text style={styles.addressValue}>{order.addresses.delivery_instructions}</Text>
+              <Text style={styles.addressValue}>{getAddressField(order, 'delivery_instructions', isStorePickup)}</Text>
             </View>
           )}
         </View>
@@ -376,13 +401,13 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
                 
                 {item.printing_type && item.printing_type !== 'None' && (
                   <Text style={{ fontSize: 8, color: '#4b5563', marginTop: 2 }}>
-                    Type: {item.printing_type} {(item.artwork_urls && item.artwork_urls.length > 0) ? `[${item.artwork_urls.length} File(s) Attached]` : ''}
+                    Type: {item.printing_type} {getFileCount(item) > 0 ? `[${getFileCount(item)} File(s) Attached]` : ''}
                   </Text>
                 )}
 
-                {item.printing_instructions && (
+                {getNotes(item) && (
                   <Text style={{ fontSize: 8, color: '#6b7280', fontStyle: 'italic', marginTop: 1 }}>
-                    Note: {item.printing_instructions}
+                    Note: {getNotes(item)}
                   </Text>
                 )}
               </View>

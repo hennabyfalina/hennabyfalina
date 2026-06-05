@@ -17,24 +17,36 @@ const sanitizeForMeta = (value: any): string => {
   return str.trim();
 }
 
-// 🛡️ THE AMAZON-STYLE MINIMALIST SUMMARIZER
-function summarizeForCustomer(orderItems: any[]): string {
-  if (!orderItems || orderItems.length === 0) return '0 items';
-  const totalQty = orderItems.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
-  return `${totalQty} item${totalQty > 1 ? 's' : ''}`;
-}
-
-function summarizeForAdmin(orderItems: any[]): string {
+// 🛡️ THE AMAZON-STYLE MINIMALIST SUMMARIZER (UNIFIED FOR ADMIN & CUSTOMER)
+function getOrderSummary(orderItems: any[]): string {
   if (!orderItems || orderItems.length === 0) return '0 items';
   const totalQty = orderItems.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
   
-  const hasFiles = orderItems.some(i => i.artwork_urls && i.artwork_urls.length > 0);
-  const hasNotes = orderItems.some(i => i.printing_instructions && i.printing_instructions.trim().length > 0);
+  const hasFiles = orderItems.some(item => {
+    const data = item.artwork_urls || item.customization_details?.artwork_urls;
+    if (!data) return false;
+    if (Array.isArray(data)) return data.length > 0;
+    if (typeof data === 'string') {
+      try { const parsed = JSON.parse(data); if (Array.isArray(parsed)) return parsed.length > 0; } catch { return data.trim().length > 0; }
+    }
+    return false;
+  });
+
+  const hasNotes = orderItems.some(item => {
+    const note = item.printing_instructions || item.customization_details?.printing_instructions;
+    return typeof note === 'string' && note.trim().length > 0;
+  });
   
   if (hasFiles || hasNotes) {
-    const detail = hasFiles && hasNotes ? 'Artwork & Notes' : hasFiles ? 'Artwork' : 'Notes';
+    const detail = hasFiles && hasNotes ? 'Files & Notes' : hasFiles ? 'Files' : 'Notes';
     return `${totalQty} item${totalQty > 1 ? 's' : ''} [Includes ${detail}]`;
   }
+  
+  const hasCustomType = orderItems.some(i => i.printing_type && i.printing_type !== 'None' && i.printing_type !== 'Retail (Readymade)');
+  if (hasCustomType) {
+    return `${totalQty} item${totalQty > 1 ? 's' : ''} [Customized]`;
+  }
+
   return `${totalQty} item${totalQty > 1 ? 's' : ''} [Retail]`;
 }
 
@@ -128,8 +140,7 @@ export async function notifyOrderConfirmed(order: any) {
   };
 
   const itemsArray = order.order_items || order.items || [];
-  const customerSummary = summarizeForCustomer(itemsArray);
-  const adminSummary = summarizeForAdmin(itemsArray);
+  const unifiedSummary = getOrderSummary(itemsArray);
   const totalAmount = formatCurrency(order.total_amount);
 
   // 🚨 UNIFIED DELIVERY METHOD LOGIC (Used for both Customer {{2}} and Admin {{4}})
@@ -159,7 +170,7 @@ export async function notifyOrderConfirmed(order: any) {
         [
           sanitizeForMeta(order.order_number),       // {{1}} Order ID
           sanitizeForMeta(deliveryMethodString),     // {{2}} Delivery Method
-          sanitizeForMeta(customerSummary),          // {{3}} Order Summary
+          sanitizeForMeta(unifiedSummary),           // {{3}} Order Summary
           sanitizeForMeta(totalAmount)               // {{4}} Total Paid
         ],
         buttonParam 
@@ -184,7 +195,7 @@ export async function notifyOrderConfirmed(order: any) {
             sanitizeForMeta(addressObj.phone),                          // {{3}} Phone
             sanitizeForMeta(deliveryMethodString),                      // {{4}} Delivery Method
             sanitizeForMeta(adminAddressLine),                          // {{5}} Address
-            sanitizeForMeta(adminSummary),                              // {{6}} Order Summary
+            sanitizeForMeta(unifiedSummary),                            // {{6}} Order Summary
             sanitizeForMeta(totalAmount)                                // {{7}} Total Paid
           ]
         );

@@ -546,7 +546,7 @@ export default function ProductForm({
                             value={tier.selling_price} 
                             onChange={(e) => handleTierChange(index, 'selling_price', e.target.value === '' ? '' : parseFloat(e.target.value))} 
                             min="0" step="0.01" 
-                            className="w-full px-4 py-2.5 admin-bg-card border admin-border text-emerald-600 dark:text-[#93D7A4] font-medium rounded-lg focus:outline-none focus:border-[#93D7A4] transition-colors text-sm" 
+                            className="w-full px-4 py-2.5 admin-bg-card border admin-border admin-text-primary rounded-lg focus:outline-none focus:border-[#A8C7FA] transition-colors text-sm" 
                           />
                         </div>
                         <div>
@@ -574,7 +574,7 @@ export default function ProductForm({
                             onChange={(e) => handleTierChange(index, 'delivery_days', e.target.value === '' ? '' : parseInt(e.target.value, 10))} 
                             placeholder="7" 
                             min="1"
-                            className="px-4 py-2.5 admin-bg-primary border admin-border text-[#A8C7FA] font-medium rounded-lg focus:outline-none focus:border-[#A8C7FA] text-center text-sm" 
+                            className="w-full px-4 py-2.5 admin-bg-card border admin-border admin-text-primary rounded-lg focus:outline-none focus:border-[#A8C7FA] transition-colors text-sm" 
                           />
                         </div>
 

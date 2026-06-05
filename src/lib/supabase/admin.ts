@@ -19,6 +19,11 @@ export const createAdminClient = () => {
     supabaseUrl,
     supabaseServiceKey,
     {
+      global: {
+        headers: {
+          'x-admin-client': 'true',
+        },
+      },
       auth: {
         autoRefreshToken: false,
         persistSession: false,

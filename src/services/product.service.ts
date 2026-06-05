@@ -48,8 +48,6 @@ const productMutationSchema = z.object({
 })
 
 let productsCache: Product[] | null = null
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-let productsWithPublicCache: Product[] | null = null
 let lastCacheInvalidation = 0
 const CACHE_TTL = 60000 
 
@@ -59,7 +57,6 @@ function isCacheValid(): boolean {
 
 function invalidateCache() {
   productsCache = null
-  productsWithPublicCache = null
   lastCacheInvalidation = Date.now()
 }
 
@@ -100,9 +97,7 @@ export const getProducts = cache(async (useCache: boolean = true): Promise<Produ
 
 export const getProductsWithSignedUrls = cache(async (useCache: boolean = true): Promise<Product[]> => {
   const products = await getProducts(useCache)
-  const productsWithPublicUrls = addPublicUrls(products)
-  if (useCache) productsWithPublicCache = productsWithPublicUrls
-  return productsWithPublicUrls
+  return addPublicUrls(products)
 })
 
 export async function getRecentlyBoughtProductsForUser(userId: string, limit: number = 8): Promise<Product[]> {
@@ -253,8 +248,11 @@ export async function updateProduct(id: string, updates: any): Promise<Product> 
   
   const removedImages = currentProduct?.images?.filter((path: string) => !newImages?.includes(path)) || []
   for (const path of removedImages) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    try { await deleteProductImage(path) } catch (err) {}
+    try { 
+      await deleteProductImage(path) 
+    } catch (err) {
+      console.warn(`[Cleanup] Failed to delete old image ${path}:`, err)
+    }
   }
   
   const { data, error } = await supabase

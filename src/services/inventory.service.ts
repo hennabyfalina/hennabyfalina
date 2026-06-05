@@ -278,7 +278,7 @@ export async function getAvailableStock(productId: string): Promise<number> {
  * Use this instead of duplicate updateProductStock functions.
  */
 export async function deductOrderStock(orderId: string): Promise<void> {
-  const supabase = await createServerClient()
+  const supabase = createAdminClient()
   
   const { data: orderItems, error: itemsError } = await supabase
     .from('order_items')

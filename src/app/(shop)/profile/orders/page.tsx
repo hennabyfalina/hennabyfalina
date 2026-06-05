@@ -60,13 +60,25 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   const orders = await Promise.all((rawOrders || []).map(async (order) => {
     const itemsWithUrls = await Promise.all(order.order_items.map(async (item: any) => {
       
+      const parseUrls = (data: any): string[] => {
+        if (!data) return [];
+        if (Array.isArray(data)) return data;
+        if (typeof data === 'string') {
+          try { const parsed = JSON.parse(data); if (Array.isArray(parsed)) return parsed; } catch { if (data.trim().length > 0) return [data]; }
+        }
+        return [];
+      };
+      
+      const parsedUrls = parseUrls(item.artwork_urls).length > 0 ? parseUrls(item.artwork_urls) : parseUrls(item.customization_details?.artwork_urls);
+      
       let signedUrls: string[] = []
-      if (item.artwork_urls && item.artwork_urls.length > 0) {
-        signedUrls = await Promise.all(item.artwork_urls.map(async (url: string) => {
+      if (parsedUrls.length > 0) {
+        signedUrls = await Promise.all(parsedUrls.map(async (url: string) => {
+          if (url.startsWith('http://') || url.startsWith('https://')) return url;
           const { data } = await supabase.storage
             .from('artworks')
             .createSignedUrl(url, 3600) 
-          return data?.signedUrl
+          return data?.signedUrl || url
         }))
       }
       
@@ -126,7 +138,17 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                                     order.delivery_method === 'pickup' || 
                                     order.addresses?.delivery_method === 'pickup' || 
                                     (order.addresses?.address_line1 || '').toLowerCase().includes('pickup') || 
-                                    (order.addresses?.address || '').toLowerCase().includes('pickup')
+                                    (order.addresses?.address || '').toLowerCase().includes('pickup') ||
+                                    (order.pickup_contact && Object.keys(order.pickup_contact).length > 0)
+
+              const getAddressField = (field: string, fallback: string = 'N/A') => {
+                if (order.addresses && order.addresses[field]) return order.addresses[field]
+                if (order.pending_address && order.pending_address[field]) return order.pending_address[field]
+                if (isStorePickup && order.pickup_contact && order.pickup_contact[field]) return order.pickup_contact[field]
+                return fallback
+              }
+
+              const customerName = getAddressField('name', user.user_metadata?.name || user.email?.split('@')[0])
 
               return (
                 <div key={order.id} className="border border-gray-300 rounded-lg overflow-hidden shadow-sm">
@@ -144,13 +166,21 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                   <div className="relative group">
                     <div className="uppercase text-[11px] md:text-xs text-gray-500 mb-0.5 sm:mb-1">Ship To</div>
                     <div className="text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer truncate max-w-[120px] lg:max-w-[200px] flex items-center gap-1 outline-none" tabIndex={0}>
-                      <span className="truncate">{order.addresses?.name || user.user_metadata?.name || user.email?.split('@')[0]}</span>
+                      <span className="truncate">{customerName}</span>
                       <svg className="w-3 h-3 text-gray-500 group-hover:rotate-180 group-focus-within:rotate-180 transition-transform shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                     </div>
                     
                     <div className="absolute top-full left-0 sm:left-auto mt-1 w-56 sm:w-64 bg-white border border-gray-200 shadow-[0_4px_14px_rgba(0,0,0,0.15)] rounded-sm opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-200 z-[60] p-4 text-sm text-gray-900 pointer-events-none group-hover:pointer-events-auto group-focus-within:pointer-events-auto text-left whitespace-normal">
-                      <div className="font-bold mb-1.5">{order.addresses?.name || user.user_metadata?.name || user.email?.split('@')[0]}</div>
-                      {order.addresses ? (
+                      <div className="font-bold mb-1.5">{customerName}</div>
+                      {isStorePickup ? (
+                        <>
+                          <div className="leading-snug text-gray-700">
+                            <span className="font-semibold text-gray-900">Store Pickup</span>
+                            <br />Pincode: {getAddressField('pincode')}
+                          </div>
+                          <div className="mt-2.5 text-gray-600 font-medium">Phone: {getAddressField('phone')}</div>
+                        </>
+                      ) : order.addresses ? (
                         <>
                           <div className="leading-snug text-gray-700">
                             {order.addresses.address_line1}
@@ -192,7 +222,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                     ) : isStorePickup ? (
                       <span className="text-gray-900">Store Pickup Order</span>
                     ) : (
-                      <span>Arriving by {formatDate(new Date(new Date(order.created_at).getTime() + 5 * 24 * 60 * 60 * 1000).toISOString())}</span>
+                      <span>Arriving by {formatDate(order.estimated_delivery_date || new Date(new Date(order.created_at).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString())}</span>
                     )}
                     <OrderStatusBadge status={order.status} type="order" />
                     {order.status !== order.payment_status && (
@@ -242,30 +272,35 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                                 <span className="text-xs text-gray-600 ml-1">Qty: {item.quantity}</span>
                               </div>
 
-                              {item.printing_type && item.printing_type !== 'None' && (
-                                <div className="mt-2.5 pl-3 border-l-2 border-[#007185] text-xs">
-                                  <p className="font-bold text-[#007185] flex items-center gap-1.5 uppercase tracking-wide">
-                                    <Package className="w-3.5 h-3.5" /> {item.printing_type}
-                                  </p>
-                                  {item.artwork_urls && item.artwork_urls.length > 0 && (
-                                    <p className="text-gray-600 mt-0.5 font-medium flex items-center gap-1">
-                                      <span className="w-1 h-1 bg-gray-400 rounded-full" />
-                                      {item.artwork_urls.length} File(s) Attached
-                                    </p>
-                                  )}
-                                  {item.printing_instructions && (
-                                    <p className="text-gray-600 italic mt-0.5">Note: &quot;{item.printing_instructions}&quot;</p>
-                                  )}
-                                  
-                                  {item.signed_artwork_urls && item.signed_artwork_urls.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 mt-1.5">
-                                      {item.signed_artwork_urls.map((signedUrl: string, idx: number) => (
-                                        <ArtworkDownloadButton key={idx} url={signedUrl} index={idx} />
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+                              {(() => {
+                                const hasCustomType = item.printing_type && item.printing_type !== 'None' && item.printing_type !== 'Retail (Readymade)';
+                                const hasFiles = item.signed_artwork_urls && item.signed_artwork_urls.length > 0;
+                                const note = item.printing_instructions || item.customization_details?.printing_instructions;
+                                const hasNotes = typeof note === 'string' && note.trim().length > 0;
+
+                                if (!hasCustomType && !hasFiles && !hasNotes) return null;
+
+                                return (
+                                  <div className="mt-2.5 pl-3 border-l-2 border-[#007185] text-xs">
+                                    {hasCustomType && (
+                                      <p className="font-bold text-[#007185] flex items-center gap-1.5 uppercase tracking-wide">
+                                        <Package className="w-3.5 h-3.5" /> {item.printing_type}
+                                      </p>
+                                    )}
+                                    {hasFiles && (
+                                      <p className="text-gray-600 mt-0.5 font-medium flex items-center gap-1">
+                                        <span className="w-1 h-1 bg-gray-400 rounded-full" /> {item.signed_artwork_urls.length} File(s) Attached
+                                      </p>
+                                    )}
+                                    {hasNotes && <p className="text-gray-600 italic mt-0.5">Note: &quot;{note}&quot;</p>}
+                                    {hasFiles && (
+                                      <div className="flex flex-wrap gap-2 mt-1.5">
+                                        {item.signed_artwork_urls.map((url: string, idx: number) => <ArtworkDownloadButton key={idx} url={url} index={idx} />)}
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })()}
 
                               {item.products?.description && (
                                 <p className="text-xs text-gray-600 mt-2 line-clamp-2">{item.products.description}</p>

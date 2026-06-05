@@ -213,12 +213,27 @@ export function useRazorpayCheckout() {
         },
         notes: {
           order_number: order.order_number,
-          order_id: data.orderId,
+          order_id: order.id,
           shipping_method: shippingMethod
         },
         theme: { color: '#007185' },
         handler: async function (response: any) {
           console.log('[Checkout] Payment successful:', response.razorpay_payment_id)
+          
+          // ⚡ OPTIMIZATION: Eagerly verify the signature to bypass the 3-5 second webhook delay.
+          try {
+            await fetch('/api/razorpay/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ...response,
+                internal_order_id: order.id
+              })
+            })
+          } catch (e) {
+            console.warn('[Checkout] Eager verification bypassed, falling back to webhook.')
+          }
+          
           window.location.href = `/order/${order.id}?new_order=true`
         },
         modal: {

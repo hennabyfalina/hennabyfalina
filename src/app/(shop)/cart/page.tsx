@@ -26,6 +26,8 @@ import PreviewModal from '@/components/ui/PreviewModal'
 import StarRating from '@/components/product/StarRating'
 import { broadcast } from '@/lib/broadcast'
 import StickyCartBar from '@/components/cart/StickyCartBar'
+import SessionExpiredModal from '@/components/checkout/SessionExpiredModal'
+import CartAlertsModal from '@/components/cart/CartAlertsModal'
 
 export default function CartPage() {
   const router = useRouter()
@@ -43,6 +45,7 @@ export default function CartPage() {
   const [showConfirmClear, setShowConfirmClear] = useState(false)
   const [isCheckingOut, setIsCheckingOut] = useState(false)
   const [paymentFailed, setPaymentFailed] = useState(false)
+  const [sessionExpired, setSessionExpired] = useState(false)
 
   const [previewModalState, setPreviewModalState] = useState({ isOpen: false, url: '', name: '' })
   const [isFetchingPreview, setIsFetchingPreview] = useState<string | null>(null)
@@ -54,6 +57,13 @@ export default function CartPage() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
       setPaymentFailed(params.get('payment_failed') === 'true')
+      
+      if (params.get('session_expired') === 'true') {
+        setSessionExpired(true)
+        const url = new URL(window.location.href)
+        url.searchParams.delete('session_expired')
+        window.history.replaceState({}, '', url.toString())
+      }
     }
   }, [])
 
@@ -146,6 +156,10 @@ export default function CartPage() {
             <RecentlyViewed />
           </div>
         </Container>
+        <SessionExpiredModal
+          isOpen={sessionExpired}
+          onClose={() => setSessionExpired(false)}
+        />
       </div>
     )
   }
@@ -189,23 +203,6 @@ export default function CartPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
           <div className="lg:col-span-8 bg-white p-5 md:p-6 rounded-md border border-gray-200 shadow-sm">
-            {/* 🚨 DEDICATED CART DRIFT BANNER */}
-            {alerts && alerts.length > 0 && (
-              <div className="bg-[#FFF4E5] border border-[#FBD8B4] p-4 rounded-md mb-6 shadow-sm flex gap-3 items-start animate-in fade-in duration-300">
-                <AlertTriangle className="w-5 h-5 text-[#C7511F] shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <h3 className="text-[#C7511F] font-bold text-sm mb-1.5">Please review your cart</h3>
-                  <ul className="list-disc pl-4 text-sm text-gray-800 space-y-1 mb-2">
-                    {alerts.map((alert, i) => (
-                      <li key={i}>{alert}</li>
-                    ))}
-                  </ul>
-                  <button onClick={clearAlerts} className="text-xs font-bold text-[#007185] hover:text-[#C7511F] hover:underline transition-colors cursor-pointer">
-                    Dismiss these alerts
-                  </button>
-                </div>
-              </div>
-            )}
 
             <div className="flex items-end justify-between border-b border-gray-200 pb-2 mb-4">
               <div>
@@ -549,6 +546,11 @@ export default function CartPage() {
         fileUrl={previewModalState.url} 
         fileName={previewModalState.name} 
       />
+      <SessionExpiredModal
+        isOpen={sessionExpired}
+        onClose={() => setSessionExpired(false)}
+      />
+      <CartAlertsModal alerts={alerts} onDismiss={clearAlerts} />
     </div>
     </>
   )

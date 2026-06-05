@@ -42,6 +42,7 @@ razack-packaging-centre/
 │   │   │   │   └── page.tsx
 │   │   │   ├── order/
 │   │   │   │   └── [id]/
+│   │   │   │       ├── loading.tsx
 │   │   │   │       └── page.tsx
 │   │   │   ├── privacy/
 │   │   │   │   └── page.tsx
@@ -56,14 +57,19 @@ razack-packaging-centre/
 │   │   │   ├── profile/
 │   │   │   │   ├── addresses/
 │   │   │   │   │   ├── AddressesClient.tsx
+│   │   │   │   │   ├── loading.tsx
 │   │   │   │   │   └── page.tsx
 │   │   │   │   ├── contact/
+│   │   │   │   │   ├── loading.tsx
 │   │   │   │   │   └── page.tsx
 │   │   │   │   ├── orders/
+│   │   │   │   │   ├── loading.tsx
 │   │   │   │   │   └── page.tsx
 │   │   │   │   ├── payments/
+│   │   │   │   │   ├── loading.tsx
 │   │   │   │   │   └── page.tsx
 │   │   │   │   ├── security/
+│   │   │   │   │   ├── loading.tsx
 │   │   │   │   │   ├── page.tsx
 │   │   │   │   │   └── SecurityClient.tsx
 │   │   │   │   ├── settings/
@@ -159,6 +165,8 @@ razack-packaging-centre/
 │   │   │   │   └── [id]/
 │   │   │   │       └── route.tsx
 │   │   │   ├── razorpay/
+│   │   │   │   ├── verify/
+│   │   │   │   │   └── route.ts
 │   │   │   │   └── route.ts
 │   │   │   ├── user/
 │   │   │   │   └── recently-bought/
@@ -211,6 +219,7 @@ razack-packaging-centre/
 │   │   │   ├── GoogleOneTap.tsx
 │   │   │   └── NameModal.tsx
 │   │   ├── cart/
+│   │   │   ├── CartAlertsModal.tsx
 │   │   │   ├── CartRecommendations.tsx
 │   │   │   └── StickyCartBar.tsx
 │   │   ├── checkout/
@@ -226,6 +235,7 @@ razack-packaging-centre/
 │   │   │   ├── PersistentCheckoutBar.tsx
 │   │   │   ├── ReviewOrderModal.tsx
 │   │   │   ├── SecureLoadingOverlay.tsx
+│   │   │   ├── SessionExpiredModal.tsx
 │   │   │   └── StorePickupInfo.tsx
 │   │   ├── home/
 │   │   │   ├── CategorySection.tsx

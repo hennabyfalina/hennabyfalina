@@ -10,6 +10,15 @@ export default function AdminRealtimeNotifier() {
   const isFirstLoadRef = useRef(true)
   
   useEffect(() => {
+    // Request Native OS Notification Permission for reliable Admin Alerts
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+        Notification.requestPermission()
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     const checkNewOrders = async () => {
       try {
         // Check if online before attempting fetch to prevent TypeError: Failed to fetch
@@ -56,7 +65,15 @@ export default function AdminRealtimeNotifier() {
             // 2. Show Visual Alert
             showToast(`New Order Received: ${(notifiedOrder as any).order_number}`, 'success')
             
-            // 3. Refresh Dashboard Server Components
+            // 3. Native OS Notification (Guaranteed visibility outside browser tab and ignores CSS themes)
+            if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+              new Notification('New Order Received! 🛍️', {
+                body: `Order #${(notifiedOrder as any).order_number} has been placed successfully.`,
+                icon: '/logo.png' 
+              })
+            }
+
+            // 4. Refresh Dashboard Server Components
             router.refresh()
           }
           

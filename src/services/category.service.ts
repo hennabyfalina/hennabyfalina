@@ -25,22 +25,6 @@ export interface Category {
   updated_at: string
 }
 
-// Cache for categories (simple in-memory, invalidate on mutations)
-let categoriesCache: Category[] | null = null
-let categoriesWithCountsCache: Category[] | null = null
-let lastCacheInvalidation = 0
-const CACHE_TTL = 60000 // 1 minute
-
-function isCacheValid(lastInvalidation: number): boolean {
-  return Date.now() - lastInvalidation < CACHE_TTL
-}
-
-function invalidateCache() {
-  categoriesCache = null
-  categoriesWithCountsCache = null
-  lastCacheInvalidation = Date.now()
-}
-
 // ⚡ HIGH-PERFORMANCE EDGE CACHING FETCH ENGINE
 async function fetchFromEdge(queryString: string, cacheTag: string): Promise<any[]> {
   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -405,7 +389,6 @@ export async function bulkUpdateCategoryOrder(updates: Array<{ id: string; displ
   // ⚡ FIXED FOR NEXT.JS 16: Ensure menu sorting updates clear immediately
   revalidateTag('categories-list', 'default')
   revalidateTag('categories-with-counts', 'default')
-  invalidateCache()
 }
 
 // Get categories for dropdown (simplified)

@@ -40,6 +40,7 @@ function OrderSummary({
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0)
 
   const [isExpanded, setIsExpanded] = useState(false)
+  const [isAtBottom, setIsAtBottom] = useState(false)
   const [, setIsMobile] = useState(false)
 
   useEffect(() => {
@@ -49,6 +50,12 @@ function OrderSummary({
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    const scrollBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+    // Use a small threshold (2px) to account for rounding errors
+    setIsAtBottom(scrollBottom <= 2);
+  };
 
   return (
     <div className="bg-white rounded-sm border border-[#D5D9D9] p-5 shadow-sm">
@@ -65,7 +72,10 @@ function OrderSummary({
       
       {isExpanded && (
         <>
-          <div className="flex flex-col gap-4 max-h-[40vh] overflow-y-auto overscroll-contain pr-1 no-scrollbar mb-4">
+          <div 
+            onScroll={handleScroll}
+            className="flex flex-col gap-4 max-h-[40vh] overflow-y-auto overscroll-contain pr-1 no-scrollbar mb-4 relative"
+          >
             {items.map((item, index) => {
               let imageUrl = '/placeholder-product.svg'
               if (item.image) {
@@ -101,12 +111,25 @@ function OrderSummary({
                     {item.printing_type && item.printing_type !== 'None' && (
                       <div className="mt-2 text-xs text-gray-700 bg-blue-50/50 p-2 rounded-md border border-blue-100/50 space-y-1">
                         <p><span className="font-bold text-gray-900">Type:</span> {item.printing_type}</p>
-                        {/* Check both item.artwork_urls and nested customization_details */}
-                        {(item.artwork_urls?.length || item.customization_details?.artwork_urls?.length) > 0 && (
-                          <p className="text-[#007185] font-medium">
-                            ({(item.artwork_urls?.length || item.customization_details?.artwork_urls?.length)} file{(item.artwork_urls?.length || item.customization_details?.artwork_urls?.length) > 1 ? 's' : ''} included)
-                          </p>
-                        )}
+                        {(() => {
+                          const parseUrls = (data: any): string[] => {
+                            if (!data) return [];
+                            if (Array.isArray(data)) return data;
+                            if (typeof data === 'string') {
+                              try { const parsed = JSON.parse(data); if (Array.isArray(parsed)) return parsed; } catch { if (data.trim().length > 0) return [data]; }
+                            }
+                            return [];
+                          };
+                          const urls = parseUrls(item.artwork_urls).length > 0 ? parseUrls(item.artwork_urls) : parseUrls(item.customization_details?.artwork_urls);
+                          if (urls.length > 0) {
+                            return (
+                              <p className="text-[#007185] font-medium">
+                                ({urls.length} file{urls.length > 1 ? 's' : ''} included)
+                              </p>
+                            )
+                          }
+                          return null;
+                        })()}
                         {(item.printing_instructions || item.customization_details?.printing_instructions) && (
                           <p className="text-gray-600 italic">
                             <span className="font-semibold not-italic text-gray-800">Notes:</span> &quot;{item.printing_instructions || item.customization_details?.printing_instructions}&quot;
@@ -125,6 +148,13 @@ function OrderSummary({
                 </div>
               )
             })}
+            
+            {/* Scroll Indicator for Mobile/Small views */}
+            {items.length >= 2 && !isAtBottom && (
+              <div className="sticky bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none flex items-end justify-center pb-1">
+                <ChevronDown className="w-6 h-6 text-gray-900 animate-bounce stroke-[3]" />
+              </div>
+            )}
           </div>
 
           <div className="border-t border-[#D5D9D9] pt-4 mb-4" />

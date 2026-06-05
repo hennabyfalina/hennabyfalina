@@ -37,6 +37,7 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
   
   const [newStatus, setNewStatus] = useState('')
   const [reason, setReason] = useState('')
+  const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState('')
   
   const [courierName, setCourierName] = useState('')
   const [trackingNumber, setTrackingNumber] = useState('')
@@ -87,7 +88,15 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
   }, [isOpen, orderId])
 
   useEffect(() => {
-    if (order) setNewStatus(order.status)
+     if (order) {
+      setNewStatus(order.status)
+      if (order.estimated_delivery_date) {
+        setEstimatedDeliveryDate(new Date(order.estimated_delivery_date).toISOString().split('T')[0])
+      } else {
+        const defaultDate = new Date(new Date(order.created_at).getTime() + 7 * 24 * 60 * 60 * 1000)
+        setEstimatedDeliveryDate(defaultDate.toISOString().split('T')[0])
+      }
+    }
   }, [order])
 
   const handleInitiateUpdate = () => {
@@ -107,6 +116,7 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
           courier_name: newStatus === 'shipped' ? courierName : undefined,
           tracking_number: newStatus === 'shipped' ? trackingNumber : undefined,
           tracking_url: newStatus === 'shipped' ? trackingUrl : undefined,
+          estimated_delivery_date: estimatedDeliveryDate ? new Date(estimatedDeliveryDate).toISOString() : undefined,
         }),
       })
 
@@ -206,7 +216,15 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                    order.delivery_method === 'pickup' || 
                    order.addresses?.delivery_method === 'pickup' ||
                    (order.addresses?.address_line1 || '').toLowerCase().includes('pickup') || 
-                   (order.addresses?.address || '').toLowerCase().includes('pickup');
+                   (order.addresses?.address || '').toLowerCase().includes('pickup') ||
+                   (order.pickup_contact && Object.keys(order.pickup_contact).length > 0);
+
+  const getAddressField = (field: string, fallback: string = 'N/A') => {
+    if (order.addresses && order.addresses[field]) return order.addresses[field]
+    if (order.pending_address && order.pending_address[field]) return order.pending_address[field]
+    if (isPickup && order.pickup_contact && order.pickup_contact[field]) return order.pickup_contact[field]
+    return fallback
+  }
 
   const address = order.addresses || {}
 
@@ -326,52 +344,90 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                     </div>
                   </div>
 
-                  {item.artwork_urls && item.artwork_urls.length > 0 && (
-                    <div className="pt-3 mt-1 bg-[#0B57D0]/10 p-3 sm:p-4 rounded-xl border border-[#0B57D0]/30">
-                      <div className="flex items-center gap-2 text-[11px] font-bold admin-text-accent uppercase tracking-wider mb-3">
-                        <ExternalLink className="w-3.5 h-3.5" /> Attached File{item.artwork_urls.length > 1 ? 's' : ''}
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {item.artwork_urls.map((url: string, idx: number) => (
-                          <div key={idx} className="flex flex-row items-center admin-bg-elevated border admin-border rounded-full overflow-hidden shrink-0 w-full sm:w-auto transition-colors focus-within:border-[#A8C7FA]">
-                            <button 
-                              onClick={() => handleSecureDownload(url, 'view')}
-                              disabled={downloadingArtwork === url}
-                              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 hover:admin-bg-hover text-xs font-medium admin-text-primary transition-colors cursor-pointer disabled:opacity-50 flex-1 border-r admin-border"
-                            >
-                              {downloadingArtwork === url ? (
-                                <><div className="w-3 h-3 border-2 border-[#A8C7FA] border-t-transparent rounded-full animate-spin" /> Fetching...</>
-                              ) : (
-                                <><ExternalLink className="w-3 h-3 admin-text-accent" /> View {idx + 1}</>
-                              )}
-                            </button>
-                            <button 
-                              onClick={() => handleSecureDownload(url, 'download')}
-                              disabled={downloadingArtwork === url}
-                              className="inline-flex items-center justify-center px-3 py-2 sm:py-1.5 hover:admin-bg-hover text-xs font-medium text-[#93D7A4] transition-colors cursor-pointer disabled:opacity-50"
-                              title={`Download File ${idx + 1}`}
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                            </button>
+                  {(() => {
+                    const parseUrls = (data: any): string[] => {
+                      if (!data) return [];
+                      // If it's already an array
+                      if (Array.isArray(data)) {
+                        return data.flatMap(item => {
+                          if (typeof item === 'string') return item.trim() ? item : [];
+                          if (item && typeof item === 'object') {
+                            // Try common property names
+                            const url = item.url || item.path || item.filePath || item.src;
+                            return url && typeof url === 'string' && url.trim() ? url : [];
+                          }
+                          return [];
+                        });
+                      }
+                      // If it's a string, try to parse JSON
+                      if (typeof data === 'string') {
+                        const trimmed = data.trim();
+                        if (!trimmed) return [];
+                        try {
+                          const parsed = JSON.parse(trimmed);
+                          if (Array.isArray(parsed)) {
+                            return parsed.flatMap(item => {
+                              if (typeof item === 'string') return item.trim() ? item : [];
+                              if (item && typeof item === 'object') {
+                                const url = item.url || item.path || item.filePath;
+                                return url && typeof url === 'string' && url.trim() ? url : [];
+                              }
+                              return [];
+                            });
+                          }
+                          // If parsing didn't yield an array but it's a plain string, treat as single file
+                          if (typeof parsed === 'string' && parsed.trim()) return [parsed];
+                        } catch {
+                          // Not JSON – treat the whole string as one file path (if it looks like a path)
+                          if (trimmed.includes('/') || trimmed.includes('.')) return [trimmed];
+                        }
+                      }
+                      return [];
+                    };
+                    const primaryUrls = parseUrls(item.artwork_urls);
+                    const fallbackUrls = parseUrls(item.customization_details?.artwork_urls);
+                    const urls = primaryUrls.length > 0 ? primaryUrls : fallbackUrls;
+                    const hasFiles = urls.length > 0;
+                    const note = item.printing_instructions || item.customization_details?.printing_instructions;
+                    const hasNotes = typeof note === 'string' && note.trim().length > 0;
+                    const hasCustomType = item.printing_type && item.printing_type !== 'None' && item.printing_type !== 'Retail (Readymade)';
+                    
+                    if (!hasFiles && !hasNotes && !hasCustomType) return null;
+
+                    return (
+                      <div className={`pt-3 mt-1 ${(hasFiles || hasNotes) ? 'border-t-0 admin-bg-card p-3 sm:p-4 rounded-xl border admin-border' : 'border-t admin-border/50'}`}>
+                        <div className="flex flex-col sm:flex-row sm:items-start gap-3 justify-between">
+                          <div>
+                            {hasCustomType && (
+                              <div className="text-md admin-text-secondary">
+                                <span className="admin-text-muted">Custom Type:</span> <span className="capitalize admin-text-accent font-medium">{item.printing_type}</span>
+                              </div>
+                            )}
+                            {hasNotes && (
+                              <div className="text-md admin-text-secondary">
+                                <span className="admin-text-muted">Note:</span> {note}
+                              </div>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {item.printing_type && item.printing_type !== 'None' && (
-                    <div className={`pt-3 mt-1 ${item.printing_instructions ? 'border-t-0 bg-[#0B57D0]/10 p-3 sm:p-4 rounded-xl border border-[#0B57D0]/30' : 'border-t admin-border/50'}`}>
-                      <div>
-                        <div className="flex items-center gap-1.5 text-[11px] font-bold admin-text-accent uppercase tracking-wider mb-1">
-                          <span className="admin-text-muted">Customization Type:</span> {item.printing_type}
+                          
+                          {hasFiles && (
+                            <div className="flex flex-wrap gap-2 justify-end w-full sm:w-auto">
+                              {urls.map((url: string, idx: number) => (
+                                <div key={idx} className="flex flex-row items-center admin-bg-elevated border admin-border rounded-full overflow-hidden shrink-0 w-full sm:w-auto transition-colors focus-within:border-[#A8C7FA]">
+                                  <button onClick={() => handleSecureDownload(url, 'view')} disabled={!!downloadingArtwork} className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 hover:admin-bg-hover text-xs font-medium admin-text-primary transition-colors cursor-pointer disabled:opacity-50 flex-1 border-r admin-border">
+                                    <ExternalLink className="w-3 h-3 admin-text-accent" /> View {idx + 1}
+                                  </button>
+                                  <button onClick={() => handleSecureDownload(url, 'download')} disabled={!!downloadingArtwork} className="inline-flex items-center justify-center px-3 py-2 sm:py-1.5 hover:admin-bg-hover text-xs font-medium text-[#00FF41] transition-colors cursor-pointer disabled:opacity-50" title={`Download File ${idx + 1}`}>
+                                    {downloadingArtwork === url ? <div className="w-3.5 h-3.5 border-2 border-[#00FF41] border-t-transparent rounded-full animate-spin" /> : <Download className="w-3.5 h-3.5 stroke-[2.5px]" />}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                        {item.printing_instructions && (
-                          <div className="text-xs admin-text-secondary">
-                            <span className="admin-text-muted">Note:</span> {item.printing_instructions}
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  )}
+                    )
+                  })()}
                 </div>
               ))}
             </div>
@@ -385,30 +441,24 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
             </h3>
             <div className="admin-bg-primary rounded-[24px] p-5 sm:p-6 border admin-border">
               {isPickup ? (
-                <div className="space-y-1.5">
-                  <p className="text-[11px] admin-text-muted uppercase tracking-widest font-bold mb-1">Store Branch</p>
-                  <p className="font-medium admin-text-primary text-base">{siteConfig.name}</p>
-                  <p className="text-sm admin-text-secondary leading-relaxed mt-1">
-                    {siteConfig.address.line1}, {siteConfig.address.line2}<br />
-                    {siteConfig.address.city} - <span className="font-bold admin-text-primary">{siteConfig.address.pincode}</span>
-                  </p>
-                  <div className="mt-4 pt-4 border-t admin-border grid grid-cols-1 gap-3">
+                
+                  <div className="grid grid-cols-1 gap-3">
                     <div>
                       <p className="text-[11px] admin-text-muted uppercase tracking-widest font-bold mb-1">Customer Name</p>
-                      <p className="text-sm admin-text-primary">{address.full_name || address.name || 'N/A'}</p>
+                      <p className="text-sm admin-text-primary">{getAddressField('name')}</p>
                     </div>
                     <div>
                       <p className="text-[11px] admin-text-muted uppercase tracking-widest font-bold mb-1">Phone</p>
-                      <a href={`tel:${address.phone}`} className="text-sm font-medium admin-text-accent hover:underline">
-                        {address.phone || 'N/A'}
+                      <a href={`tel:${getAddressField('phone')}`} className="text-sm font-medium admin-text-accent hover:underline">
+                        {getAddressField('phone')}
                       </a>
                     </div>
                     <div>
                       <p className="text-[11px] admin-text-muted uppercase tracking-widest font-bold mb-1">Pincode</p>
-                      <p className="text-sm admin-text-primary">{address.pincode || 'N/A'}</p>
+                      <p className="text-sm admin-text-primary">{getAddressField('pincode')}</p>
                     </div>
                   </div>
-                </div>
+               
               ) : (
                 <div className="flex flex-col">
                   <div className="flex flex-col sm:flex-row gap-6 sm:gap-8">
@@ -514,6 +564,7 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                   <input
                     type="text"
                     value={courierName}
+                    title="Courier Name"
                     onChange={(e) => setCourierName(e.target.value)}
                     placeholder="Courier Name (e.g., Delhivery, BlueDart) *"
                     className="w-full px-4 py-3 admin-bg-primary border admin-border admin-text-primary placeholder:admin-text-muted rounded-[14px] text-sm focus:outline-none focus:border-[#A8C7FA] transition-colors"
@@ -521,6 +572,7 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                   <input
                     type="text"
                     value={trackingNumber}
+                    title="Tracking Number"
                     onChange={(e) => setTrackingNumber(e.target.value)}
                     placeholder="Tracking Number / AWB *"
                     className="w-full px-4 py-3 admin-bg-primary border admin-border admin-text-primary placeholder:admin-text-muted rounded-[14px] text-sm focus:outline-none focus:border-[#A8C7FA] transition-colors"
@@ -528,6 +580,7 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                   <input
                     type="url"
                     value={trackingUrl}
+                    title="Tracking URL"
                     onChange={(e) => setTrackingUrl(e.target.value)}
                     placeholder="Tracking URL (Optional)"
                     className="w-full px-4 py-3 admin-bg-primary border admin-border admin-text-primary placeholder:admin-text-muted rounded-[14px] text-sm focus:outline-none focus:border-[#A8C7FA] transition-colors"
@@ -535,9 +588,21 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                 </div>
               )}
 
+          <div className="space-y-3 admin-bg-card p-4 rounded-[20px] border admin-border mt-4">
+            <p className="text-xs font-bold admin-text-accent mb-2 uppercase tracking-wide">Estimated Delivery Date</p>
+            <input
+              type="date"
+              value={estimatedDeliveryDate}
+              title="Estimated Delivery Date"
+              onChange={(e) => setEstimatedDeliveryDate(e.target.value)}
+              className="w-full px-4 py-3 admin-bg-primary border admin-border admin-text-primary rounded-[14px] text-sm focus:outline-none focus:border-[#A8C7FA] transition-colors cursor-pointer"
+            />
+          </div>
+
               {newStatus === 'cancelled' && (
                 <textarea
                   value={reason}
+                  title="Cancellation Reason"
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="Required: Reason for cancellation..."
                   rows={3}
