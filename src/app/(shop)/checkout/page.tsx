@@ -2,39 +2,38 @@
 
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import dynamic from 'next/dynamic'
 import { useCartStore } from '@/store/cart.store'
-import { calculateTaxBreakdown } from '@/lib/tax'
-import { checkoutConfig } from '@/config/checkout'
 import { SHIPPING_THRESHOLD, SHIPPING_COST } from '@/lib/constants'
 import { showToast } from '@/components/ui/Toast'
-import { AlertTriangle } from 'lucide-react'
+import { Sparkles, Lock, ArrowLeft, ArrowRight, ShieldCheck, MapPin, Home } from 'lucide-react'
 
 // Visual Components
 import Container from '@/components/ui/Container'
 import Loader from '@/components/ui/Loader'
 import CheckoutHeader from '@/components/checkout/CheckoutHeader'
+import CheckoutProgressBar from '@/components/checkout/CheckoutProgressBar'
 import CheckoutStepCard from '@/components/checkout/CheckoutStepCard'
 import CheckoutErrorAlert from '@/components/checkout/CheckoutErrorAlert'
-import AddressSelector from '@/components/checkout/AddressSelector'
 import AddressFormContainer from '@/components/checkout/AddressFormContainer'
 import DeliveryMethod from '@/components/checkout/DeliveryMethod'
 import StorePickupInfo from '@/components/checkout/StorePickupInfo'
 import OrderSummary from '@/components/checkout/OrderSummary'
 import PersistentCheckoutBar from '@/components/checkout/PersistentCheckoutBar'
-import ReviewOrderModal from '@/components/checkout/ReviewOrderModal'
-import SecureLoadingOverlay from '@/components/checkout/SecureLoadingOverlay'
-import CartChangedModal from '@/components/checkout/CartChangedModal'
+import SessionExpiredModal from '@/components/checkout/SessionExpiredModal'
 import CartAlertsModal from '@/components/cart/CartAlertsModal'
+import CartChangedModal from '@/components/checkout/CartChangedModal'
+import SecureLoadingOverlay from '@/components/checkout/SecureLoadingOverlay'
 
-// Extracted Logic Hooks
+// Hooks
 import { useCheckoutState } from '@/hooks/useCheckoutState'
+import { useCheckoutTimer } from '@/hooks/useCheckoutTimer'
 import { useRazorpayCheckout } from '@/hooks/useRazorpayCheckout'
 import { useCartSignature } from '@/hooks/useCartSignature'
+import { formatCurrency } from '@/lib/utils'
 
-export default function CheckoutPageNew() {
+export default function CheckoutPage() {
   const router = useRouter()
   const items = useCartStore((state) => state.items)
   const refreshCartPrices = useCartStore((state) => state.refreshCartPrices)
@@ -42,24 +41,29 @@ export default function CheckoutPageNew() {
   const clearAlerts = useCartStore((state) => state.clearAlerts)
 
   const [isRefreshingPrices, setIsRefreshingPrices] = useState(true)
-  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [sessionExpired, setSessionExpired] = useState(false)
 
-  // 1. Cart Signature State (For Multi-Tab Sync)
-  const { hasCartChanged, setHasCartChanged } = useCartSignature()
+  // 1. Cart Signature State (Multi-Tab Session Sync)
+  const { hasCartChanged, setHasCartChanged, initialSignature } = useCartSignature()
 
-  // 2. Checkout & Address State Machine
+  // 2. Checkout State Machine
   const {
     user,
     isInitializing,
     savedAddresses,
+    currentStep,
     addressMode,
     selectedAddressId,
     formData,
     shippingMethod,
     isSavingAddress,
     addressError,
+    isAddressValid,
     canSaveAddress,
+    isStepComplete,
     canPlaceOrder,
+    nextStep,
+    prevStep,
     setShippingMethod,
     updateFormField,
     startAddingNew,
@@ -69,115 +73,8 @@ export default function CheckoutPageNew() {
     handleSelectAddress
   } = useCheckoutState()
 
-  // 🆕 Ref to track if we've already processed the delivery switch
-  const deliverySwitchProcessedRef = useRef(false)
-
-  // Force address validation & pre-fill when switching from pickup to delivery
-  useEffect(() => {
-    if (shippingMethod === 'delivery') {
-      const selectedAddress = savedAddresses.find(addr => addr.id === selectedAddressId)
-      const isValidForDelivery = selectedAddress && 
-        selectedAddress.address_line1 && 
-        selectedAddress.city && 
-        selectedAddress.state
-
-      if (!isValidForDelivery) {
-        const validDeliveryAddresses = savedAddresses.filter(a => a.address_line1 && a.delivery_method === 'delivery')
-        
-        if (validDeliveryAddresses.length === 0) {
-          // 🆕 Only call startAddingNew if we're not already in ADDING mode and not already processed
-          if (addressMode !== 'ADDING' && !deliverySwitchProcessedRef.current) {
-            deliverySwitchProcessedRef.current = true
-            startAddingNew()
-
-            const pickupAddress = savedAddresses.find(a => a.delivery_method === 'pickup')
-            if (pickupAddress) {
-              updateFormField('name', pickupAddress.name)
-              updateFormField('phone', pickupAddress.phone)
-              updateFormField('pincode', pickupAddress.pincode)
-              updateFormField('addressLine1', '')
-              updateFormField('addressLine2', '')
-              updateFormField('city', '')
-              updateFormField('state', '')
-              updateFormField('landmark', '')
-              updateFormField('delivery_instructions', '')
-            }
-          }
-        } else {
-          const firstValid = validDeliveryAddresses[0]
-          if (selectedAddressId !== firstValid.id) {
-            handleSelectAddress(firstValid)
-          }
-        }
-      } else {
-        // Reset the ref when we have a valid delivery address
-        deliverySwitchProcessedRef.current = false
-      }
-    } else {
-      // Reset when switching away from delivery
-      deliverySwitchProcessedRef.current = false
-    }
-  }, [shippingMethod, savedAddresses, selectedAddressId, handleSelectAddress, startAddingNew, updateFormField, addressMode])
-
-  // 🆕 Ref to track if we've already processed the pickup switch
-  const pickupSwitchProcessedRef = useRef(false)
-
-  // Auto-select or pre-fill pickup contact when switching to pickup
-  useEffect(() => {
-    if (shippingMethod === 'pickup') {
-      const pickupAddress = savedAddresses.find(a => a.delivery_method === 'pickup')
-      
-      if (pickupAddress && selectedAddressId !== pickupAddress.id) {
-        if (!pickupSwitchProcessedRef.current) {
-          pickupSwitchProcessedRef.current = true
-          handleSelectAddress(pickupAddress)
-        }
-      } else if (!pickupAddress) {
-        const deliveryAddress = savedAddresses.find(a => a.delivery_method === 'delivery')
-        if (deliveryAddress) {
-          // Only update fields if we haven't already pre-filled
-          if (!pickupSwitchProcessedRef.current) {
-            pickupSwitchProcessedRef.current = true
-            
-            updateFormField('name', deliveryAddress.name)
-            updateFormField('phone', deliveryAddress.phone)
-            updateFormField('pincode', deliveryAddress.pincode)
-            updateFormField('addressLine1', '')
-            updateFormField('addressLine2', '')
-            updateFormField('city', '')
-            updateFormField('state', '')
-            updateFormField('landmark', '')
-            updateFormField('delivery_instructions', '')
-            
-            if (addressMode !== 'ADDING') {
-              startAddingNew()
-              setTimeout(() => {
-                updateFormField('name', deliveryAddress.name)
-                updateFormField('phone', deliveryAddress.phone)
-                updateFormField('pincode', deliveryAddress.pincode)
-              }, 0)
-            }
-          }
-        } else if (addressMode !== 'ADDING' && !pickupSwitchProcessedRef.current) {
-          pickupSwitchProcessedRef.current = true
-          startAddingNew()
-        }
-      } else {
-        // Reset the ref when we have a valid pickup address
-        pickupSwitchProcessedRef.current = false
-      }
-    } else {
-      // Reset when switching away from pickup
-      pickupSwitchProcessedRef.current = false
-    }
-  }, [shippingMethod, savedAddresses, selectedAddressId, handleSelectAddress, startAddingNew, addressMode, updateFormField])
-
-  // 3. Razorpay Payment Orchestrator
-  const {
-    processPayment,
-    isProcessingCheckout,
-    checkoutError
-  } = useRazorpayCheckout()
+  // 3. Razorpay Payment Processing Orchestrator
+  const { processPayment, isProcessingCheckout, checkoutError } = useRazorpayCheckout()
 
   const [checkoutSessionId] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -190,162 +87,68 @@ export default function CheckoutPageNew() {
     return ''
   })
 
-  // Reserve stock when items are loaded
+  // 🚀 ANTI-CHEAT: Strict Frontend Reservation Timer 
+  const { formattedTime, isExpired, startTimer } = useCheckoutTimer(() => {
+    setSessionExpired(true)
+  })
+
+  // Stock Reservation Engine
   useEffect(() => {
     if (items.length && checkoutSessionId && user) {
       const reserve = async () => {
         try {
-          // Group items by product_id to sum quantities for items with different printing types
-          const groupedItems = Object.values(items.reduce((acc, item) => {
-            if (!acc[item.product_id]) {
-              acc[item.product_id] = { product_id: item.product_id, quantity: 0 }
-            }
-            acc[item.product_id].quantity += item.quantity
-            return acc
-          }, {} as Record<string, { product_id: string; quantity: number }>))
-
           const res = await fetch('/api/checkout/reserve-stock', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sessionId: checkoutSessionId,
-              items: groupedItems,
-            }),
+            body: JSON.stringify({ sessionId: checkoutSessionId, items }),
           })
           if (!res.ok) {
             const data = await res.json()
-            console.error('Stock reservation failed:', data.error)
-            const errorMessage = Array.isArray(data.error)
-              ? data.error.join(', ')
-              : data.error || 'Stock reservation failed'
-            showToast(errorMessage, 'error')
+            showToast(data.error || 'Batch reservation could not be completed', 'error')
             setTimeout(() => router.push('/cart'), 3000)
+          } else {
+            // Instantly sync frontend timer upon successful backend reservation lock
+            startTimer(15, initialSignature)
           }
         } catch (err) {
-          console.error('Reservation error:', err)
-          showToast('Unable to reserve stock. Please try again.', 'error')
+          showToast('Unable to reserve selection. Please refresh.', 'error')
         }
       }
       reserve()
     }
   }, [items, checkoutSessionId, user, router])
 
-  // Heartbeat: extend reservation every 5 minutes
-  useEffect(() => {
-    if (!checkoutSessionId) return
-
-    const MAX_CHECKOUT_MS = 15 * 60 * 1000 // 🛑 Maximum time a user can hold inventory hostage (15 minutes)
-
-    const extendStock = async () => {
-      await fetch('/api/checkout/reserve-stock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: checkoutSessionId, items: [], action: 'extend' }),
-      })
-    }
-
-    const interval = setInterval(extendStock, 5 * 60 * 1000)
-    const handleVisibility = () => { if (document.visibilityState === 'visible') extendStock() }
-    document.addEventListener('visibilitychange', handleVisibility)
-
-    // Exact 15 minutes expiration timeout
-    const expirationTimeout = setTimeout(() => {
-      clearInterval(interval)
-      document.removeEventListener('visibilitychange', handleVisibility)
-      router.push('/cart?session_expired=true')
-    }, MAX_CHECKOUT_MS)
-
-    return () => {
-      clearInterval(interval)
-      clearTimeout(expirationTimeout)
-      document.removeEventListener('visibilitychange', handleVisibility)
-    }
-  }, [checkoutSessionId, router])
-
-  // Calculate Totals
+  // Subtotals & Cost Ledger Calculations
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0)
   const shippingCost = shippingMethod === 'pickup' ? 0 : (subtotal > SHIPPING_THRESHOLD ? 0 : SHIPPING_COST)
   const finalTotal = subtotal + shippingCost
-  const taxBreakdown = calculateTaxBreakdown(subtotal)
+  const totalMrp = items.reduce((sum, item) => sum + ((item.mrp && item.mrp > item.price) ? item.mrp : item.price) * item.quantity, 0)
+  const totalSavings = totalMrp - subtotal
 
-  // Sync prices on mount
   useEffect(() => {
     const syncPrices = async () => {
       setIsRefreshingPrices(true)
-      try {
-        await refreshCartPrices()
-      } catch (err) {
-        console.error('Failed to refresh prices', err)
-      } finally {
-        setIsRefreshingPrices(false)
-      }
+      try { await refreshCartPrices() } catch (err) { console.error(err) }
+      finally { setIsRefreshingPrices(false) }
     }
-    if (items.length > 0) {
-      syncPrices()
-    } else {
-      setIsRefreshingPrices(false)
-    }
+    items.length > 0 ? syncPrices() : setIsRefreshingPrices(false)
   }, [refreshCartPrices, items.length])
 
-  // Redirect if cart is empty after initialization (but NOT if we are processing payment)
-  useEffect(() => {
-    if (!isRefreshingPrices && !isInitializing && items.length === 0 && !isProcessingCheckout) {
-      router.push('/cart')
-    }
-  }, [items.length, isRefreshingPrices, isInitializing, isProcessingCheckout, router])
-
-  // Initial loading UI
   if (isRefreshingPrices || isInitializing) {
-    return (
-      <div className="flex-1 min-h-[70vh] flex flex-col items-center justify-center bg-white">
-        <Loader />
-        <p className="mt-4 text-gray-500 font-medium">Preparing secure checkout...</p>
-      </div>
-    )
+    return <div className="flex-1 min-h-[75vh] flex flex-col items-center justify-center bg-white"><Loader /></div>
   }
 
   if (items.length === 0) return null
 
-  // Action Handlers
   const handleInitiateCheckout = async () => {
-    if (!canPlaceOrder) {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-      return
-    }
-    if (hasCartChanged) {
-      return
-    }
+    if (!canPlaceOrder) { window.scrollTo({ top: 0, behavior: 'smooth' }); return }
+    if (hasCartChanged) return
 
-    // 🔒 LIGHTNING PRICE STALE CHECK: Validate values directly against database architecture
-    try {
-      setIsRefreshingPrices(true) // Turn on secure loader overlay
-
-      // Fetch live prices from our Edge CDN cached service layer
-      await refreshCartPrices()
-
-      // Recalculate values directly following the refresh synchronization loop
-      const updatedSubtotal = useCartStore.getState().items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-      const updatedShipping = shippingMethod === 'pickup' ? 0 : (updatedSubtotal > SHIPPING_THRESHOLD ? 0 : SHIPPING_COST)
-      const updatedTotal = updatedSubtotal + updatedShipping
-
-      // If the live total conflicts with the value displayed on the user's screen, halt execution
-      if (Math.abs(updatedTotal - finalTotal) > 0.01) {
-        showToast('Prices have been updated to reflect the latest catalog updates. Please review your total.', 'error')
-        setIsRefreshingPrices(false)
-        return
-      }
-    } catch (err) {
-      console.error('[Price Check Fault] Validation bypassed safely:', err)
-    } finally {
-      setIsRefreshingPrices(false)
-    }
-
-    setShowConfirmModal(true)
-  }
-
-  const handleConfirmOrder = () => {
-    setShowConfirmModal(false)
+    setIsRefreshingPrices(true)
+    await refreshCartPrices()
+    setIsRefreshingPrices(false)
+    
     processPayment({
       user,
       items,
@@ -358,146 +161,194 @@ export default function CheckoutPageNew() {
     })
   }
 
-  const handleReturnToCart = () => {
-    router.push('/cart')
-  }
+  // 🚀 SMART MORPHING CTA LOGIC
+  let ctaText = '';
+  let onCtaClick = () => {};
+  let isCtaDisabled = false;
+  let showCtaSpinner = false;
 
-  const globalError = checkoutError || addressError
+  if (currentStep === 1) {
+    if (addressMode === 'ADDING' || addressMode === 'EDITING') {
+      ctaText = 'Save and Continue';
+      onCtaClick = saveCurrentAddress;
+      isCtaDisabled = !canSaveAddress || isSavingAddress;
+      showCtaSpinner = isSavingAddress;
+    } else {
+      ctaText = 'Continue to Review';
+      onCtaClick = nextStep;
+      isCtaDisabled = !isStepComplete;
+      showCtaSpinner = false;
+    }
+  } else {
+    ctaText = `Securely Pay ${formatCurrency(finalTotal)}`;
+    onCtaClick = handleInitiateCheckout;
+    isCtaDisabled = isProcessingCheckout;
+    showCtaSpinner = isProcessingCheckout;
+  }
 
   return (
     <>
+      <SecureLoadingOverlay isProcessing={isProcessingCheckout} />
       <PersistentCheckoutBar
-        subtotal={subtotal}
-        shippingCost={shippingCost}
-        totalGST={taxBreakdown.totalGST}
         finalTotal={finalTotal}
-        totalItems={totalItems}
-        shippingMethod={shippingMethod}
-        onPlaceOrder={handleInitiateCheckout}
-        isProcessing={isProcessingCheckout}
-        isSavingAddress={isSavingAddress}
-        isAddressFormOpen={addressMode === 'ADDING' || addressMode === 'EDITING'}
+        shippingCost={shippingCost}
+        buttonText={ctaText}
+        onClick={onCtaClick}
+        isDisabled={isCtaDisabled}
+        isProcessing={showCtaSpinner}
       />
 
-      <div className="min-h-screen bg-[#F0F2F2] pb-32 md:pb-40 relative z-0 pt-[61px]">
+      <div className="min-h-screen bg-white pb-32 md:pb-40 pt-[140px] sm:pt-[160px] select-none font-sans antialiased text-left">
         <CheckoutHeader />
+        
+        {/* Step Controller Navigation Subheader Layer */}
+        <CheckoutProgressBar currentStep={currentStep} formattedTime={formattedTime} isExpired={isExpired} />
+        
+        <Container className="max-w-[1400px] px-4 sm:px-8 mt-8">
+          <CheckoutErrorAlert error={checkoutError || addressError} />
 
-        <Container className="max-w-[1200px] mt-6 sm:mt-8">
-          <CheckoutErrorAlert error={globalError} />
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start relative z-10">
-            <div className="lg:col-span-8 space-y-6">
+          {/* 60/40 Flat Asymmetric Split Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-start">
+            
+            {/* ========================================================================= */}
+            {/* LEFT COLUMN WORKSPACE: LINEAR STEP FLOW SWITCH FRAME                      */}
+            {/* ========================================================================= */}
+            <div className="lg:col-span-8 w-full md:min-h-[400px]">
               
-              {/* STEP 1: DELIVERY METHOD */}
-              <CheckoutStepCard step={checkoutConfig.steps.delivery.number} title={checkoutConfig.steps.delivery.title}>
-                <DeliveryMethod shippingMethod={shippingMethod} onChange={setShippingMethod} />
-              </CheckoutStepCard>
+              {/* ─── STEP 1: DELIVERY & ADDRESS ─── */}
+              {currentStep === 1 && (
+                <div className="space-y-8 animate-fade-in">
+                  <CheckoutStepCard step={1} title="Delivery Details">
+                    <div className="space-y-8">
+                      <DeliveryMethod shippingMethod={shippingMethod} onChange={setShippingMethod} />
+                      
+                      <div className="pt-2 border-t border-gray-100" />
+                      
+                      <div className="space-y-6">
+                        {addressMode === 'PREVIEW' && (
+                          <div className="bg-gray-50/50 border border-gray-200 rounded-2xl p-5 sm:p-6 relative animate-fade-in transition-all">
+                            <div className="flex items-center justify-between mb-4">
+                              <h3 className="text-[17px] font-semibold text-gray-900 capitalize">
+                                {shippingMethod === 'pickup' ? 'Pickup Contact' : 'Delivery Address'}
+                              </h3>
+                              <button
+                                type="button"
+                                onClick={() => startEditing(savedAddresses.find(a => a.id === selectedAddressId))}
+                                className="text-[14px] font-semibold text-blue-600 hover:text-blue-700 transition-colors outline-none cursor-pointer bg-transparent"
+                              >
+                                Edit
+                              </button>
+                            </div>
+                            <div className="text-[15px] text-gray-600 font-normal w-full leading-relaxed space-y-1">
+                              {shippingMethod === 'pickup' ? (
+                                <>
+                                  <p className="text-gray-900 font-medium capitalize">{formData.name}</p>
+                                  <p className="tracking-wide">{formData.phone}</p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="text-gray-900 font-medium capitalize">{formData.name}</p>
+                                  <p className="capitalize">{formData.addressLine1}{formData.addressLine2 ? `, ${formData.addressLine2}` : ''}</p>
+                                  <p className="capitalize">{formData.city}, {formData.state} {formData.pincode}</p>
+                                  <p className="tracking-wide pt-1">{formData.phone}</p>
+                                  {formData.landmark && <p className="text-gray-400 mt-2 text-[14px] italic">Landmark: {formData.landmark}</p>}
+                                  {formData.delivery_instructions && <p className="text-gray-400 mt-1 text-[14px] italic">Note: {formData.delivery_instructions}</p>}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {(addressMode === 'ADDING' || addressMode === 'EDITING') && (
+                          <AddressFormContainer formData={formData} updateFormField={updateFormField} shippingMethod={shippingMethod} addressMode={addressMode} isSavingAddress={isSavingAddress} canSaveAddress={canSaveAddress} savedAddressesLength={savedAddresses.length} onCancel={cancelForm} onSave={saveCurrentAddress} />
+                        )}
+                      </div>
+                    </div>
+                  </CheckoutStepCard>
 
-              {/* STEP 2: ADDRESS */}
-              <CheckoutStepCard 
-                step={checkoutConfig.steps.address.number} 
-                title={shippingMethod === 'pickup' ? checkoutConfig.steps.address.pickupTitle : checkoutConfig.steps.address.shippingTitle}
-              >
-                {shippingMethod === 'pickup' ? (
-                  <div className="space-y-6">
-                    {/* Preview mode - show pickup contact selector */}
-                    {addressMode === 'PREVIEW' && selectedAddressId ? (
-                      <AddressSelector 
-                        savedAddresses={savedAddresses}
-                        selectedAddressId={selectedAddressId}
-                        onSelect={handleSelectAddress}
-                        onEdit={startEditing}
-                        onAddNew={startAddingNew}
-                        showPickup={true}
-                      />
-                    ) : (
-                      /* Add/Edit mode - show form container */
-                      <AddressFormContainer
-                        formData={formData}
-                        updateFormField={updateFormField}
-                        shippingMethod={shippingMethod}
-                        addressMode={addressMode === 'ADDING' || addressMode === 'EDITING' ? addressMode : 'ADDING'}
-                        isSavingAddress={isSavingAddress}
-                        canSaveAddress={canSaveAddress}
-                        savedAddressesLength={savedAddresses.length}
-                        onCancel={cancelForm}
-                        onSave={saveCurrentAddress}
-                      />
-                    )}
-                    
-                    {/* Store Info Section - always visible */}
-                    <StorePickupInfo />
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {/* Preview mode - show address selector */}
-                    {addressMode === 'PREVIEW' && (
-                      <AddressSelector 
-                        savedAddresses={savedAddresses}
-                        selectedAddressId={selectedAddressId}
-                        onSelect={handleSelectAddress}
-                        onEdit={startEditing}
-                        onAddNew={startAddingNew}
-                      />
-                    )}
-                    
-                    {/* Add/Edit mode - show form container */}
-                    {(addressMode === 'ADDING' || addressMode === 'EDITING') && (
-                      <AddressFormContainer
-                        formData={formData}
-                        updateFormField={updateFormField}
-                        shippingMethod={shippingMethod}
-                        addressMode={addressMode === 'ADDING' || addressMode === 'EDITING' ? addressMode : 'ADDING'}
-                        isSavingAddress={isSavingAddress}
-                        canSaveAddress={canSaveAddress}
-                        savedAddressesLength={savedAddresses.length}
-                        onCancel={cancelForm}
-                        onSave={saveCurrentAddress}
-                      />
-                    )}
-                  </div>
-                )}
-              </CheckoutStepCard>
+                </div>
+              )}
 
-              {/* STEP 3: PAYMENT */}
-              <CheckoutStepCard step={checkoutConfig.steps.payment.number} title={checkoutConfig.steps.payment.title} isActive={false}>
-                <p className="text-lg text-gray-600 pl-11">{checkoutConfig.steps.payment.description}</p>
-              </CheckoutStepCard>
+              {/* ─── STEP 2: REVIEW & PAY (FLAT GOOGLE DOCS / APPLE FEEL) ─── */}
+              {currentStep === 2 && (
+                <div className="space-y-8 animate-fade-in w-full max-w-xl">
+                  <div className="bg-white">
+                    <div className="flex items-center justify-between mb-6 pb-3 border-b border-gray-100">
+                      <h2 className="text-[27px] font-normal text-gray-900 tracking-tight capitalize">Review & Pay</h2>
+                      <button 
+                        type="button" 
+                        onClick={() => { const currentAddr = savedAddresses.find(a => a.id === selectedAddressId); if (currentAddr) { startEditing(currentAddr); } else { startAddingNew(); } prevStep(); }} 
+                        className="text-[14px] font-semibold text-blue-600 hover:text-blue-700 transition-colors outline-none cursor-pointer bg-transparent"
+                      >
+                        Edit Details
+                      </button>
+                    </div>
+                    
+                    {/* Linear Borderless Information Summary Strip */}
+                    <div className="text-[15px] text-gray-600 font-normal w-full leading-relaxed space-y-1">
+                      {shippingMethod === 'pickup' ? (
+                        <>
+                          <p className="text-gray-900 font-semibold text-[16px] capitalize pb-1">Pickup by: {formData.name}</p>
+                          <p className="tracking-wide">Phone: {formData.phone}</p>
+                          
+                          <div className="mt-3 pt-3 border-t border-gray-100" />                          
+                          <StorePickupInfo />
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-gray-900 font-semibold text-[16px] capitalize pb-1">Name: {formData.name}</p>
+                          <p className="capitalize"> Address: {formData.addressLine1}{formData.addressLine2 ? `, ${formData.addressLine2}` : ''}</p>
+                          <p className="capitalize">{formData.city}, {formData.state} {formData.pincode}</p>
+                          <p className="tracking-wide pt-1">Phone: {formData.phone}</p>
+                          {formData.landmark && (
+                            <p className="text-gray-400 mt-2 text-[14px] italic">Landmark: {formData.landmark}</p>
+                          )}
+                          {formData.delivery_instructions && (
+                            <p className="text-gray-400 mt-2 text-[14px] italic">Note: {formData.delivery_instructions}</p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
 
-            {/* RIGHT COLUMN - SUMMARY */}
-            <div id="checkout-order-summary" className="lg:col-span-4 lg:sticky lg:top-24 space-y-4 z-20 mb-20 md:mb-0">
-              <OrderSummary items={items} subtotal={subtotal} shipping={shippingCost} total={finalTotal} shippingMethod={shippingMethod} />
+            {/* ========================================================================= */}
+            {/* RIGHT COLUMN WORKSPACE: SECURE TRANSACTION SUMMARY IMMUTABLE LEDGER     */}
+            {/* ========================================================================= */}
+            <div className="lg:col-span-4 lg:sticky lg:top-40 flex flex-col gap-6 w-full">
+              
+              <OrderSummary 
+                items={items} 
+                subtotal={subtotal} 
+                shipping={shippingCost} 
+                total={finalTotal} 
+                shippingMethod={shippingMethod}
+                ctaText={ctaText}
+                onCtaClick={onCtaClick}
+                isCtaDisabled={isCtaDisabled}
+                showCtaSpinner={showCtaSpinner}
+              />
+              
+              {/* Secure Trust Validation Footnote anchor line */}
+              <div className="flex items-center justify-center gap-2 text-[13px] font-medium text-gray-400 pt-2 capitalize">
+                <ShieldCheck className="w-4 h-4 text-gray-400" strokeWidth={1.8} />
+                <span>100% Secure Checkout</span>
+              </div>
             </div>
+
           </div>
         </Container>
       </div>
-
-      {/* MODALS */}
-      <CartChangedModal
-        isOpen={hasCartChanged}
-        onClose={() => setHasCartChanged(false)}
-        onReturnToCart={handleReturnToCart}
-      />
       
+      <CartChangedModal isOpen={hasCartChanged} onClose={() => setHasCartChanged(false)} onReturnToCart={() => router.push('/cart')} />
       <CartAlertsModal alerts={alerts} onDismiss={clearAlerts} />
-
-      <ReviewOrderModal
-        isOpen={showConfirmModal}
-        onClose={() => setShowConfirmModal(false)}
-        onConfirm={handleConfirmOrder}
-        isProcessing={isProcessingCheckout}
-        shippingMethod={shippingMethod}
-        formData={formData}
-        items={items}
-        totalItems={totalItems}
-        totalPrice={subtotal}
-        shippingCost={shippingCost}
-        taxBreakdown={taxBreakdown}
-        finalTotal={finalTotal}
-      />
-
-      {(isProcessingCheckout || isSavingAddress) && <SecureLoadingOverlay isProcessing={isProcessingCheckout} />}
+      
+      <SessionExpiredModal isOpen={sessionExpired} onClose={() => {
+        setSessionExpired(false);
+        router.push('/cart');
+      }} />
     </>
   )
 }

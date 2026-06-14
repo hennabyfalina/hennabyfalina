@@ -39,7 +39,6 @@ type Product = BaseProduct & {
   updated_at?: string
   rating?: number | null
   review_count?: number | null
-  pricing_tiers?: any[]
 }
 
 export default function AdminProducts() {
@@ -67,7 +66,7 @@ export default function AdminProducts() {
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('*, pricing_tiers:product_pricing_tiers(*)')
+        .select('*')
         .eq('is_deleted', false)
         .order('created_at', { ascending: false })
 
@@ -75,8 +74,7 @@ export default function AdminProducts() {
       
       const mappedData = (data || []).map(p => ({
         ...p,
-        status: p.is_active ? 'published' : 'draft',
-        pricing_tiers: p.pricing_tiers ? p.pricing_tiers.filter((t: any) => !t.is_deleted).sort((a: any, b: any) => a.sort_order - b.sort_order) : []
+        status: p.is_active ? 'published' : 'draft'
       }))
       setProducts(mappedData)
     } catch (error) {
@@ -185,8 +183,8 @@ if (isLoading && products.length === 0) {
   })
 
   const sortedProducts = [...filteredProducts].sort((a, b) => {
-    const aPrice = a.pricing_tiers?.[0]?.selling_price ?? a.price
-    const bPrice = b.pricing_tiers?.[0]?.selling_price ?? b.price
+    const aPrice = a.retail_price ?? 0
+    const bPrice = b.retail_price ?? 0
 
     if (sortBy === 'updated_desc') return new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime()
     if (sortBy === 'newest') return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
@@ -324,12 +322,10 @@ if (isLoading && products.length === 0) {
                   sortedProducts.map((product) => {
                     const imageUrl = product.images?.[0] ? imageUrls.get(product.id) : null
                     
-                    const displayPrice = product.pricing_tiers?.[0]?.selling_price ?? (product.selling_price || product.price)
-                    const displayMrp = product.pricing_tiers?.[0]?.mrp ?? product.price
+                    const displayPrice = product.retail_price
                   
-                    const b2bTier = product.pricing_tiers?.find(t => t.min_quantity > 1) || product.pricing_tiers?.[1]
-                    const displayB2bPrice = b2bTier?.selling_price
-                    const displayB2bQty = b2bTier?.min_quantity
+                    const displayB2bPrice = product.wholesale_price
+                    const displayB2bQty = product.wholesale_min_qty
 
                     return (
                       <tr 
@@ -366,14 +362,16 @@ if (isLoading && products.length === 0) {
                         </td>
 
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium admin-text-primary">
-                            {formatCurrency(displayPrice)}
-                          </div>
-                          {displayPrice < displayMrp && (
-                            <div className="text-[11px] admin-text-muted line-through mt-0.5">
-                              {formatCurrency(displayMrp)}
+                          <div className="flex flex-col">
+                            <div className="text-sm font-medium admin-text-primary">
+                              {formatCurrency(displayPrice)}
                             </div>
-                          )}
+                            {product.mrp > displayPrice && (
+                              <div className="text-[11px] admin-text-muted line-through mt-0.5">
+                                {formatCurrency(product.mrp)}
+                              </div>
+                            )}
+                          </div>
                         </td>
                         
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -453,9 +451,13 @@ if (isLoading && products.length === 0) {
         <ProductForm
           initialData={editingProduct ? { 
             ...editingProduct, 
-            selling_price: editingProduct.selling_price ?? '',
-            weight_unit: editingProduct.weight_unit === null ? undefined : editingProduct.weight_unit,
-            frequently_bought_together: editingProduct.frequently_bought_together || [] 
+            mrp: editingProduct.mrp ?? '',
+            retail_price: editingProduct.retail_price ?? '',
+            wholesale_price: editingProduct.wholesale_price ?? '',
+            wholesale_min_qty: editingProduct.wholesale_min_qty ?? 1,
+            frequently_bought_together: editingProduct.frequently_bought_together || [],
+            weight_unit: (editingProduct.weight_unit === 'g' || editingProduct.weight_unit === 'kg') ? editingProduct.weight_unit : 'kg',
+            dimensions: editingProduct.dimensions || { length: '', width: '', height: '' }
           } : undefined}
           categories={categories}
           allProducts={products.map(p => ({ id: p.id, name: p.name }))}

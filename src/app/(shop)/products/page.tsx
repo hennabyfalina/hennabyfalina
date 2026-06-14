@@ -4,9 +4,7 @@ import { Metadata } from 'next'
 import { getProductsWithSignedUrls } from '@/services/product.service'
 import { getCategories } from '@/services/category.service'
 import ProductsClientView from './ProductsClientView'
-import Container from '@/components/ui/Container'
 import { Suspense } from 'react'
-import { siteConfig } from '@/config/site'
 
 export async function generateMetadata({
   searchParams,
@@ -22,15 +20,15 @@ export async function generateMetadata({
 
     if (category) {
       return {
-        title: category.meta_title || category.name,
-        description: category.meta_description || `High-quality ${category.name} packaging.`,
+        title: `${category.meta_title || category.name} | Henna by Falina`,
+        description: category.meta_description || `Explore our premium, 100% chemical-free organic ${category.name} collection.`,
       }
     }
   }
 
   return {
-    title: 'All Products',
-    description: 'Explore our range of premium packaging materials.',
+    title: 'The Organic Collection | Henna by Falina',
+    description: 'Browse our complete suite of triple-sifted henna powders, fresh bridal cones, pure essential mixing oils, and stencils.',
   }
 }
 
@@ -45,15 +43,15 @@ export default async function ProductsPage({
   ])
 
   return (
-    <div className="min-h-screen bg-[#F0F2F2]" suppressHydrationWarning>
-      <Container className="py-4 md:py-6 max-w-[1500px]">
-        <Suspense fallback={<div className="py-20 text-center"></div>}>
+    <div className="min-h-screen bg-white" suppressHydrationWarning>
+      <div className="py-4 px-4 sm:px-8 max-w-[1600px] mx-auto">
+        <Suspense fallback={<div className="py-20 text-center text-gray-400 font-medium text-sm animate-pulse">Loading Collection...</div>}>
           <ProductsClientView 
             initialProducts={products as any} 
             categories={categories}
           />
         </Suspense>
-      </Container>
+      </div>
     </div>
   )
 }

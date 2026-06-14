@@ -4,54 +4,66 @@
 
 import { useEffect } from 'react'
 
-interface Product {
-  id: string
-  name: string
-  slug: string
-  price: number
-  image: string
-  images?: string[]
-  original_price?: number
-  selling_price?: number
-  description?: string | null
-  stock?: number  
-  rating?: number | null
-  review_count?: number | null
-  pricing_tiers?: any[]
-}
-
 interface SaveViewedProductProps {
-  product: Product
+  product: any // full product from database
 }
 
 export default function SaveViewedProduct({ product }: SaveViewedProductProps) {
   useEffect(() => {
+    if (!product?.id) return
+
     try {
-      const stored = localStorage.getItem('razack_recently_viewed')
-      let recent: Product[] = stored ? JSON.parse(stored) : []
+      const storageKey = 'hennabyfalina_recently_viewed'
+      const stored = localStorage.getItem(storageKey)
+      let recent = stored ? JSON.parse(stored) : []
 
-      // Remove duplicate if product already exists
-      recent = recent.filter((p: Product) => p.id !== product.id)
+      // Remove duplicate if exists
+      recent = recent.filter((p: any) => p.id !== product.id)
 
-      // Ensure stock is explicitly saved with a fallback
-      const productToSave = { 
-        ...product, 
-        stock: product.stock ?? 0 
+      // Store the COMPLETE product with ALL pricing fields
+      const fullProduct = {
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        description: product.description || null,
+        images: product.images || [],
+        stock: product.stock || 0,
+        rating: product.rating ?? 4.5,
+        review_count: product.review_count ?? 0,
+        retail_price: product.retail_price || 0,
+        wholesale_price: product.wholesale_price || 0,
+        wholesale_min_qty: product.wholesale_min_qty || 1,
+        mrp: product.mrp || null,           // ✅ CRITICAL
+        variants: product.variants || null,  // ✅ CRITICAL
+        category_id: product.category_id || null,
+        is_active: product.is_active ?? true,
+        is_deleted: product.is_deleted ?? false,
+        is_featured: product.is_featured ?? false,
+        sku: product.sku || null,
+        weight: product.weight || null,
+        weight_unit: product.weight_unit || null,
+        gsm: product.gsm || null,
+        dimensions: product.dimensions || null,
+        meta_title: product.meta_title || null,
+        meta_description: product.meta_description || null,
+        frequently_bought_together: product.frequently_bought_together || null,
+        created_at: product.created_at || new Date().toISOString(),
+        updated_at: product.updated_at || new Date().toISOString(),
       }
 
-      // Add new product to the beginning of the array
-      recent.unshift(productToSave)
+      // Add to beginning
+      recent.unshift(fullProduct)
 
-      // Keep only the last 8 viewed products
-      recent = recent.slice(0, 8)
+      // Keep only last 12 items
+      recent = recent.slice(0, 12)
 
-      // Save back to localStorage
-      localStorage.setItem('razack_recently_viewed', JSON.stringify(recent))
+      localStorage.setItem(storageKey, JSON.stringify(recent))
       
+      console.log('Saved to recently viewed:', fullProduct.name, 'MRP:', fullProduct.mrp)
     } catch (e) {
       console.error('Failed to save recently viewed product', e)
     }
-  }, [product])
+  }, [product?.id])
 
   return null
 }

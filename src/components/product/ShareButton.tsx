@@ -1,7 +1,10 @@
+// src/components/product/ShareButton.tsx
+
 'use client'
 
+import { useState } from 'react'
 import { Share2 } from 'lucide-react'
-import { showToast } from '@/components/ui/Toast'
+import ShareModal from './ShareModal'
 
 interface ShareButtonProps {
   productName: string
@@ -9,26 +12,31 @@ interface ShareButtonProps {
 }
 
 export default function ShareButton({ productName, productSlug }: ShareButtonProps) {
-  const handleShare = async (e: React.MouseEvent) => {
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const productUrl = typeof window !== 'undefined' ? `${window.location.origin}/product/${productSlug}` : ''
+
+  const handleShare = (e: React.MouseEvent) => {
     e.preventDefault()
-    const url = `${window.location.origin}/product/${productSlug}`
-    
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: productName, url })
-      } catch (err) {
-        console.error('Error sharing:', err)
-      }
-    } else {
-      navigator.clipboard.writeText(url)
-      showToast('Link copied to clipboard!', productSlug)
-    }
+    setIsModalOpen(true)
   }
 
   return (
-    <button onClick={handleShare} className="flex items-center gap-1.5 text-sm text-[#007185] hover:text-[#C7511F] hover:underline transition-colors cursor-pointer" title="Share this product">
-      <Share2 className="w-4 h-4" />
-      <span className="font-medium">Share</span>
-    </button>
+    <>
+      <button
+        onClick={handleShare}
+        className="flex items-center gap-1.5 text-[14px] font-normal text-gray-600 hover:text-gray-950 transition-colors cursor-pointer"
+        title="Share this product"
+      >
+        <Share2 className="w-4 h-4 text-gray-400 hover:text-gray-950 transition-colors" strokeWidth={1.5} />
+        <span>share</span>
+      </button>
+
+      <ShareModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        productName={productName}
+        productUrl={productUrl}
+      />
+    </>
   )
 }

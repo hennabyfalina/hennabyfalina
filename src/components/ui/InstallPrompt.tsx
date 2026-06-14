@@ -15,23 +15,17 @@ export default function InstallPrompt() {
   const [isInstalling, setIsInstalling] = useState(false)
 
   useEffect(() => {
-    // 1. Check if the app is already installed and running in standalone mode
     const isAppStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
     setIsStandalone(isAppStandalone)
 
     if (isAppStandalone) return
 
-    // 2. Check our "Snooze" gap (Don't annoy users if they dismissed it recently)
     const lastDismissed = localStorage.getItem('pwa_prompt_dismissed')
     if (lastDismissed) {
       const daysSinceDismissed = (Date.now() - parseInt(lastDismissed)) / (1000 * 60 * 60 * 24)
-      if (daysSinceDismissed < 3) {
-        return // User clicked close recently, snooze for 3 days
-      }
+      if (daysSinceDismissed < 3) return
     }
 
-    // 3. iOS Detection (Apple devices do not support the native install prompt event)
-    // Includes iPadOS workaround (Modern iPads report as MacIntel but have touch points)
     const isDeviceIOS = 
       (/iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream) ||
       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
@@ -42,19 +36,17 @@ export default function InstallPrompt() {
       return
     }
 
-    // 4. Intercept the standard prompt (Android, Chrome/Edge Desktop)
     const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault() // Stop the browser's random mini-infobar from appearing
-      setDeferredPrompt(e) // Save the event so we can trigger it from our custom button
+      e.preventDefault()
+      setDeferredPrompt(e)
       setShowPrompt(true)
     }
     
-    // 🚨 Real Hardware Event: Fire success message ONLY when OS installation finishes
     const handleAppInstalled = () => {
       setIsInstalling(false)
       setDeferredPrompt(null)
       setShowPrompt(false)
-      showToast('App installed successfully! You can now open it from your Home Screen.', 'success')
+      showToast('App installed successfully! Add it to your home screen context.', 'success')
     }
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
@@ -69,10 +61,9 @@ export default function InstallPrompt() {
   const handleInstall = async () => {
     if (!deferredPrompt) return
     setIsInstalling(true)
-    deferredPrompt.prompt() // Show the native browser installation dialog
+    deferredPrompt.prompt()
     const { outcome } = await deferredPrompt.userChoice
     if (outcome === 'accepted') {
-      // We do NOT show the toast here. We wait for the OS 'appinstalled' event.
       setShowPrompt(false)
     } else {
       setIsInstalling(false)
@@ -83,46 +74,49 @@ export default function InstallPrompt() {
 
   const handleDismiss = () => {
     setShowPrompt(false)
-    localStorage.setItem('pwa_prompt_dismissed', Date.now().toString()) // Start the 3-day snooze
+    localStorage.setItem('pwa_prompt_dismissed', Date.now().toString())
   }
 
   if (!showPrompt || isStandalone) return null
 
   return (
-    <div className="fixed bottom-[84px] md:bottom-4 left-4 right-4 z-[9999] md:left-auto md:w-96 animate-in slide-in-from-bottom-5 fade-in duration-300">
-      <div className="bg-white border border-gray-200 shadow-2xl rounded-xl p-4 flex items-start gap-4 relative">
-        <button onClick={handleDismiss} className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors">
-          <X className="w-4 h-4" />
+    <div className="fixed bottom-[88px] md:bottom-6 left-4 right-4 z-[99999] md:left-auto md:w-96 animate-in slide-in-from-bottom-5 fade-in duration-300">
+      <div className="bg-white/95 backdrop-blur-md border border-gray-100 shadow-[0_10px_40px_rgba(0,0,0,0.06)] rounded-2xl p-5 flex items-start gap-4 relative">
+        <button onClick={handleDismiss} className="absolute top-3 right-3 p-1 text-gray-400 hover:text-gray-900 rounded-full hover:bg-stone-50 transition-colors cursor-pointer" aria-label="Close notification">
+          <X className="w-3.5 h-3.5" />
         </button>
-        <div className="w-12 h-12 bg-[#F0F8FA] rounded-xl flex items-center justify-center shrink-0">
-          <Smartphone className="w-6 h-6 text-[#007185]" />
+        
+        <div className="w-11 h-11 bg-stone-50 rounded-xl flex items-center justify-center shrink-0 text-gray-900">
+          <Smartphone className="w-5 h-5" strokeWidth={1.5} />
         </div>
+        
         <div className="flex-1 pr-4">
-          <h3 className="text-sm font-bold text-gray-900">Install {siteConfig.shortName || 'Our App'}</h3>
+          {/* 🚀 FIXED: Custom dynamic capitalization formatting attributes */}
+          <h3 className="text-[14px] font-bold text-gray-900 tracking-wide capitalize">Install {siteConfig.shortName || 'Our Studio App'}</h3>
           {isIOS ? (
             <>
-              <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                To install, tap the Share icon <Share2 className="inline w-4 h-4 mx-0.5 text-[#007185]" /> on your Safari menu and select <span className="font-bold">&quot;Add to Home Screen&quot;</span>.
+              <p className="text-[12px] text-gray-400 font-medium mt-1 leading-relaxed capitalize">
+                To install, tap the Share icon <Share2 className="inline w-3.5 h-3.5 mx-0.5 text-gray-900" strokeWidth={1.8} /> on your Safari navigation drawer menu and select <span className="font-bold text-gray-800">&quot;Add to Home Screen&quot;</span>.
               </p>
-              <div className="flex mt-3">
-                <button onClick={handleDismiss} className="w-full bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-900 px-3 py-2 rounded-xl text-sm font-bold transition-colors shadow-sm">
+              <div className="flex mt-4">
+                <button onClick={handleDismiss} className="w-full h-9 bg-stone-50 hover:bg-stone-100 text-gray-700 rounded-full text-[11px] font-bold tracking-wide transition-all capitalize">
                   Got It
                 </button>
               </div>
             </>
           ) : (
             <>
-              <p className="text-xs text-gray-600 mt-1">Faster access and better experience.</p>
-              <div className="flex mt-3">
+              <p className="text-[12px] text-gray-400 font-medium mt-1 capitalize">Access our clean boutique catalog directly from your device screen.</p>
+              <div className="flex mt-4">
                 <button 
                   onClick={handleInstall} 
                   disabled={isInstalling}
-                  className="w-full bg-[#007185] hover:bg-[#005d6e] text-white px-3 py-2.5 rounded-xl text-sm font-bold transition-colors shadow-md flex items-center justify-center gap-2 disabled:opacity-70"
+                  className="w-full h-9 bg-gray-900 hover:bg-black text-white rounded-full text-[11px] font-bold tracking-wide transition-all shadow-md flex items-center justify-center gap-1.5 disabled:opacity-40 capitalize"
                 >
                   {isInstalling ? (
-                    <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Installing...</>
+                    <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Installing...</>
                   ) : (
-                    <><Download className="w-4 h-4" /> Install Now</>
+                    <><Download className="w-3.5 h-3.5" strokeWidth={2} /> Install Now</>
                   )}
                 </button>
               </div>

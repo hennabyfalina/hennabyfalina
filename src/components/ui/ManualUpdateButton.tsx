@@ -1,3 +1,5 @@
+// src/components/ui/ManualUpdateButton.tsx
+
 'use client'
 
 import { useState } from 'react'
@@ -14,14 +16,12 @@ export default function ManualUpdateButton() {
     const registration = await navigator.serviceWorker.getRegistration()
     
     if (registration?.waiting) {
-      // Update is waiting – apply it now
       registration.waiting.postMessage({ type: 'SKIP_WAITING' })
-      showToast('Update applied! Page will reload.', 'info')
+      showToast('Update applied! Core loading refresh.', 'success')
       setTimeout(() => window.location.reload(), 1000)
     } else {
-      // Check for new version
       await registration?.update()
-      showToast('Checking for updates...', 'info')
+      showToast('Checking for studio updates...', 'success')
       setTimeout(() => {
         if (registration?.waiting) {
           registration.waiting.postMessage({ type: 'SKIP_WAITING' })
@@ -38,12 +38,12 @@ export default function ManualUpdateButton() {
     <button
       onClick={checkForUpdates}
       disabled={isUpdating}
-      className="px-4 py-2 bg-[#007185] text-white rounded-full text-sm font-medium hover:bg-[#005d6e] transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+      className="inline-flex items-center justify-center gap-2 h-11 px-5 bg-gray-900 text-white rounded-full text-[14px] font-bold tracking-wide hover:bg-black transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
     >
       {isUpdating ? (
-        <><RefreshCw className="w-4 h-4 animate-spin inline mr-2" /> Checking...</>
+        <><RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" strokeWidth={2} /> Checking...</>
       ) : (
-        <>Check for Updates</>
+        <>Check For Updates</>
       )}
     </button>
   )

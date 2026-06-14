@@ -1,9 +1,11 @@
+// src/app/(shop)/checkout/layout.tsx
+
 import { Metadata } from 'next'
 import { siteConfig } from '@/config/site'
 
 export const metadata: Metadata = {
-  title: 'Secure Checkout',
-  robots: { index: false, follow: false }, // SEO: Prevent search engines from indexing transactional pages
+  title: `Secure checkout | ${siteConfig.name}`,
+  robots: { index: false, follow: false },
 }
 
 export default function CheckoutLayout({ children }: { children: React.ReactNode }) {

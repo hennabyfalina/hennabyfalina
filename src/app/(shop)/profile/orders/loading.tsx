@@ -4,79 +4,73 @@ import Container from '@/components/ui/Container'
 
 export default function OrdersLoading() {
   return (
-    <div className="min-h-screen bg-white py-6 md:py-10 animate-pulse">
-      <Container className="max-w-[1000px]">
-        {/* Breadcrumb skeleton */}
-        <div className="h-4 w-36 bg-gray-200 rounded mb-4" />
+    <div className="min-h-screen bg-white py-8 md:py-16 animate-pulse select-none text-left">
+      <Container className="max-w-[1100px] px-4 sm:px-8">
+        
+        {/* Left-Aligned Breadcrumb Skeleton */}
+        <div className="h-4 w-44 bg-stone-100 rounded-md mb-4" />
 
-        {/* Page title skeleton */}
-        <div className="h-8 w-48 bg-gray-200 rounded mb-6" />
+        {/* Left-Aligned Header Title Stack Skeletons */}
+        <div className="mb-10 space-y-2.5">
+          <div className="h-9 w-48 bg-stone-100 rounded-lg" />
+          <div className="h-4 w-full max-w-xl bg-stone-100 rounded-md" />
+        </div>
 
-        {/* Filter tabs skeleton */}
-        <div className="flex overflow-x-auto no-scrollbar border-b border-gray-200 mb-6 gap-6 pb-1">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-8 w-20 bg-gray-200 rounded-full whitespace-nowrap" />
+        {/* Filter Navigation Tabs Row Skeleton (Left-Aligned Canvas Strip Layout) */}
+        <div className="flex overflow-x-auto no-scrollbar border-b border-gray-100 mb-12 gap-7 pb-3">
+          {[1, 2, 3, 4, 5].map((tab) => (
+            <div key={tab} className="h-4 w-20 bg-stone-100 rounded-md shrink-0" />
           ))}
         </div>
 
-        {/* Order cards skeleton */}
-        <div className="space-y-6">
-          {[1, 2, 3].map((card) => (
-            <div key={card} className="border border-gray-300 rounded-lg overflow-hidden shadow-sm">
-              {/* Order header */}
-              <div className="bg-[#F0F2F2] px-4 md:px-5 py-3 border-b border-gray-300">
-                <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-4 sm:gap-6 md:gap-12">
-                  <div>
-                    <div className="h-3 w-20 bg-gray-300 rounded mb-1" />
-                    <div className="h-4 w-24 bg-gray-300 rounded" />
-                  </div>
-                  <div>
-                    <div className="h-3 w-12 bg-gray-300 rounded mb-1" />
-                    <div className="h-4 w-16 bg-gray-300 rounded" />
-                  </div>
-                  <div>
-                    <div className="h-3 w-16 bg-gray-300 rounded mb-1" />
-                    <div className="h-4 w-28 bg-gray-300 rounded" />
-                  </div>
+        {/* 🚀 FIXED: Rebuilt Timeline Loop to match the Apple-inspired borderless layout exactly */}
+        <div className="space-y-16">
+          {[1, 2, 3].map((order) => (
+            <div key={order} className="border-b border-stone-100 pb-12 last:border-0 last:pb-0 flex flex-col w-full">
+              
+              {/* Top Typographic Row Skeleton (Replaces legacy hard header blocks) */}
+              <div className="flex flex-wrap justify-between items-center gap-4 mb-6 w-full">
+                <div className="flex flex-wrap items-center gap-x-8 gap-y-2 w-full sm:w-auto">
+                  <div className="h-4 w-32 bg-stone-100 rounded-md" />
+                  <div className="h-4 w-24 bg-stone-100 rounded-md" />
+                  <div className="h-4 w-40 bg-stone-100 rounded-md" />
+                  <div className="h-4 w-20 bg-stone-100 rounded-md" />
                 </div>
-                <div className="border-t border-gray-200 sm:border-0 pt-2 sm:pt-0 mt-2">
-                  <div className="h-3 w-24 bg-gray-300 rounded mb-1" />
-                  <div className="h-4 w-32 bg-gray-300 rounded mt-1" />
-                </div>
+                <div className="h-4 w-36 bg-stone-100 rounded-md shrink-0 hidden sm:block" />
               </div>
 
-              {/* Order body */}
-              <div className="p-4 md:p-5 bg-white">
-                {/* Status bar */}
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="h-6 w-32 bg-gray-200 rounded-full" />
-                  <div className="h-6 w-20 bg-gray-200 rounded-full" />
+              {/* Status Indicator Banner Layer Skeleton */}
+              <div className="h-11 w-full bg-stone-50/60 border border-stone-100/40 rounded-2xl mb-6 flex items-center px-4" />
+
+              {/* Core Item Information Split Grid Row Skeleton */}
+              <div className="flex flex-col sm:flex-row gap-6 items-start justify-between w-full">
+                
+                {/* Left Area: Product Image Block & Text Parameter Column Skeletons */}
+                <div className="flex gap-5 flex-1 min-w-0 w-full">
+                  {/* Premium Bounding Image Container Box Frame */}
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-stone-50 border border-stone-100 rounded-2xl shrink-0" />
+                  
+                  {/* Text Line Placeholders */}
+                  <div className="flex-1 space-y-3 pt-0.5">
+                    <div className="h-4.5 w-full max-w-md bg-stone-100 rounded-md" />
+                    <div className="h-4 w-24 bg-stone-100 rounded-md" />
+                    <div className="h-4 w-36 bg-stone-100 rounded-md pt-1" />
+                  </div>
                 </div>
 
-                {/* Product row */}
-                <div className="flex flex-col md:flex-row gap-4 sm:gap-6">
-                  <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 flex-1">
-                    {/* Image placeholder */}
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-200 border border-gray-200 rounded-sm" />
-                    {/* Product details */}
-                    <div className="flex-1 space-y-2">
-                      <div className="h-5 w-48 bg-gray-200 rounded" />
-                      <div className="h-4 w-32 bg-gray-200 rounded" />
-                      <div className="h-5 w-24 bg-gray-200 rounded" />
-                      <div className="h-4 w-56 bg-gray-200 rounded" />
-                    </div>
-                  </div>
-                  {/* Action buttons */}
-                  <div className="mt-2 md:mt-0 flex flex-col gap-2 w-full md:w-56 shrink-0">
-                    <div className="h-10 bg-gray-200 rounded-xl" />
-                    <div className="h-10 bg-gray-200 rounded-xl" />
-                    <div className="h-10 bg-gray-200 rounded-xl" />
-                  </div>
+                {/* Right Area: Minimal Monochrome Pill Button Action Column Skeletons */}
+                <div className="flex flex-row sm:flex-col gap-2.5 w-full sm:w-48 shrink-0 pt-0.5">
+                  <div className="h-9 bg-stone-50 rounded-xl flex-1 sm:w-full" />
+                  <div className="h-9 bg-stone-50 rounded-xl flex-1 sm:w-full" />
+                  <div className="h-9 w-9 bg-white border border-stone-200 rounded-xl shrink-0" />
                 </div>
+
               </div>
+
             </div>
           ))}
         </div>
+
       </Container>
     </div>
   )

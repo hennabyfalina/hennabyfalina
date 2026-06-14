@@ -38,7 +38,7 @@ export default function AdminAlertBanner({ isSuperAdmin }: AdminAlertBannerProps
         </span>
         
         <button 
-          onClick={() => window.open('mailto:admin@razackpackagingcentre.com')}
+          onClick={() => window.open('mailto:hennabyfalina@gmail.com?subject=Requesting%20Full%20Admin%20Access&body=Hello%20Super%20Admin%2C%0A%0AI%20would%20like%20to%20request%20full%20admin%20access%20to%20the%20dashboard.%0A%0AThank%20you.', '_blank')}
           className="px-3 py-1 rounded-full text-[11px] font-bold transition-colors cursor-pointer whitespace-nowrap"
           style={{
             backgroundColor: 'var(--admin-bg-elevated)',

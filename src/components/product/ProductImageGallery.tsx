@@ -1,8 +1,9 @@
 // src/components/product/ProductImageGallery.tsx
 
 'use client'
+
 import { useSyncExternalStore } from 'react'
-import { useState, useRef, MouseEvent, useEffect } from 'react'
+import { useState, useRef, MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { X, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react'
@@ -35,7 +36,6 @@ export default function ProductImageGallery({ images, productName, priority = fa
   
   const imageRef = useRef<HTMLDivElement>(null)
   
-  // Format URLs
   const formattedImages = images.map(img => 
     img.startsWith('http') || img.startsWith('/') ? img : getPublicUrl(img)
   )
@@ -77,7 +77,6 @@ export default function ProductImageGallery({ images, productName, priority = fa
     setLastTap(now)
   }
 
-  // Touch handlers
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 1) {
       setTouchStartX(e.touches[0].clientX)
@@ -123,35 +122,11 @@ export default function ProductImageGallery({ images, productName, priority = fa
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 lg:sticky lg:top-28">
-      {/* Thumbnails (Left side on desktop, bottom on mobile) */}
-      {images.length > 1 && (
-        <div className="order-2 lg:order-1 flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto no-scrollbar py-2 lg:py-0 px-1 lg:px-0 lg:max-h-[500px]">
-          {formattedImages.map((img, idx) => (
-            <button
-              key={idx}
-              onClick={() => setSelectedIndex(idx)}
-              className={`relative w-16 h-16 sm:w-14 sm:h-14 flex-shrink-0 rounded-md overflow-hidden transition-all duration-200 border bg-white cursor-pointer ${
-                selectedIndex === idx ? 'border-[#007185] shadow-[0_0_4px_rgba(0,113,133,0.5)]' : 'border-gray-300 hover:border-gray-400'
-              }`}
-            >
-              <Image
-                src={img}
-                alt={`${productName} thumbnail ${idx + 1}`}
-                fill
-                sizes="64px"
-                unoptimized={img.includes('token=') || img.includes('supabase')}
-                className="object-contain p-1"
-              />
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Main Image */}
+    <div className="flex flex-col gap-4 select-none">
+      {/* Main Large Display Canvas */}
       <div 
         ref={imageRef}
-        className="order-1 lg:order-2 flex-1 relative aspect-square w-full bg-white border border-gray-200 cursor-crosshair group overflow-hidden"
+        className="relative aspect-[4/5] w-full bg-stone-50/40 border border-gray-100 rounded-2xl cursor-zoom-in group overflow-hidden"
         onMouseEnter={() => setIsZoomed(true)}
         onMouseLeave={() => setIsZoomed(false)}
         onMouseMove={handleMouseMove}
@@ -160,43 +135,67 @@ export default function ProductImageGallery({ images, productName, priority = fa
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="w-full h-full relative cursor-crosshair">
+        <div className="w-full h-full relative">
           <Image
-          src={mainImage}
-          alt={productName}
-          fill // 🔒 Direct priority hook alignment
-          priority={priority}
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // 🔒 Responsive sizes hint stops oversized layout painting
-          unoptimized={mainImage.includes('token=') || mainImage.includes('supabase')}
-          className="object-contain transition-transform duration-200"
-          style={{
-            transform: isZoomed ? 'scale(2)' : 'scale(1)',
-            transformOrigin: zoomOrigin
-          }}
-        />
+            src={mainImage}
+            alt={productName}
+            fill 
+            priority={priority}
+            sizes="(max-width: 768px) 100vw, 40vw"
+            unoptimized={mainImage.includes('token=') || mainImage.includes('supabase')}
+            className="object-contain p-4 transition-transform duration-300 ease-out"
+            style={{
+              transform: isZoomed ? 'scale(1.5)' : 'scale(1)',
+              transformOrigin: zoomOrigin
+            }}
+          />
         </div>
         
-        {/* Fullscreen Hint */}
-        <div className="absolute top-4 right-4 z-10 p-2 bg-white border border-gray-200 shadow-sm text-gray-500 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex items-center gap-2 pointer-events-auto cursor-pointer">
-          <Maximize2 className="w-4 h-4" /> <span className="text-xs font-medium">Click to enlarge</span>
+        <div className="absolute bottom-4 right-4 z-10 px-3 py-1.5 bg-white/90 backdrop-blur rounded-full border border-gray-100 shadow-sm text-gray-400 group-hover:text-gray-900 transition-all hidden md:flex items-center gap-1.5 cursor-pointer">
+          <Maximize2 className="w-3.5 h-3.5" strokeWidth={1.5} /> 
+          <span className="text-[10px] font-medium tracking-widest uppercase">Enlarge</span>
         </div>
       </div>
 
-      {/* Fullscreen Portal */}
+      {/* Thumbnails Track Strip Grid */}
+      {images.length > 1 && (
+        <div className="flex flex-row gap-3 overflow-x-auto no-scrollbar py-1 px-0.5 max-w-full touch-pan-x">
+          {formattedImages.map((img, idx) => (
+            <button
+              key={idx}
+              onClick={() => setSelectedIndex(idx)}
+              className={`relative w-16 h-20 flex-shrink-0 rounded-xl overflow-hidden transition-all duration-300 border bg-stone-50/30 cursor-pointer ${
+                selectedIndex === idx ? 'border-gray-900 scale-102 shadow-sm' : 'border-gray-100 hover:border-gray-300'
+              }`}
+            >
+              <Image
+                src={img}
+                alt={`${productName} item image ${idx + 1}`}
+                fill
+                sizes="80px"
+                unoptimized={img.includes('token=') || img.includes('supabase')}
+                className="object-contain p-2"
+              />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Fullscreen Portal Overlays Sheet */}
       {isMounted && showFullscreen && createPortal(
-        <div className="fixed inset-0 z-[99999] bg-white flex flex-col animate-in fade-in duration-200">
-          <div className="flex justify-between items-center p-4 sm:p-6 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-white to-white/0">
-            <span className="text-sm font-medium text-gray-600 bg-white px-3 py-1 border border-gray-200 shadow-sm">
-              {selectedIndex + 1} of {images.length}
+        <div className="fixed inset-0 z-[99999] bg-white flex flex-col animate-in fade-in duration-300">
+          <div className="flex justify-between items-center p-5 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-white via-white/80 to-transparent">
+            <span className="text-[11px] font-medium tracking-widest text-gray-400 uppercase bg-stone-50 px-3 py-1 rounded-full border border-gray-100">
+              {selectedIndex + 1} / {images.length}
             </span>
             <button 
               onClick={() => {
                 setShowFullscreen(false)
                 setZoomScale(1)
               }} 
-              className="p-2 sm:p-3 bg-white hover:bg-red-50 hover:border-red-200 group transition-all shadow-sm cursor-pointer border border-gray-200 rounded-full"
+              className="p-2.5 bg-white hover:bg-stone-50 border border-gray-100 rounded-full transition-colors cursor-pointer"
             >
-              <X className="w-5 h-5 sm:w-6 sm:h-6 text-gray-800 group-hover:text-red-600 transition-colors" />
+              <X className="w-5 h-5 text-gray-800" strokeWidth={1.5} />
             </button>
           </div>
           
@@ -212,19 +211,19 @@ export default function ProductImageGallery({ images, productName, priority = fa
             {images.length > 1 && selectedIndex > 0 && zoomScale === 1 && (
               <button 
                 onClick={prevImage}
-                className="absolute left-2 sm:left-6 z-10 p-3 sm:p-4 bg-white/80 hover:bg-white transition-colors border border-gray-200 shadow-sm rounded-full cursor-pointer"
+                className="absolute left-4 sm:left-8 z-10 p-3 bg-white hover:bg-stone-50 transition-colors border border-gray-100 rounded-full cursor-pointer shadow-sm"
               >
-                <ChevronLeft className="w-6 h-6 sm:w-8 sm:h-8 text-[#0F1111]" />
+                <ChevronLeft className="w-5 h-5 text-gray-800" strokeWidth={1.5} />
               </button>
             )}
             
-            <div className="relative w-full h-full max-w-5xl mx-auto flex items-center justify-center p-4 sm:p-12">
+            <div className="relative w-full h-full max-w-4xl mx-auto flex items-center justify-center p-6 sm:p-12">
               <Image
                 src={mainImage}
                 alt={productName}
                 fill
                 unoptimized={mainImage.includes('token=') || mainImage.includes('supabase')}
-                className="object-contain transition-transform duration-200"
+                className="object-contain p-2 transition-transform duration-200"
                 style={{
                   transform: `scale(${zoomScale})`,
                   transformOrigin: fsZoomOrigin
@@ -235,31 +234,31 @@ export default function ProductImageGallery({ images, productName, priority = fa
             {images.length > 1 && selectedIndex < images.length - 1 && zoomScale === 1 && (
               <button 
                 onClick={nextImage}
-                className="absolute right-2 sm:right-6 z-10 p-3 sm:p-4 bg-white/80 hover:bg-white transition-colors border border-gray-200 shadow-sm rounded-full cursor-pointer"
+                className="absolute right-4 sm:right-8 z-10 p-3 bg-white hover:bg-stone-50 transition-colors border border-gray-100 rounded-full cursor-pointer shadow-sm"
               >
-                <ChevronRight className="w-6 h-6 sm:w-8 sm:h-8 text-[#0F1111]" />
+                <ChevronRight className="w-5 h-5 text-gray-800" strokeWidth={1.5} />
               </button>
             )}
           </div>
 
-          {/* Fullscreen Bottom Thumbnails */}
+          {/* Fullscreen Bottom View Thumbnails Track */}
           {images.length > 1 && (
-            <div className="p-4 sm:p-6 bg-white border-t border-gray-100 flex justify-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar">
+            <div className="p-5 bg-white border-t border-gray-50 flex justify-center gap-3 overflow-x-auto no-scrollbar">
               {formattedImages.map((img, idx) => (
                 <button
                   key={idx}
                   onClick={() => setSelectedIndex(idx)}
-                  className={`relative w-14 h-14 sm:w-20 sm:h-20 flex-shrink-0 rounded-md overflow-hidden transition-all border-2 cursor-pointer ${
-                    selectedIndex === idx ? 'border-[#007185] scale-105 shadow-md' : 'border-transparent opacity-60 hover:opacity-100'
+                  className={`relative w-14 h-16 sm:w-16 sm:h-20 flex-shrink-0 rounded-xl overflow-hidden transition-all border-2 cursor-pointer bg-stone-50/30 ${
+                    selectedIndex === idx ? 'border-gray-900 scale-102 shadow-sm' : 'border-transparent opacity-50 hover:opacity-100'
                   }`}
                 >
                   <Image
                     src={img}
-                    alt={`Gallery ${idx + 1}`}
+                    alt={`Fullscreen layout strip gallery thumbnail ${idx + 1}`}
                     fill
                     sizes="80px"
                     unoptimized={img.includes('token=') || img.includes('supabase')}
-                    className="object-contain p-1"
+                    className="object-contain p-2"
                   />
                 </button>
               ))}

@@ -2,16 +2,12 @@
 
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
-import { Share2, Heart, Eye } from 'lucide-react'
-import { useQuickViewStore } from '@/store/quickview.store'
+import { Heart, Star } from 'lucide-react'
 import { getPublicUrl } from '@/lib/supabase/storage'
-import StarRating from '@/components/product/StarRating'
-import AddToCartButton from '@/components/product/AddToCartButton'
 import { formatCurrency } from '@/lib/utils'
-import { siteConfig } from '@/config/site'
 import { useWishlistStore } from '@/store/wishlist.store'
 import { showToast } from '@/components/ui/Toast'
 
@@ -23,7 +19,7 @@ function HighlightMatch({ text, query }: { text: string, query: string }) {
     <span>
       {parts.map((part, i) => 
         part.toLowerCase() === query.toLowerCase() ? (
-          <span key={i} className="bg-yellow-200 text-gray-900 font-bold px-0.5 rounded-sm">{part}</span>
+          <span key={i} className="bg-amber-100 text-gray-900 font-medium px-0.5 rounded-sm">{part}</span>
         ) : (
           <span key={i}>{part}</span>
         )
@@ -34,50 +30,43 @@ function HighlightMatch({ text, query }: { text: string, query: string }) {
 
 interface ProductHorizontalCardProps {
   product: {
-    min_order_qty: number
     id: string
     name: string
     slug: string
-    price: number
-    selling_price?: number | null
     images: string[]
     stock: number
     rating?: number | null
     review_count?: number | null
-    pricing_tiers?: any[]
+    sku?: string | null
+    category_id?: string | null
+    is_active: boolean
+    is_deleted: boolean
+    retail_price: number
+    wholesale_price: number
+    wholesale_min_qty: number
+    mrp?: number
   }
   priority?: boolean
   searchQuery?: string
   productList?: any[]
 }
 
-export default function ProductHorizontalCard({ product, priority = false, searchQuery = '', productList = [] }: ProductHorizontalCardProps) {
-  const router = useRouter()
-  const openQuickView = useQuickViewStore((state) => state.openQuickView)
-  
-  // 🔒 SECURE DYNAMIC CALCULATION: Find the real starting tier quantity
-  const tiers = product.pricing_tiers || []
-  const dynamicMinQuantity = product.min_order_qty ?? 100;
+export default function ProductHorizontalCard({ 
+  product, 
+  priority = false, 
+  searchQuery = '' 
+}: ProductHorizontalCardProps) {
+  const [isLoading, setIsLoading] = useState(true)
+  const isOutOfStock = (product.stock ?? 0) <= 0
+
+  const displayPrice = product.retail_price ?? 0
+  const mrp = product.mrp ?? 0
+  const discountPct = mrp > displayPrice ? Math.round(((mrp - displayPrice) / mrp) * 100) : 0
 
   const rawImage = product.images?.[0]
   const imageUrl = !rawImage 
     ? '/placeholder-product.svg' 
     : (rawImage.startsWith('http') || rawImage.startsWith('/') ? rawImage : getPublicUrl(rawImage))
-
-  // 🚨 SMART MATH: Grabs pricing from dynamic tiers, or falls back to legacy (min_quantity 1)
-  const activeTiers = product.pricing_tiers && product.pricing_tiers.length > 0 
-    ? product.pricing_tiers 
-    : [{ mrp: product.price || 0, selling_price: product.selling_price || product.price || 0, min_quantity: 1 }];
-
-  const defaultTier = activeTiers[0];
-  const regularPrice = defaultTier.mrp;
-  const sellingPrice = defaultTier.selling_price;
-
-  const isOutOfStock = product.stock === 0
-  const hasDiscount = regularPrice > sellingPrice
-
-  const rating = product.rating ?? 4.5;
-  const reviewCount = product.review_count ?? 128;
 
   const { savedProductIds, toggleItem } = useWishlistStore()
   const isSaved = savedProductIds.includes(product.id)
@@ -86,126 +75,81 @@ export default function ProductHorizontalCard({ product, priority = false, searc
     e.preventDefault()
     e.stopPropagation()
     const willBeSaved = !isSaved
-    showToast(willBeSaved ? 'Saved to Wishlist' : 'Removed from Wishlist', 'success')
+    showToast(willBeSaved ? 'Added to Wishlist' : 'Removed from Wishlist', 'success')
     try {
       await toggleItem(product.id)
     } catch (error: any) {
-      if (error.message === 'unauthorized') {
-        const currentUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
-        router.push(`/login?next=${currentUrl}`)
-      } else {
-        showToast('Failed to update wishlist', 'error')
-      }
-    }
-  }
-
-  const handleShare = async (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const url = `${window.location.origin}/product/${product.slug}`
-    if (navigator.share) {
-      try { await navigator.share({ title: product.name, url }) } catch (err) {}
-    } else {
-      navigator.clipboard.writeText(url)
-      alert('Product link copied to clipboard!')
+      console.error('Failed to patch wishlist state context', error)
     }
   }
 
   return (
-    <div className="bg-white p-3 border-b border-gray-200 flex flex-row gap-3 overflow-hidden shadow-sm rounded-sm relative active:scale-[0.99] transition-transform duration-100">
-      <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
-        <span className="bg-[#CC0C39] text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm shadow-sm animate-pulse">
-          MIN {dynamicMinQuantity}
-        </span>
-      </div>
-
-      <Link href={`/product/${product.slug}`} className="block shrink-0 relative w-[120px] h-[120px] bg-[#F8F8F8] rounded-sm overflow-hidden p-2 flex items-center justify-center">
-        <div className="w-full h-full relative">
-          <Image
-            src={imageUrl}
-            alt={product.name}
-            fill
-            sizes="120px"
-            className="object-contain mix-blend-multiply"
-            priority={priority}
-            loading={priority ? 'eager' : 'lazy'}
-          />
-        </div>
-      </Link>
+    <Link href={`/product/${product.slug}`} className="bg-white p-4 flex flex-row gap-4 overflow-hidden relative border-b border-gray-100/70 w-full items-start group">
       
-      <div className="flex flex-col flex-1 justify-between min-w-0 pr-8">
+      {/* HORIZONTAL LEFT MEDIA CONTAINER */}
+      <div className="relative shrink-0 w-[110px] h-[110px] sm:w-[130px] sm:h-[130px] bg-stone-50/50 rounded-lg overflow-hidden p-1 flex items-center justify-center">
+        {isOutOfStock && (
+          <div className="absolute inset-0 z-20 bg-white/70 backdrop-blur-[1px] flex items-center justify-center">
+            <span className="bg-white text-gray-900 border border-gray-900 text-[9px] tracking-widest font-medium px-1.5 py-1 rounded-sm">
+              SOLD OUT
+            </span>
+          </div>
+        )}
+
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-stone-50/50 z-10">
+            <div className="w-4 h-4 border-2 border-gray-200 border-t-gray-800 rounded-full animate-spin" />
+          </div>
+        )}
+
+        <Image
+          src={imageUrl}
+          alt={product.name}
+          fill
+          sizes="(max-width: 640px) 110px, 130px"
+          className={`object-cover transition-transform duration-500 group-hover:scale-105 ${
+            isLoading ? 'opacity-0' : 'opacity-100'
+          }`}
+          priority={priority}
+          onLoad={() => setIsLoading(false)}
+          unoptimized={imageUrl.startsWith('http') || imageUrl.includes('supabase')}
+        />
+      </div>
+      
+      {/* HORIZONTAL RIGHT TEXT SUMMARY PANEL */}
+      <div className="flex flex-col flex-grow justify-between min-w-0 pr-6 self-stretch pt-0.5">
         <button 
           onClick={handleWishlist}
-          className="absolute top-3 right-3 z-10 p-1.5 bg-white hover:bg-gray-50 border border-[#D5D9D9] rounded-full shadow-sm transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#007185]"
-          title={isSaved ? "Remove from Wishlist" : "Add to Wishlist"}
+          className="absolute top-4 right-4 z-30 flex items-center justify-center w-7 h-7 rounded-full bg-white border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)] text-gray-300 hover:text-red-500 transition-all cursor-pointer active:scale-90"
+          title="Wishlist"
         >
-          <Heart className={`w-[18px] h-[18px] transition-colors ${isSaved ? 'fill-red-500 text-red-500' : 'text-gray-400 hover:text-red-500'}`} />
+          <Heart className={`w-3.5 h-3.5 ${isSaved ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} strokeWidth={1.5} />
         </button>
 
         <div>
-          <Link href={`/product/${product.slug}`}>
-            <h3 className="text-sm font-medium text-[#007185] hover:text-[#C7511F] hover:underline line-clamp-2 leading-snug mb-1 pr-2">
-              <HighlightMatch text={product.name} query={searchQuery} />
-            </h3>
-          </Link>
+          <h3 className="text-[14px] font-medium tracking-wide text-gray-800 group-hover:text-gray-900 line-clamp-2 leading-relaxed mb-1.5 pr-2 transition-colors">
+            <HighlightMatch text={product.name} query={searchQuery} />
+          </h3>
 
-          <div className="mb-1">
-            <StarRating rating={rating} reviewCount={reviewCount} size="sm" />
+          <div className="mb-3 flex items-center gap-1">
+            <div className="flex items-center gap-0.5 bg-amber-500/10 text-amber-800 px-1.5 py-0.5 rounded-[3px] text-[11px] font-medium">
+              <span>{product.rating ?? 4.5}</span>
+              <Star className="w-2.5 h-2.5 fill-amber-700 text-amber-700" strokeWidth={0} />
+            </div>
+            <span className="text-[12px] text-gray-400 font-normal">({product.review_count ?? 128})</span>
           </div>
           
-          <div className="flex flex-col gap-0.5">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-xl font-bold text-gray-900">
-                {formatCurrency(sellingPrice)}
-              </span>
-            </div>
-            {hasDiscount && (
-              <span className="text-xs text-gray-500">
-                M.R.P: <span className="line-through">{formatCurrency(regularPrice)}</span> ({Math.round(((regularPrice - sellingPrice) / regularPrice) * 100)}% off)
-              </span>
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="text-[16px] sm:text-lg font-medium text-gray-900">{formatCurrency(displayPrice)}</span>
+            {mrp > displayPrice && (
+              <>
+                <span className="text-xs text-gray-400 line-through font-normal">{formatCurrency(mrp)}</span>
+                <span className="text-[12px] text-emerald-600 font-normal tracking-wide">{discountPct}% OFF</span>
+              </>
             )}
-            <div className="text-xs text-gray-900 mt-0.5">
-              FREE Delivery by <span className="font-bold">{siteConfig.shortName}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2 mt-2">
-          {isOutOfStock && (
-          <span className="text-xs font-bold text-[#B12704] block mt-1">Currently unavailable.</span>
-          )}
-          
-          <div className="w-full flex items-center gap-2">
-            <div className="flex-1 min-w-0">
-              <AddToCartButton 
-                product={product as any} 
-                quantity={dynamicMinQuantity}
-                minQuantity={dynamicMinQuantity}
-                requireCustomizationChoice={true}
-                className="w-full h-9 text-sm font-medium bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-full shadow-sm"
-              />
-            </div>
-            <button
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                openQuickView(product as any, productList)
-              }}
-              className="w-9 h-9 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-full border border-[#D5D9D9] shadow-sm transition-colors shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#007185]"
-              title="Quick View"
-            >
-              <Eye className="w-[18px] h-[18px]" />
-            </button>
-            <button 
-              onClick={handleShare}
-              className="w-9 h-9 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-700 rounded-full border border-[#D5D9D9] shadow-sm transition-colors shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#007185]"
-              title="Share this product"
-            >
-              <Share2 className="w-[18px] h-[18px]" />
-            </button>
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   )
 }

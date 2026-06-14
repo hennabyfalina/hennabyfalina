@@ -8,6 +8,7 @@ import Container from '@/components/ui/Container'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import PhoneInput from '@/components/ui/PhoneInput'
+import { ChevronRight, ShieldCheck, ShieldAlert } from 'lucide-react'
 
 interface SecurityClientProps {
   sessionUser: any
@@ -22,36 +23,32 @@ export default function SecurityClient({ sessionUser, userData, addressPhone }: 
   const [isPhoneValid, setIsPhoneValid] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
 
-  const displayName = userData?.name || sessionUser.user_metadata?.name || 'Not provided'
-  const email = sessionUser.email || 'Not provided'
+  const displayName = userData?.name || sessionUser.user_metadata?.name || 'Not Provided'
+  const email = sessionUser.email || 'Not Provided'
 
-  // Determine Primary Login Provider
+  // Determine Primary Login Provider Context Maps
   const providers = sessionUser.app_metadata?.providers || []
   let primaryLogin = 'Email'
-  let badgeColor = 'bg-blue-50 text-blue-700 border-blue-200'
   
   if (providers.includes('google')) {
-    primaryLogin = 'Google'
-    badgeColor = 'bg-red-50 text-red-700 border-red-200'
+    primaryLogin = 'Google Account'
   } else if (providers.includes('phone')) {
     primaryLogin = 'Mobile Number'
-    badgeColor = 'bg-green-50 text-green-700 border-green-200'
   } else if (providers.includes('email')) {
     primaryLogin = 'Email'
-    badgeColor = 'bg-blue-50 text-blue-700 border-blue-200'
   }
 
   const isPhonePrimary = primaryLogin === 'Mobile Number'
-  const isEmailOrGooglePrimary = primaryLogin === 'Email' || primaryLogin === 'Google'
+  const isEmailOrGooglePrimary = primaryLogin === 'Email' || primaryLogin === 'Google Account'
 
   const handleSavePhone = async () => {
     if (!phone) {
-      showToast('Phone number cannot be empty')
+      showToast('Phone number field cannot be empty')
       return
     }
 
     if (!isPhoneValid) {
-      showToast('Please enter a valid phone number with country code')
+      showToast('Please provide a valid active phone tracking number')
       return
     }
 
@@ -62,117 +59,134 @@ export default function SecurityClient({ sessionUser, userData, addressPhone }: 
       const { error } = await supabase
         .from('addresses')
         .update({ phone: phone })
-        .eq('user_id', sessionUser.id) // 🚨 FIX: Match user_id column, not the address id column!
+        .eq('user_id', sessionUser.id)
 
       if (error) {
-        console.error('Supabase update error:', error)
-        showToast(error.message || 'Failed to update phone number')
+        console.error('Supabase update parameter runtime failure:', error)
+        showToast(error.message || 'Failed to sync update logs securely')
       } else {
-        showToast('Phone number updated successfully')
+        showToast('Mobile contact details updated successfully', 'success')
         setIsEditingPhone(false)
       }
     } catch (err: any) {
-      console.error('Unexpected error:', err)
-      showToast('An unexpected error occurred')
+      console.error('Unexpected runtime configuration exception:', err)
+      showToast('An unexpected internal connection mismatch occurred')
     } finally {
       setIsSaving(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-white py-6 md:py-10">
-      <Container className="max-w-[800px]">
-        {/* Breadcrumb */}
-        <div className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline mb-4">
-          <Link href="/profile">Your Account</Link> <span className="text-gray-500 mx-1">›</span> <span className="text-[#C7511F]">Login & security</span>
+    <div className="min-h-screen bg-white py-8 md:py-14 font-sans antialiased select-none text-left">
+      <Container className="max-w-[800px] px-4 sm:px-8">
+        
+        {/* 🚀 FIXED: Converted old teal/orange breadcrumbs to clean Capitalized semibold styles */}
+        <div className="text-[13px] font-semibold text-gray-400 hover:text-gray-900 mb-4 transition-colors flex items-center gap-1">
+          <Link href="/profile">Your Account</Link> 
+          <ChevronRight className="w-3.5 h-3.5 text-gray-300" /> 
+          <span className="text-gray-900">Login & Security</span>
         </div>
         
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <h1 className="text-2xl md:text-3xl font-normal text-gray-900 tracking-tight">Login & security</h1>
-          
-          {/* Compact Primary Login Badge */}
-          <div className={`inline-flex items-center px-2.5 py-1 rounded-sm border text-xs font-medium ${badgeColor} shadow-sm`}>
-            Primary: {primaryLogin}
+        {/* Title & Status Badge Setup */}
+        <div className="flex items-center justify-between gap-4 pb-6 border-b border-gray-100">
+          <h1 className="text-2xl md:text-4xl font-normal text-gray-900 tracking-tight capitalize">Login & Security</h1>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-stone-50 rounded-full text-[11px] sm:text-[12px] font-bold text-gray-500 capitalize shrink-0">
+            <ShieldCheck className="w-3.5 h-3.5 text-gray-400 hidden sm:block" strokeWidth={2} />
+            <span className="whitespace-nowrap">{primaryLogin}</span>
           </div>
         </div>
 
-        <div className="border border-gray-300 rounded-lg overflow-hidden shadow-sm bg-white">
+        {/* 🚀 ULTRA-CLEAN: Borderless Apple-style interactive list */}
+        <div className="bg-white space-y-0">
           
-          {/* Name Row */}
-          <div className="p-4 sm:p-5 flex justify-between items-center border-b border-gray-200">
-            <div>
-              <div className="font-bold text-gray-900 text-sm">Name</div>
-              <div className="text-gray-600 text-sm mt-1">{displayName}</div>
+          {/* Name Parameter Row */}
+          <div className="py-6 flex justify-between items-center border-b border-gray-50 bg-white">
+            <div className="space-y-1">
+              <div className="font-bold text-gray-400 text-[11px] tracking-widest uppercase">Name</div>
+              <div className="text-gray-900 text-[16px] font-medium capitalize">
+                {displayName}
+              </div>
             </div>
-            <div className="text-xs text-gray-400 font-medium">
-              Cannot edit
+            <div className="text-[13px] font-semibold text-stone-300 capitalize">
+              System Closed
             </div>
           </div>
 
-          {/* Email Row */}
-          <div className="p-4 sm:p-5 flex justify-between items-center border-b border-gray-200">
-            <div>
-              <div className="font-bold text-gray-900 text-sm">Email</div>
-              <div className="text-gray-600 text-sm mt-1">{email}</div>
+          {/* Email Parameter Row */}
+          <div className="py-6 flex justify-between items-center border-b border-gray-50 bg-white">
+            <div className="space-y-1">
+              <div className="font-bold text-gray-400 text-[11px] tracking-widest uppercase">Email Address</div>
+              <div className="text-gray-900 text-[16px] font-medium">
+                {email}
+              </div>
             </div>
             {isEmailOrGooglePrimary ? (
-              <div className="text-xs text-gray-400 font-medium text-right">
-                Primary login
+              <div className="text-[12px] font-semibold text-gray-400 bg-stone-50 border border-gray-100 px-2.5 py-0.5 rounded-md capitalize">
+                Login Anchor
               </div>
             ) : (
-              <div className="text-xs text-gray-400 font-medium">
-                Cannot edit
+              <div className="text-[13px] font-semibold text-stone-300 capitalize">
+                System Closed
               </div>
             )}
           </div>
 
-          {/* Phone Row */}
+          {/* Primary Mobile Number Parameter Interactive Row */}
           {!isEditingPhone ? (
-            <div className="p-4 sm:p-5 flex justify-between items-center">
-              <div>
-                <div className="font-bold text-gray-900 text-sm">Primary mobile number</div>
-                <div className="text-gray-600 text-sm mt-1">{phone || 'Not provided'}</div>
-                <div className="text-xs text-gray-500 mt-1">Securely receive delivery updates</div>
+            <div className="py-6 flex justify-between items-center bg-white">
+              <div className="space-y-1">
+                <div className="font-bold text-gray-400 text-[11px] tracking-widest uppercase">Primary Mobile Number</div>
+                <div className="text-gray-900 text-[16px] font-medium">
+                  {phone || 'Not Provided'}
+                </div>
+                <div className="text-[13px] text-gray-400 font-normal capitalize">Securely linked for verification and live dispatches</div>
               </div>
               
               {phone ? (
-                <div className="text-xs text-gray-400 font-medium text-right">
-                  {isPhonePrimary ? 'Primary login' : 'Cannot edit'}
+                <div className="text-[13px] font-semibold text-stone-300 capitalize text-right">
+                  {isPhonePrimary ? 'Login Anchor' : 'System Closed'}
                 </div>
               ) : (
                 <button 
+                  type="button"
                   onClick={() => setIsEditingPhone(true)}
-                  className="px-4 py-1.5 bg-white border border-gray-300 rounded-sm text-xs font-medium text-gray-900 hover:bg-gray-50 shadow-sm transition-colors"
+                  className="h-9 px-4 bg-stone-50 hover:bg-stone-100 rounded-full text-[13px] font-semibold text-gray-800 transition-colors capitalize cursor-pointer"
                 >
-                  Add
+                  Add Link
                 </button>
               )}
             </div>
           ) : (
-            <div className="p-4 sm:p-5 bg-gray-50 border-t border-gray-200">
-              <div className="font-bold text-gray-900 text-sm mb-3">Update your mobile number</div>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                <div className="w-full sm:max-w-xs">
+            /* Inline Dropdown Input Area Panel Container */
+            <div className="py-8 px-6 bg-stone-50/50 rounded-2xl my-4 animate-fade-in">
+              <div className="font-bold text-gray-900 text-[14px] mb-4 capitalize">Update Verification Mobile Number</div>
+              
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full">
+                <div className="w-full sm:max-w-xs bg-white rounded-xl border border-gray-200 p-1">
                   <PhoneInput
                     value={phone}
                     onChange={setPhone}
                     onValidationChange={setIsPhoneValid}
                   />
                 </div>
-                <div className="flex gap-2 w-full sm:w-auto">
+                
+                {/* 🚀 FIXED: Transformed yellow buttons into clean, monochrome high-readability targets */}
+                <div className="flex items-center gap-2.5 w-full sm:w-auto">
                   <button 
+                    type="button"
                     onClick={handleSavePhone} 
                     disabled={isSaving || !isPhoneValid} 
-                    className="px-5 py-1.5 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm text-xs font-medium text-gray-900 shadow-sm disabled:opacity-50 transition-colors"
+                    className="h-11 px-6 bg-black hover:bg-stone-900 text-white rounded-full text-[13px] font-semibold transition-colors disabled:opacity-30 cursor-pointer capitalize shadow-none"
                   >
-                    {isSaving ? 'Saving...' : 'Save'}
+                    {isSaving ? 'Saving Changes...' : 'Save Parameters'}
                   </button>
                   <button 
+                    type="button"
                     onClick={() => {
                       setIsEditingPhone(false)
                       setPhone(initialPhone)
                     }} 
-                    className="px-5 py-1.5 bg-white border border-gray-300 rounded-sm text-xs font-medium text-gray-900 hover:bg-gray-50 shadow-sm transition-colors"
+                    className="h-11 px-6 bg-white border border-gray-200 hover:bg-stone-50 text-gray-600 font-semibold rounded-full text-[13px] transition-colors cursor-pointer capitalize"
                   >
                     Cancel
                   </button>

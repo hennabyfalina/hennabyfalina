@@ -39,6 +39,6 @@ function generateTree(dir, prefix = '') {
   return result;
 }
 
-const treeOutput = "razack-packaging-centre/\n" + generateTree(ROOT_DIR);
+const treeOutput = "henna-by-falina/\n" + generateTree(ROOT_DIR);
 fs.writeFileSync(OUTPUT_FILE, treeOutput);
 console.log('✅ Auto-generated folder tree saved to FOLDER_TREE_AUTO.TXT');

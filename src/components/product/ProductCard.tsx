@@ -2,69 +2,87 @@
 
 'use client'
 
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Heart, Eye, Share2 } from 'lucide-react'
+import Image from 'next/image'
+import { Heart } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { getPublicUrl } from '@/lib/supabase/storage'
-import { useQuickViewStore } from '@/store/quickview.store'
 import { useWishlistStore } from '@/store/wishlist.store'
 import { showToast } from '@/components/ui/Toast'
-import { siteConfig } from '@/config/site'
-import StarRating from './StarRating'
+import { getComputedProductPrices } from '@/lib/pricing'
 
-export interface Product {
-  min_order_qty: number
-  category_id?: string | null
+function HighlightMatch({ text, query }: { text: string, query: string }) {
+  if (!query) return <span>{text}</span>;
+  const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${safeQuery})`, 'gi'));
+  return (
+    <span>
+      {parts.map((part, i) => 
+        part.toLowerCase() === query.toLowerCase() ? (
+          <span key={i} className="bg-yellow-200 text-gray-900 font-bold px-0.5 rounded-sm">{part}</span>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </span>
+  );
+}
+
+interface ProductVariant {
+  name: string
+  price: number
+}
+
+interface Product {
   id: string
   name: string
   slug: string
-  price: number
-  selling_price?: number | null
+  sku?: string | null
   description?: string | null
   images: string[]
   stock: number
   rating?: number | null
   review_count?: number | null
-  pricing_tiers?: any[]
+  category_id?: string | null
+  is_active: boolean
+  is_deleted: boolean
+  retail_price: number
+  wholesale_price: number
+  wholesale_min_qty: number
+  mrp?: number | null
+  variants?: ProductVariant[] | string | any 
+  is_featured?: boolean
+  frequently_bought_together?: string[] | null
+  weight?: number | null
+  weight_unit?: string | null
+  gsm?: number | null
+  dimensions?: any | null
+  meta_title?: string | null
+  meta_description?: string | null
 }
 
 interface ProductCardProps {
   product: Product
   priority?: boolean
-  productList?: Product[]
-  hideMinOrderBadge?: boolean 
   searchQuery?: string
 }
 
-export default function ProductCard({ product, priority = false, productList = [], hideMinOrderBadge = false, searchQuery = '' }: ProductCardProps) {
+export default function ProductCard({ product, priority = false, searchQuery = '' }: ProductCardProps) {
   const router = useRouter()
-  const openQuickView = useQuickViewStore((state) => state.openQuickView)
+  const [isLoading, setIsLoading] = useState(true)
+  const [imgError, setImgError] = useState(false)
   const { savedProductIds, toggleItem } = useWishlistStore()
 
-  // 🔒 SECURE DYNAMIC CALCULATION: Apply the same minimum target finder
-  const tiers = product.pricing_tiers || []
-  const dynamicMinQuantity = product.min_order_qty ?? 100;
-
   const isSaved = savedProductIds.includes(product.id)
-
-  const activeTiers = product.pricing_tiers && product.pricing_tiers.length > 0 
-    ? product.pricing_tiers 
-    : [{ mrp: product.price || 0, selling_price: product.selling_price || product.price || 0, min_quantity: 1 }]
-
-  const defaultTier = activeTiers[0]
-  const regularPrice = defaultTier.mrp || product.price || 0
-  const sellingPrice = defaultTier.selling_price || product.selling_price || product.price || 0
-  const retailMin = defaultTier.min_quantity
-
-  const safeStock = product.stock ?? retailMin
-  const isOutOfStock = safeStock < retailMin
-  const hasDiscount = regularPrice > sellingPrice
-  const discountPercent = hasDiscount ? Math.round(((regularPrice - sellingPrice) / regularPrice) * 100) : 0
+  
+  const { hasVariants, displayPrice, discountPct, isOutOfStock } = useMemo(() => {
+    return getComputedProductPrices(product as any, null)
+  }, [product])
 
   const rawImage = product.images?.[0]
-  const imageUrl = !rawImage 
+  const imageUrl = imgError || !rawImage 
     ? '/placeholder-product.svg' 
     : (rawImage.startsWith('http') || rawImage.startsWith('/') ? rawImage : getPublicUrl(rawImage))
 
@@ -72,130 +90,97 @@ export default function ProductCard({ product, priority = false, productList = [
     e.preventDefault()
     e.stopPropagation()
     const willBeSaved = !isSaved
-    showToast(willBeSaved ? 'Saved to Wishlist' : 'Removed from Wishlist', 'success')
+    
+    // Optimistic toast
+    showToast(willBeSaved ? 'Added to Wishlist' : 'Removed from Wishlist', 'success')
+    
     try {
-      await toggleItem(product.id)
-    } catch (error: any) {
-      if (error.message === 'unauthorized') {
-        router.push(`/login?next=${encodeURIComponent(window.location.pathname)}`)
+      const result = await toggleItem(product.id)
+      
+      // If result is false and we were trying to add (not remove) – unauthorized
+      if (result === false && willBeSaved) {
+        // Store the product ID to add after login
+        sessionStorage.setItem('pendingWishlist', product.id)
+        const currentUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
+        router.push(`/login?next=${currentUrl}`)
       }
-    }
-  }
-
-  const handleQuickView = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    openQuickView(product, productList)
-  }
-
-  const handleShare = async (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const url = `${window.location.origin}/product/${product.slug}`
-    if (navigator.share) {
-      try { await navigator.share({ title: product.name, url }) } catch (err) {}
-    } else {
-      navigator.clipboard.writeText(url)
-      showToast('Product link copied!', 'success')
+    } catch (error: any) {
+      console.error('Failed to update wishlist state', error)
+      showToast('Failed to update wishlist', 'error')
     }
   }
 
   return (
-    <div className="group h-full flex flex-col bg-white border border-gray-200 hover:border-gray-300 rounded-md overflow-hidden hover:shadow-[0_6px_16px_rgba(0,0,0,0.1)] transition-all duration-300 w-full cursor-pointer">
-      
-      {/* PURE WHITE IMAGE BOX */}
-      <Link href={`/product/${product.slug}`} className="relative block aspect-square bg-white p-4">
-        {!hideMinOrderBadge && (
-          <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
-            <span className="bg-[#CC0C39] text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-sm shadow-sm">
-              MIN {dynamicMinQuantity}
-            </span>
-          </div>
-        )}
-
+    <Link 
+      href={`/product/${product.slug}`} 
+      className="group flex flex-col bg-white overflow-hidden w-full cursor-pointer relative transition-all duration-300 select-none border-b border-gray-100 sm:border border-gray-100 sm:rounded-2xl pb-4"
+    >
+      <div className="relative aspect-square w-full overflow-hidden bg-stone-50/20">
         {isOutOfStock && (
-          <div className="absolute top-2 left-2 z-10 bg-gray-900/80 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-sm">
-            SOLD OUT
+          <div className="absolute inset-0 z-20 bg-white/60 backdrop-blur-xs flex items-center justify-center">
+            <span className="bg-white/90 text-gray-900 border border-gray-200 text-[11px] font-medium px-3 py-1.5 rounded-full shadow-xs tracking-normal">
+              Sold out
+            </span>
           </div>
         )}
         
         <button 
           onClick={handleWishlist}
-          className="absolute top-2 right-2 z-10 p-1.5 bg-white/90 border border-gray-100 rounded-full shadow-md text-gray-400 hover:text-[#CC0C39] transition-all cursor-pointer hover:scale-110 active:scale-95"
-          aria-label="Add to wishlist"
+          className="absolute top-3 right-3 z-30 flex items-center justify-center p-1 text-gray-400 hover:text-red-500 transition-all cursor-pointer active:scale-125"
+          aria-label="Wishlist trigger"
         >
-          <Heart className={`w-5 h-5 ${isSaved ? 'fill-[#CC0C39] text-[#CC0C39]' : ''}`} />
+          <Heart className={`w-6 h-6 transition-colors ${isSaved ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} strokeWidth={1.5} />
         </button>
+
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-stone-50/30 z-10">
+            <div className="w-4 h-4 border border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+          </div>
+        )}
 
         <Image 
           src={imageUrl} 
           alt={product.name} 
           fill 
           priority={priority}
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          className="object-contain p-2 group-hover:scale-105 transition-transform duration-500" 
+          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+          className={`object-cover w-full h-full transition-transform duration-500 ease-out group-hover:scale-105 ${
+            isLoading ? 'opacity-0' : 'opacity-100'
+          }`}
+          onLoad={() => setIsLoading(false)}
+          onError={() => {
+            setImgError(true)
+            setIsLoading(false)
+          }}
+          unoptimized={imageUrl.startsWith('http') || imageUrl.includes('supabase')}
         />
-      </Link>
+      </div>
 
-      <div className="p-4 sm:p-5 flex flex-col flex-grow bg-white">
-        <Link href={`/product/${product.slug}`}>
-          <h3 className="text-[16px] font-medium text-[#007185] hover:text-[#C7511F] hover:underline line-clamp-2 leading-snug mb-1.5 transition-colors cursor-pointer">
-            {product.name}
-          </h3>
-        </Link>
+      <div className="px-3 pt-3 flex flex-col flex-grow gap-1">
+        <h3 className="text-[16px] font-normal text-gray-700 group-hover:text-gray-900 transition-colors line-clamp-1 truncate capitalize">
+          <HighlightMatch text={product.name.toLowerCase()} query={searchQuery} />
+        </h3>
         
-        <div className="flex items-center gap-1.5 mb-2">
-          <span className="text-sm font-normal text-[#0F1111]">{product.rating ?? 4.5}</span>
-          <StarRating rating={product.rating ?? 4.5} reviewCount={product.review_count ?? 128} size="sm" hideReviewCount />
-          <span className="text-sm text-[#007185] hover:text-[#C7511F] cursor-pointer">
-            ({product.review_count ?? 128})
-          </span>
-        </div>
-        
-        <div className="mt-auto">
-          <div className="text-2xl font-bold text-[#0F1111] leading-none mb-1.5">
-            {formatCurrency(sellingPrice)}
-          </div>
-          {hasDiscount && (
-            <div className="text-[13px] text-[#565959] mb-1.5">
-              M.R.P: <span className="line-through">{formatCurrency(regularPrice)}</span> <span className="text-[#CC0C39]">({discountPercent}% off)</span>
-            </div>
+        <div className="flex items-center gap-1.5 mt-0.5 text-[16px] md:text-[17px] whitespace-nowrap overflow-hidden">
+          {hasVariants && (
+            <span className="text-[14px] md:text-[15px] font-normal text-gray-400 shrink-0">From</span>
           )}
-          <div className="text-[12px] text-[#0F1111] flex items-center gap-1">
-            FREE Delivery by <span className="font-bold">{siteConfig.shortName}</span>
-          </div>
-        </div>
-
-        {/* PRO ACTION ROW */}
-        <div className="mt-4 flex items-center gap-2">
-          <button 
-            onClick={(e) => {
-              e.preventDefault()
-              router.push(`/product/${product.slug}`)
-            }}
-            disabled={isOutOfStock}
-            className="flex-1 h-9 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-full text-[11px] sm:text-[13px] font-bold transition-all shadow-sm active:scale-[0.98] cursor-pointer disabled:opacity-60 whitespace-nowrap px-1 sm:px-2"
-          >
-            View Options
-          </button>
+          <span className="font-normal text-gray-950 shrink-0">
+            {formatCurrency(displayPrice)}
+          </span>
           
-          <button 
-            onClick={handleQuickView}
-            className="w-9 h-9 flex items-center justify-center bg-white border border-[#D5D9D9] hover:bg-gray-50 text-gray-700 rounded-full transition-all shadow-sm shrink-0 cursor-pointer active:scale-95"
-            title="Quick View"
-          >
-            <Eye className="w-4 h-4" />
-          </button>
-
-          <button 
-            onClick={handleShare}
-            className="w-9 h-9 flex items-center justify-center bg-white border border-[#D5D9D9] hover:bg-gray-50 text-gray-700 rounded-full transition-all shadow-sm shrink-0 cursor-pointer active:scale-95"
-            title="Share Product"
-          >
-            <Share2 className="w-4 h-4" />
-          </button>
+          {product.mrp && product.mrp > displayPrice && (
+            <>
+              <span className="text-[13px] md:text-[15px] text-gray-400 line-through font-normal shrink-0">
+                {formatCurrency(product.mrp)}
+              </span>
+              <span className="text-[12px] md:text-[14px] font-normal text-emerald-600 shrink-0">
+                {discountPct}% off
+              </span>
+            </>
+          )}
         </div>
       </div>
-    </div>
+    </Link>
   )
 }

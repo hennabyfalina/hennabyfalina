@@ -1,3 +1,5 @@
+// src/components/product/ProductWishlistButton.tsx
+
 'use client'
 
 import { Heart } from 'lucide-react'
@@ -6,10 +8,11 @@ import { showToast } from '@/components/ui/Toast'
 import { useRouter } from 'next/navigation'
 
 interface ProductWishlistButtonProps {
-  productId: string
+  productId: string;
+  showText?: boolean;
 }
 
-export default function ProductWishlistButton({ productId }: ProductWishlistButtonProps) {
+export default function ProductWishlistButton({ productId, showText = true }: ProductWishlistButtonProps) {
   const { savedProductIds, toggleItem } = useWishlistStore()
   const isSaved = savedProductIds.includes(productId)
   const router = useRouter()
@@ -18,12 +21,22 @@ export default function ProductWishlistButton({ productId }: ProductWishlistButt
     e.preventDefault()
     e.stopPropagation()
     const willBeSaved = !isSaved
-    // 🚨 Trigger Toast Instantly before awaiting DB
-    showToast(willBeSaved ? 'Saved to Wishlist' : 'Removed from Wishlist', 'success')
+    
+    showToast(willBeSaved ? 'Added to wishlist' : 'Removed from wishlist', 'success')
+    
     try {
-      await toggleItem(productId)
+      const result = await toggleItem(productId)
+      
+      if (result === false && willBeSaved) {
+        // Unauthorized – store pending wishlist and redirect
+        sessionStorage.setItem('pendingWishlist', productId)
+        const currentUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
+        router.push(`/login?next=${currentUrl}`)
+      }
     } catch (error: any) {
+      // Fallback for any other error
       if (error.message === 'unauthorized') {
+        sessionStorage.setItem('pendingWishlist', productId)
         const currentUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
         router.push(`/login?next=${currentUrl}`)
       } else {
@@ -33,9 +46,18 @@ export default function ProductWishlistButton({ productId }: ProductWishlistButt
   }
 
   return (
-    <button onClick={handleWishlist} className="flex items-center gap-1.5 text-sm text-[#007185] hover:text-[#C7511F] hover:underline transition-colors focus:outline-none cursor-pointer" title={isSaved ? "Remove from Wishlist" : "Add to Wishlist"}>
-      <Heart className={`w-4 h-4 transition-colors ${isSaved ? 'fill-red-500 text-red-500' : 'text-gray-500 hover:text-red-500'}`} />
-      <span className="font-medium">{isSaved ? 'Saved' : 'Save'}</span>
+    <button 
+      onClick={handleWishlist} 
+      className="flex items-center gap-1.5 text-[14px] font-normal text-gray-600 hover:text-gray-950 transition-colors focus:outline-none cursor-pointer group" 
+      title={isSaved ? "Remove from wishlist" : "Add to wishlist"}
+    >
+      <Heart 
+        className={`w-4 h-4 transition-all active:scale-125 duration-200 ${
+          isSaved ? 'fill-red-500 text-red-500' : 'text-gray-400 group-hover:text-red-500'
+        }`} 
+        strokeWidth={1.5} 
+      />
+      {showText && <span>{isSaved ? 'Saved' : 'Save'}</span>}
     </button>
   )
 }

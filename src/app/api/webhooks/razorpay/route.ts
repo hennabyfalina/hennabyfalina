@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
           payment_attempts: currentAttempts + 1,
         })
         .eq('id', internalOrderId)
-        .eq('payment_status', 'pending')
+        .in('payment_status', ['pending', 'failed'])
         .select('id')
         .maybeSingle()
 

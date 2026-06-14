@@ -6,10 +6,18 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, CheckCircle, Key } from 'lucide-react'
 import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 import { siteConfig } from '@/config/site'
 import GoogleOneTap from '@/components/auth/GoogleOneTap'
+import Image from 'next/image'
+
+const carouselImages = [
+  { src: '/hero-henna-cone.jpg', alt: 'Henna Cone Application', caption: 'Bridal quality henna' },
+  { src: '/hero-oil-bottle.jpg', alt: 'Aftercare Oils', caption: '100% natural oils' },
+  { src: '/hero-stencil.jpg', alt: 'Design Stencils', caption: 'Precision stencils' },
+  { src: '/hero-mehendi.jpg', alt: 'Finished Mehendi', caption: 'Deep rich stain' },
+]
 
 export default function LoginPage() {
   const router = useRouter()
@@ -17,32 +25,84 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [isPasskeyLoading, setIsPasskeyLoading] = useState(false)
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [authMode, setAuthMode] = useState<'otp_send' | 'otp_verify'>('otp_send')
   const [otpCode, setOtpCode] = useState('')
   const [resendTimer, setResendTimer] = useState(0)
   const [isOtpSent, setIsOtpSent] = useState(false)
-  const [showWhatsappSoon, setShowWhatsappSoon] = useState(false)
-  
-  // 🚨 NEW: "Last Used" State
   const [lastUsedMethod, setLastUsedMethod] = useState<'google' | 'email' | null>(null)
-  
-  // Turnstile State
   const [turnstileKey, setTurnstileKey] = useState(0)
   const [captchaToken, setCaptchaToken] = useState<string>('')
-  
+  const [carouselIndex, setCarouselIndex] = useState(0)
+
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
   const turnstileRef = useRef<TurnstileInstance>(null)
 
-  // ─── Fetch Last Used Method on Mount ──────────────────────────────────────
+  const handlePasskeyLogin = async () => {
+    localStorage.setItem('last_login_method', 'passkey')
+    setIsPasskeyLoading(true)
+    setError('')
+    setSuccessMessage('')
+
+    if (!captchaToken) {
+      setError('Please complete the security check to continue.')
+      setIsPasskeyLoading(false)
+      return
+    }
+
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase.auth.signInWithPasskey({
+        options: { captchaToken }
+      })
+
+      if (error) {
+        setTurnstileKey(Date.now())
+        setCaptchaToken('')
+        const errorCode = (error as any).code || ''
+        const errorMsg = error.message.toLowerCase()
+
+        if (errorCode === 'passkey_disabled' || errorMsg.includes('not enabled')) {
+          setError('Passkeys are currently disabled for this application.')
+        } else if (errorCode === 'webauthn_credential_not_found' || errorMsg.includes('credential not found') || errorMsg.includes('not registered')) {
+          setError('No passkey found on this device. Please sign in with your email first to register one.')
+        } else if (errorCode === 'webauthn_verification_failed' || errorMsg.includes('verification failed')) {
+          setError('Passkey verification failed. Please try again.')
+        } else if (errorMsg.includes('cancelled') || errorMsg.includes('user cancelled') || errorMsg.includes('not allowed')) {
+          setError('Passkey sign-in was cancelled.')
+        } else {
+          setError(error.message || 'An error occurred during passkey sign-in.')
+        }
+        setIsPasskeyLoading(false)
+      } else if (data) {
+        const params = new URLSearchParams(window.location.search)
+        let redirectPath = params.get('next') || params.get('redirect') || '/products'
+        if (!redirectPath.startsWith('/') || redirectPath.startsWith('//')) {
+          redirectPath = '/products'
+        }
+        router.push(redirectPath)
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred during passkey sign-in')
+      setIsPasskeyLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCarouselIndex((prev) => (prev + 1) % carouselImages.length)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
   useEffect(() => {
     setTurnstileKey(Date.now())
     const storedMethod = localStorage.getItem('last_login_method') as 'google' | 'email' | null
     if (storedMethod) setLastUsedMethod(storedMethod)
   }, [])
 
-  // ─── Auto-clear Messages ────────────────────────────────────────────────
   useEffect(() => {
     if (successMessage) {
       const timer = setTimeout(() => setSuccessMessage(''), 5000)
@@ -57,15 +117,6 @@ export default function LoginPage() {
     }
   }, [error])
 
-  // ─── Auto-hide WhatsApp Message ─────────────────────────────────────────
-  useEffect(() => {
-    if (showWhatsappSoon) {
-      const timer = setTimeout(() => setShowWhatsappSoon(false), 5000)
-      return () => clearTimeout(timer)
-    }
-  }, [showWhatsappSoon])
-
-  // ─── Restore State from Session Storage ──────────────────────────────────
   useEffect(() => {
     try {
       const storedEmail = sessionStorage.getItem('login_email')
@@ -86,12 +137,9 @@ export default function LoginPage() {
           setIsOtpSent(false)
         }
       }
-    } catch (err) {
-      console.warn('Session storage access failed', err)
-    }
+    } catch (err) {}
   }, [])
 
-  // ─── Persist State Changes ────────────────────────────────────────────────
   useEffect(() => {
     try {
       if (email) sessionStorage.setItem('login_email', email)
@@ -99,7 +147,6 @@ export default function LoginPage() {
     } catch (err) {}
   }, [email, authMode])
 
-  // ─── Enterprise Watchdog: BFCache "Nuclear Reload" ──────────────────────
   useEffect(() => {
     const checkAndResetOAuthState = (force = false) => {
       const oauthStart = sessionStorage.getItem('oauth_start_time')
@@ -115,14 +162,12 @@ export default function LoginPage() {
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') checkAndResetOAuthState()
     }
-    
     const handlePageShow = (e: PageTransitionEvent) => {
       if (e.persisted) checkAndResetOAuthState(true)
     }
 
     document.addEventListener('visibilitychange', handleVisibility)
     window.addEventListener('pageshow', handlePageShow)
-
     const interval = setInterval(() => checkAndResetOAuthState(false), 500)
 
     return () => {
@@ -132,36 +177,23 @@ export default function LoginPage() {
     }
   }, [])
 
-// ─── Google Login ───────────────────────────────────────────────────────────
   const handleGoogleLogin = async () => {
-    // 🚨 Save the intent to local storage immediately
     localStorage.setItem('last_login_method', 'google')
-    
     setIsGoogleLoading(true)
     sessionStorage.setItem('oauth_start_time', Date.now().toString())
-    
     const params = new URLSearchParams(window.location.search)
     let redirectPath = params.get('next') || params.get('redirect') || '/products'
-
-    // 🔒 OPEN REDIRECT SHIELD: Ensure the path is strictly an internal relative route
-    // It MUST start with a single '/' and MUST NOT start with '//' (protocol-relative URLs)
     if (!redirectPath.startsWith('/') || redirectPath.startsWith('//')) {
-      console.warn(`[Security] Blocked malicious redirect attempt to: ${redirectPath}`)
       redirectPath = '/products'
     }
-
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectPath)}`,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'select_account',
-        },
+        queryParams: { access_type: 'offline', prompt: 'select_account' },
       },
     })
-    
     if (error) {
       sessionStorage.removeItem('oauth_start_time')
       setError(error.message)
@@ -169,43 +201,36 @@ export default function LoginPage() {
     }
   }
 
-  // ─── Resend Timer Engine ──────────────────────────────────────────────────
   useEffect(() => {
     let interval: NodeJS.Timeout
     if (resendTimer > 0) {
-        try {
-          sessionStorage.setItem('login_resendTimer', resendTimer.toString())
-          sessionStorage.setItem('login_timestamp', Date.now().toString())
-          setIsOtpSent(true) 
-        } catch (e) {}
-      interval = setInterval(() => {
-        setResendTimer((prev) => prev - 1)
-      }, 1000)
+      try {
+        sessionStorage.setItem('login_resendTimer', resendTimer.toString())
+        sessionStorage.setItem('login_timestamp', Date.now().toString())
+        setIsOtpSent(true)
+      } catch (e) {}
+      interval = setInterval(() => setResendTimer((prev) => prev - 1), 1000)
     } else if (resendTimer === 0 && isOtpSent) {
-        try {
-          sessionStorage.removeItem('login_resendTimer')
-          sessionStorage.removeItem('login_timestamp')
-        } catch (e) {}
+      try {
+        sessionStorage.removeItem('login_resendTimer')
+        sessionStorage.removeItem('login_timestamp')
+      } catch (e) {}
     }
     return () => clearInterval(interval)
   }, [resendTimer, isOtpSent])
 
-  // ─── OTP Login ────────────────────────────────────────────────────────────
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setSuccessMessage('')
-
     if (!email.trim()) {
       setError('Please enter your email address.')
       return
     }
-
     if (!captchaToken) {
       setError('Please complete the security check to continue.')
       return
     }
-
     setLoading(true)
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithOtp({
@@ -213,21 +238,19 @@ export default function LoginPage() {
       options: { captchaToken }
     })
     setLoading(false)
-
     if (error) {
-      setTurnstileKey(Date.now()) 
+      setTurnstileKey(Date.now())
       setCaptchaToken('')
-
       if (error.status === 429 || error.message.toLowerCase().includes('rate limit')) {
         setError('Too many requests. Please wait a minute before trying again.')
-        setResendTimer(60) 
+        setResendTimer(60)
       } else {
         setError(error.message)
       }
     } else {
       setSuccessMessage('A verification code has been sent to your email.')
       setAuthMode('otp_verify')
-      setResendTimer(60) 
+      setResendTimer(60)
       setIsOtpSent(true)
     }
   }
@@ -236,12 +259,10 @@ export default function LoginPage() {
     if (resendTimer > 0) return
     setError('')
     setSuccessMessage('')
-
     if (!captchaToken) {
       setError('Please complete the security check to resend the code.')
       return
     }
-
     setLoading(true)
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithOtp({
@@ -249,12 +270,10 @@ export default function LoginPage() {
       options: { captchaToken }
     })
     setLoading(false)
-
     if (error) {
-      setTurnstileKey(Date.now()) 
+      setTurnstileKey(Date.now())
       setCaptchaToken('')
-
-      if (error.status === 429 || error.message.toLowerCase().includes('rate limit')) {
+      if (error.status === 429 || error.message.toLowerCase().includes('rate limit') || error.message.toLowerCase().includes('too many')) {
         setError('Too many requests. Please wait a minute before trying again.')
         setResendTimer(60)
       } else {
@@ -271,7 +290,6 @@ export default function LoginPage() {
     setOtpCode('')
     setError('')
     setSuccessMessage('')
-    // Focus back to first input
     inputRefs.current[0]?.focus()
   }
 
@@ -279,12 +297,10 @@ export default function LoginPage() {
     if (e) e.preventDefault()
     setError('')
     setSuccessMessage('')
-
     if (!otpCode.trim() || otpCode.trim().length !== 6) {
       setError('Please enter the 6-digit verification code.')
       return
     }
-
     setLoading(true)
     const supabase = createClient()
     const { data, error } = await supabase.auth.verifyOtp({
@@ -292,14 +308,13 @@ export default function LoginPage() {
       token: otpCode,
       type: 'email'
     })
-
     if (error) {
       setLoading(false)
       const errorMsg = error.message.toLowerCase()
       if (errorMsg.includes('token has expired or is invalid')) {
         setError('The verification code is incorrect or has expired. Please try again or request a new code.')
       } else if (errorMsg.includes('expired')) {
-        setError('Your verification code has expired. Please click "Resend code" to get a new one.')
+        setError('Your verification code has expired. Please click "Resend Code" to get a new one.')
       } else if (errorMsg.includes('invalid') || errorMsg.includes('mismatch')) {
         setError('The verification code is incorrect. Please check and try again.')
       } else {
@@ -307,55 +322,42 @@ export default function LoginPage() {
       }
       return
     }
-
-    // 🚨 SUCCESS: Record this as the last used method
     localStorage.setItem('last_login_method', 'email')
-
     if (data.user) {
       const { data: userData } = await supabase
         .from('users')
         .select('name, role')
         .eq('id', data.user.id)
         .maybeSingle()
-
       if (userData?.role === 'admin') {
         router.push('/admin-gate')
         router.refresh()
         return
       }
     }
-
     try {
-        sessionStorage.removeItem('login_email')
-        sessionStorage.removeItem('login_authMode')
-        sessionStorage.removeItem('login_resendTimer')
-        sessionStorage.removeItem('login_timestamp')
-        sessionStorage.removeItem('oauth_start_time')
-      } catch (e) {}
-
+      sessionStorage.removeItem('login_email')
+      sessionStorage.removeItem('login_authMode')
+      sessionStorage.removeItem('login_resendTimer')
+      sessionStorage.removeItem('login_timestamp')
+      sessionStorage.removeItem('oauth_start_time')
+    } catch (e) {}
     setLoading(false)
     const params = new URLSearchParams(window.location.search)
     let redirectPath = params.get('next') || params.get('redirect') || '/products'
-
-    // 🔒 OPEN REDIRECT SHIELD: Ensure the path is strictly an internal relative route
-    // It MUST start with a single '/' and MUST NOT start with '//' (protocol-relative URLs)
     if (!redirectPath.startsWith('/') || redirectPath.startsWith('//')) {
-      console.warn(`[Security] Blocked malicious redirect attempt to: ${redirectPath}`)
       redirectPath = '/products'
     }
-
     router.push(redirectPath)
   }
 
-  // ─── Auto-Submit OTP ──────────────────────────────────────────────────────
   useEffect(() => {
     if (authMode === 'otp_verify' && otpCode.length === 6 && !loading) {
       handleVerifyOtp()
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otpCode, authMode])
 
-  function getMaskedEmail(email: string): string {
+  const getMaskedEmail = (email: string): string => {
     if (!email || !email.includes('@')) return email
     const [localPart, domain] = email.split('@')
     if (localPart.length <= 2) return `${localPart[0]}***@${domain}`
@@ -375,7 +377,6 @@ export default function LoginPage() {
     otpArray[index] = newDigit
     const newOtp = otpArray.join('')
     setOtpCode(newOtp)
-
     if (newDigit !== '' && index < 5) {
       inputRefs.current[index + 1]?.focus()
     }
@@ -397,313 +398,314 @@ export default function LoginPage() {
     }
   }
 
-  const isActionLocked = isGoogleLoading || loading
-
+  const isActionLocked = isGoogleLoading || isPasskeyLoading || loading
   const currentSubmitHandler = authMode === 'otp_send' ? handleSendOtp : handleVerifyOtp
 
   return (
-    <div className="w-full max-w-[380px] mx-auto bg-white pb-8">
-      
-      <header className="w-full py-6 flex items-center justify-center mb-2">
-        <Link href="/" className="text-3xl font-extrabold tracking-tight text-gray-900 hover:opacity-90 transition-opacity">
-          {siteConfig.name}
-        </Link>
-      </header>
-
-      {/* 🚨 INJECT GOOGLE ONE TAP HERE */}
+    <>
       <GoogleOneTap />
-
-      {error && (
-        <div className="mb-4 p-4 border border-red-200 rounded-lg bg-red-50 shadow-sm">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0" />
-            <div>
-              <h3 className="text-red-800 font-bold text-sm">Login Error</h3>
-              <p className="text-xs text-red-700 mt-0.5">{error}</p>
+      <div className="min-h-screen bg-white flex flex-col md:flex-row antialiased select-none font-sans">
+        
+        {/* 🚀 LEFT: IMMERSIVE 70% MEDIA CANVAS (Apple Architecture Layout) */}
+        <div className="hidden md:block md:w-[68%] lg:w-[70%] relative bg-stone-50 min-h-screen overflow-hidden">
+          <div className="absolute inset-0">
+            {carouselImages.map((img, idx) => (
+              <div
+                key={idx}
+                className={`absolute inset-0 transition-opacity duration-1000 ${
+                  idx === carouselIndex ? 'opacity-100' : 'opacity-0'
+                }`}
+              >
+                <Image
+                  src={img.src}
+                  alt={img.alt}
+                  fill
+                  className="object-cover"
+                  priority={idx === 0}
+                  sizes="70vw"
+                />
+              </div>
+            ))}
+            
+            {/* Weightless Editorial Branding Text Overlays */}
+            <div className="absolute inset-0 bg-black/15 flex flex-col justify-between p-10 z-10">
+              <Link href="/" className="flex items-center gap-3 text-3xl font-light tracking-tight text-white drop-shadow-xs w-fit outline-none">
+                <Image
+                  src="/logo.png"
+                  alt="Logo"
+                  width={40}
+                  height={40}
+                />
+                Henna By Falina
+              </Link>
+              <div className="text-white space-y-1">
+                <p className="text-[11px] uppercase tracking-widest font-bold text-white/80">#PureHenna Studio</p>
+                <p className="text-base font-light max-w-xs capitalize tracking-tight text-white/90">
+                  {carouselImages[carouselIndex].caption.toLowerCase()}
+                </p>
+              </div>
+            </div>
+            
+            {/* Minimalist Micro Dots Indicators */}
+            <div className="absolute bottom-10 left-0 right-0 flex justify-center gap-1.5 z-10">
+              {carouselImages.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCarouselIndex(idx)}
+                  className={`w-1 h-1 rounded-full transition-all duration-300 outline-none ${
+                    idx === carouselIndex ? 'bg-white w-3.5' : 'bg-white/40'
+                  }`}
+                  aria-label={`Go to slide ${idx + 1}`}
+                />
+              ))}
             </div>
           </div>
         </div>
-      )}
 
-      {successMessage && (
-        <div className="mb-4 p-4 border border-green-600 rounded-sm bg-green-50 shadow-sm">
-          <p className="text-sm text-green-800 font-medium">{successMessage}</p>
-        </div>
-      )}
+        {/* 🚀 RIGHT: STREAMLINED 30% LOGIN WORKSPACE (High Conversion Engine) */}
+        <div className="w-full md:w-[32%] lg:w-[30%] shrink-0 bg-white flex items-center justify-center px-6 sm:px-8 py-10 overflow-y-auto">
+          <div className="w-full max-w-[320px] mx-auto space-y-6">
+            
+            {/* Mobile Title View Wrapper */}
+            <div className="md:hidden flex flex-col items-center gap-3 text-center mb-8">
+              <Link href="/" className="flex flex-row items-center gap-3 text-2xl font-normal tracking-tight text-gray-950 outline-none">
+                <Image
+                  src="/logo.png"
+                  alt="Logo"
+                  width={48}
+                  height={48}
+                />
+                {siteConfig.name}
+              </Link>
+            </div>
 
-      <div className="border border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-        <h1 className="text-2xl font-medium text-gray-900 mb-6">Sign in</h1>
+            {/* Left-Aligned Clean Heading Descriptor Block */}
+            <div className="text-left space-y-1">
+              <h1 className="text-2xl font-normal text-gray-950 tracking-tight">Sign In</h1>
+              <p className="text-[13px] text-gray-400 font-medium">Access your studio account workspace profile</p>
+            </div>
 
-        {authMode === 'otp_send' && (
-          <>
-            <div className="space-y-3 mb-6">
-              {showWhatsappSoon && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-sm text-sm text-blue-800 flex items-start gap-2 shadow-sm">
-                  
-                  <p>WhatsApp login is coming soon! Please use Google or Email OTP login for now.</p>
-                </div>
-              )}
+            {/* Error / Success Toast Callout Streams */}
+            {error && (
+              <div className="flex items-start gap-2 text-[13px] text-red-600 bg-red-50/60 border border-red-100/50 p-2.5 rounded-xl text-left animate-in fade-in duration-200">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={2} />
+                <span className="font-medium">{error}</span>
+              </div>
+            )}
+            {successMessage && (
+              <div className="flex items-start gap-2 text-[13px] text-emerald-700 bg-emerald-50/60 border border-emerald-100/50 p-2.5 rounded-xl text-left animate-in fade-in duration-200">
+                <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={2} />
+                <span className="font-semibold">{successMessage}</span>
+              </div>
+            )}
 
-              {/* 🚨 LAST USED WRAPPER: Google */}
-              <div className="relative w-full">
-                {lastUsedMethod === 'google' && (
-                  <span className="absolute -top-2.5 right-2 bg-[#007185] text-white text-[10px] font-bold px-2 py-0.5 rounded-full z-10 shadow-sm">
-                    Last Used
-                  </span>
-                )}
+            {/* Google OAuth & Passkey Gateway Integrations */}
+            {authMode === 'otp_send' && (
+              <div className="space-y-2.5 pt-1">
                 <button
                   type="button"
                   onClick={handleGoogleLogin}
                   disabled={isActionLocked}
-                  className="w-full flex justify-center py-2.5 bg-white border border-gray-300 hover:bg-gray-50 rounded-sm font-medium text-gray-700 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-50 cursor-pointer"
+                  className="w-full h-11 flex items-center justify-center gap-2 border border-stone-200 hover:border-gray-950 bg-white rounded-full text-gray-900 text-[13px] font-semibold transition-all disabled:opacity-40 cursor-pointer outline-none active:scale-[0.99]"
                 >
                   {isGoogleLoading ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="w-5 h-5 flex items-center justify-center shrink-0">
-                        <div className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div>
-                      </div>
-                      <span className="text-[15px]">Connecting...</span>
-                    </div>
+                    <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <div className="flex items-center justify-start w-52 gap-3">
-                      <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                    <>
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                         <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
                         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                       </svg>
-                      <span className="text-[15px] whitespace-nowrap">Continue with Google</span>
-                    </div>
+                      <span>Continue with Google</span>
+                    </>
                   )}
                 </button>
-              </div>
 
-              <button
-                type="button"
-                onClick={() => setShowWhatsappSoon(true)}
-                disabled={isActionLocked}
-                className="w-full flex justify-center py-2.5 bg-white border border-gray-300 hover:bg-gray-50 rounded-sm font-medium text-gray-700 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-50 cursor-pointer"
-              >
-                <div className="flex items-center justify-start w-52 gap-3">
-                  <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0 text-[#25D366]" fill="currentColor">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.452-.885-.77-1.482-1.721-1.656-2.02-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.029 6.988 2.898a9.82 9.82 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
-                  </svg>
-                  <span className="text-[15px] whitespace-nowrap">Continue with WhatsApp</span>
-                </div>
-              </button>
-            </div>
-
-            <div className="relative mb-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Or use email</span>
-              </div>
-            </div>
-          </>
-        )}
-
-        <form onSubmit={currentSubmitHandler} className="space-y-4">
-        
-        {/* Email Form */}
-        {authMode === 'otp_send' && (
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <div className="flex items-center gap-2">
-                <label className="block text-sm font-bold text-gray-900">Enter your email address</label>
-                {/* 🚨 LAST USED WRAPPER: Email */}
-                {lastUsedMethod === 'email' && (
-                  <span className="bg-[#007185] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm shadow-sm uppercase tracking-wider">
-                    Last Used
-                  </span>
-                )}
-              </div>
-              {isOtpSent && (
-                <button 
-                  type="button" 
+                <button
+                  type="button"
+                  onClick={handlePasskeyLogin}
                   disabled={isActionLocked}
-                  onClick={() => { setAuthMode('otp_verify'); setError(''); setSuccessMessage(''); }}
-                  className="text-xs font-medium text-[#007185] hover:text-[#C7511F] hover:underline disabled:opacity-50 disabled:no-underline cursor-pointer"
+                  className="w-full h-11 flex items-center justify-center gap-2 border border-stone-200 hover:border-gray-950 bg-white rounded-full text-gray-900 text-[13px] font-semibold transition-all disabled:opacity-40 cursor-pointer outline-none active:scale-[0.99]"
                 >
-                  Return to OTP
+                  {isPasskeyLoading ? (
+                    <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Key className="w-4 h-4 text-gray-900 shrink-0" strokeWidth={2.2} />
+                      <span>Sign in with Passkey</span>
+                    </>
+                  )}
                 </button>
+                
+                <div className="relative my-4 pt-1">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-stone-100"></div>
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="px-2 bg-white text-[12px] font-medium text-gray-400 uppercase tracking-wider">or</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={currentSubmitHandler} className="space-y-4 text-left">
+              {authMode === 'otp_send' && (
+                <div className="space-y-1.5">
+                  <label htmlFor="login-email-address" className="block text-[13px] font-semibold text-gray-400 uppercase tracking-wider">
+                    Email Address
+                  </label>
+                  <input
+                    id="login-email-address"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    disabled={isActionLocked}
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    className="w-full px-0 py-2 border-b border-stone-300 focus:border-gray-950 outline-none transition-colors text-[14px] text-gray-900 bg-transparent disabled:opacity-50 placeholder:text-gray-300"
+                  />
+                </div>
               )}
-            </div>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              disabled={isActionLocked}
-              autoComplete="email"
-              placeholder="Email"
-              title="Email"
-              className="w-full px-3 py-2 bg-white border border-gray-400 rounded-sm focus:outline-none focus:border-[#e77600] focus:ring-1 focus:ring-[#e77600] transition-shadow text-sm disabled:bg-gray-50 disabled:opacity-75 disabled:cursor-not-allowed"
-            />
-          </div>
-        )}
 
-        {/* OTP Verify Form */}
-        {authMode === 'otp_verify' && (
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="block text-sm font-bold text-gray-900">Verification Code</label>
-              <button 
-                type="button" 
-                disabled={isActionLocked}
-                onClick={() => { 
-                  setAuthMode('otp_send'); 
-                  setCaptchaToken(''); 
-                  setError(''); 
-                  setSuccessMessage('');
-                  setTurnstileKey(Date.now());
-                }} 
-                className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline disabled:opacity-50 disabled:no-underline flex items-center gap-1 cursor-pointer"
-              >
-                <span aria-hidden="true">&larr;</span> All sign-in options
-              </button>
-            </div>
-            <div className="p-3 bg-[#F0F8FF] border border-[#007185] rounded-sm mb-4 mt-2">
-              <p className="text-sm text-[#007185] leading-relaxed">
-                An OTP has been sent to <span className="font-bold text-gray-900">{getMaskedEmail(email)}</span>.<br/>
-                This code is valid for 10 minutes.
-              </p>
-            </div>
-            
-            <div className="flex justify-between gap-1 sm:gap-2 mb-4 mt-2">
-              {[0, 1, 2, 3, 4, 5].map((index) => (
-                <input
-                  key={index}
-                  ref={(el) => { inputRefs.current[index] = el }}
-                  type="text"
-                  inputMode="numeric"
-                  pattern="\d*"
-                  maxLength={6}
-                  value={otpCode[index] || ''}
-                  disabled={isActionLocked}
-                  onChange={(e) => handleOtpChange(index, e.target.value)}
-                  onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                  onPaste={handleOtpPaste}
-                  autoComplete="one-time-code"
-                  title={`OTP Digit ${index + 1}`}
-                  placeholder=""
-                  className="w-9 sm:w-11 h-10 sm:h-12 text-center text-lg sm:text-xl font-bold text-gray-900 bg-white border border-gray-400 rounded-sm focus:outline-none focus:border-[#e77600] focus:ring-1 focus:ring-[#e77600] transition-shadow disabled:bg-gray-50 disabled:opacity-75 disabled:cursor-not-allowed"
-                />
-              ))}
-            </div>
+              {authMode === 'otp_send' && resendTimer > 0 && (
+                <div className="space-y-2 animate-fade-in">
+                  <p className="text-[12px] text-amber-700 bg-amber-50/60 border border-amber-100/50 p-2 rounded-xl font-medium leading-normal">
+                    Please wait {resendTimer}s before requesting another verification secure token code.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode('otp_verify')}
+                    className="text-[12px] text-gray-950 font-bold hover:underline w-fit cursor-pointer transition-colors outline-none"
+                  >
+                    Already have a token code for this email?
+                  </button>
+                </div>
+              )}
 
-            <div className={`flex justify-end mb-4 transition-opacity duration-200 ${otpCode.length > 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-              <button
-                type="button"
-                onClick={handleClearOtp}
-                className="text-xs font-medium text-[#007185] hover:text-[#C7511F] hover:underline transition-colors cursor-pointer"
-              >
-                Clear code
-              </button>
-            </div>
+              {authMode === 'otp_verify' && (
+                <div className="space-y-5 animate-fade-in">
+                  <div className="space-y-1">
+                    <label className="block text-[13px] font-semibold text-gray-400 uppercase tracking-wider">
+                      Verification Code
+                    </label>
+                    <p className="text-[13px] text-gray-400 font-medium leading-normal">
+                      We sent a code to <span className="font-semibold text-gray-950">{getMaskedEmail(email)}</span>
+                    </p>
+                    
+                    {/* Compact Micro OTP Digits Container Box */}
+                    <div className="flex gap-1.5 justify-between pt-2">
+                      {[0, 1, 2, 3, 4, 5].map((idx) => (
+                        <input
+                          key={idx}
+                          ref={(el) => { inputRefs.current[idx] = el }}
+                          type="text"
+                          inputMode="numeric"
+                          aria-label={`Digit ${idx + 1} of verification code`}
+                          placeholder="0"
+                          maxLength={1}
+                          value={otpCode[idx] || ''}
+                          disabled={isActionLocked}
+                          onChange={(e) => handleOtpChange(idx, e.target.value)}
+                          onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                          onPaste={handleOtpPaste}
+                          className="w-10 h-10 sm:w-11 h-11 text-center text-base sm:text-lg font-semibold text-gray-950 border-b-2 border-stone-200 focus:border-gray-950 outline-none bg-transparent"
+                        />
+                      ))}
+                    </div>
+                    {otpCode.length > 0 && (
+                      <div className="flex justify-end mt-1.5">
+                        <button
+                          type="button"
+                          onClick={handleClearOtp}
+                          className="text-[11px] font-bold text-gray-400 hover:text-gray-950 tracking-wider uppercase transition-colors cursor-pointer outline-none"
+                        >
+                          clear code
+                        </button>
+                      </div>
+                    )}
+                  </div>
 
-            <div className="mt-3 text-center">
-              <p className="text-xs text-gray-600 mb-2">
-                Didn&apos;t receive the code?{' '}
-                {resendTimer > 0 && (
-                  <span className="text-gray-400 font-medium">Resend in {resendTimer}s</span>
-                )}
-              </p>
+                  <div className="text-center space-y-3.5 pt-1">
+                    <p className="text-[13px] text-gray-400 font-medium">
+                      Didn&apos;t receive the code?{' '}
+                      {resendTimer > 0 ? (
+                        <span className="text-gray-400 font-semibold">Wait {resendTimer}s</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleResendOtp}
+                          disabled={!captchaToken || isActionLocked}
+                          className="text-gray-950 font-bold hover:underline transition-colors disabled:opacity-40 cursor-pointer outline-none"
+                        >
+                          Resend code
+                        </button>
+                      )}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode('otp_send')
+                        setCaptchaToken('')
+                        setError('')
+                        setSuccessMessage('')
+                        setTurnstileKey(Date.now())
+                      }}
+                      className="text-[12px] text-gray-400 font-semibold hover:text-gray-950 transition-colors cursor-pointer outline-none"
+                    >
+                      Use a different email address
+                    </button>
+                  </div>
+                </div>
+              )}
 
-              {resendTimer === 0 && (
-                <div className="flex flex-col items-center justify-center gap-3 mt-2 w-full overflow-hidden">
+              {/* Cloudflare Turnstile Verification Space */}
+              {(authMode === 'otp_send' || !isOtpSent) && (
+                <div className="flex justify-center pt-1 w-full overflow-hidden">
                   <Turnstile
-                    key={`resend-${turnstileKey}`}
+                    key={turnstileKey}
                     ref={turnstileRef}
                     siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ''}
-                    options={{
-                      theme: 'light',
-                      refreshExpired: 'auto',
-                      size: 'flexible',
-                    }}
-                    className="w-full"
-                    style={{ width: '100%' }}
+                    options={{ theme: 'light', refreshExpired: 'auto', size: 'flexible' }}
+                    className="w-full scale-[0.98] origin-center"
                     onSuccess={(token) => setCaptchaToken(token)}
                     onExpire={() => setCaptchaToken('')}
                     onError={() => setCaptchaToken('')}
                   />
-                  <button 
-                    type="button" 
-                    onClick={handleResendOtp}
-                    disabled={!captchaToken || isActionLocked}
-                    className="text-[#007185] hover:text-[#C7511F] hover:underline font-medium disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    {loading ? 'Sending...' : 'Resend code'}
-                  </button>
                 </div>
               )}
-            </div>
+
+              <button
+                type="submit"
+                disabled={
+                  isActionLocked ||
+                  (authMode === 'otp_send' && (!email.trim() || !captchaToken || resendTimer > 0)) ||
+                  (authMode === 'otp_verify' && otpCode.length !== 6)
+                }
+                className="w-full h-11 bg-black hover:bg-stone-900 text-white rounded-full text-[13px] font-semibold transition-all disabled:opacity-40 cursor-pointer outline-none active:scale-[0.99] capitalize"
+              >
+                {loading ? (
+                  authMode === 'otp_send' ? 'Sending code...' : 'Verifying...'
+                ) : authMode === 'otp_send' ? (
+                  resendTimer > 0 ? `Wait ${resendTimer}s` : 'Continue'
+                ) : (
+                  'Verify secure code'
+                )}
+              </button>
+            </form>
+
+            {/* Legal Footnote Strings */}
+            <p className="text-center text-[12px] text-gray-400 font-medium pt-2">
+              By continuing, you agree to our{' '}
+              <Link href="/terms-conditions" className="text-gray-500 hover:text-gray-950 font-semibold outline-none">Terms</Link> and{' '}
+              <Link href="/privacy-policy" className="text-gray-500 hover:text-gray-950 font-semibold outline-none">Privacy</Link>.
+            </p>
           </div>
-        )}
-
-        {authMode === 'otp_send' && resendTimer === 0 && (
-          <div className="flex justify-center py-2 w-full overflow-hidden">
-            <Turnstile
-              key={turnstileKey}
-              ref={turnstileRef}
-              siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ''}
-              options={{
-                theme: 'light',
-                refreshExpired: 'auto',
-                size: 'flexible',
-              }}
-              className="w-full"
-              style={{ width: '100%' }}
-              onSuccess={(token) => setCaptchaToken(token)}
-              onExpire={() => setCaptchaToken('')}
-              onError={() => setCaptchaToken('')}
-            />
-          </div>
-        )}
-
-          <button
-            type="submit"
-            disabled={
-              isActionLocked || 
-              (authMode === 'otp_send' && (resendTimer > 0 || !email.trim() || !captchaToken)) ||
-              (authMode === 'otp_verify' && otpCode.length !== 6)
-            }
-            className="w-full py-2.5 mt-2 text-sm font-normal text-gray-900 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-          {loading
-            ? (authMode === 'otp_send' ? 'Sending code...' : 'Verifying...')
-            : (authMode === 'otp_send' ? (resendTimer > 0 ? `Wait ${resendTimer}s to send again` : 'Continue') : 'Verify Code')
-          }
-          </button>
-        </form>
-
-        <p className="text-xs text-gray-700 leading-relaxed mt-6 mb-2">
-          By continuing, you agree to {siteConfig.name}{' '}
-          <Link href="/terms" className="text-[#007185] hover:text-[#C7511F] hover:underline">
-            Conditions of Use
-          </Link>{' '}
-          and{' '}
-          <Link href="/privacy" className="text-[#007185] hover:text-[#C7511F] hover:underline">
-            Privacy Notice
-          </Link>.
-        </p>
-
-      </div>
-
-      {/* Footer blends seamlessly into the white background */}
-      <div className="w-full mt-12 flex flex-col items-center">
-        <div className="w-full h-[1px] bg-gray-200 mb-6 shadow-sm shadow-gray-100/50"></div>
-        <div className="flex justify-center items-center gap-6 mb-3">
-          <Link href="/terms" className="text-xs text-[#007185] hover:text-[#C7511F] hover:underline">Conditions of Use</Link>
-          <Link href="/privacy" className="text-xs text-[#007185] hover:text-[#C7511F] hover:underline">Privacy Notice</Link>
-          <Link href="/support" className="text-xs text-[#007185] hover:text-[#C7511F] hover:underline">Help</Link>
         </div>
-        <p className="text-xs text-gray-500">
-          &copy; {new Date().getFullYear()} {siteConfig.name}, Inc. or its affiliates
-        </p>
-      </div>
 
-    </div>
+      </div>
+    </>
   )
 }

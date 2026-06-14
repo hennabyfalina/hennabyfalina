@@ -7,39 +7,52 @@ import { siteConfig } from '@/config/site'
 
 const testimonials = [
   {
-    name: 'Saran Kumar',
-    role: 'Leading Enterprises',
-    content: `Excellent quality products and reliable delivery. ${siteConfig.shortName} has been our go-to supplier for years.`,
+    name: 'Meera Krishnan',
+    role: 'Professional bridal artist',
+    content: `The cones from ${siteConfig.shortName.toLowerCase()} flow like absolute butter. There are zero clogs during intricate bridal patterns, and the rich, dark stain development is unmatched.`,
   },
   {
-    name: 'Priya',
-    role: 'E-commerce Seller',
-    content: 'The attention to detail and professional service is outstanding. Their bulk rates are very competitive.',
+    name: 'Aisha Rahman',
+    role: 'Henna enthusiast / customer',
+    content: 'Completely chemical-free! I used it for a major family event, and my skin felt perfectly healthy. The organic lavender oils smell incredibly premium.',
   },
   {
-    name: 'Amit Sharma',
-    role: 'Retail Owner',
-    content: 'Consistent quality. Their boxes are sturdy and perfectly suited for shipping fragile items.',
+    name: 'Kavitha R.',
+    role: 'Boutique studio owner',
+    content: 'Incredibly consistent batch quality. The triple-sifted henna powder has revolutionized our workshop consistency. Highly recommended.',
   }
 ]
 
 export default function TestimonialsSection() {
   return (
-    <div className="bg-white p-5 sm:p-6 rounded-sm shadow-[0_1px_4px_rgba(0,0,0,0.1)]" suppressHydrationWarning>
-      <h2 className="text-lg sm:text-2xl font-bold text-gray-900 mb-6">What our business partners say</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6" suppressHydrationWarning>
+    <div className="w-full bg-white py-6 px-1 select-none font-sans" suppressHydrationWarning>
+      {/* Clean, lightweight sentence-cased heading header */}
+      <h2 className="text-2xl sm:text-4xl font-normal text-gray-950 tracking-tight text-left mb-10">
+        Loved by Artists &amp; Enthusiasts
+      </h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12" suppressHydrationWarning>
         {testimonials.map((test, idx) => (
-          <div key={idx} className="bg-gray-50 p-4 border border-gray-100 rounded-sm" suppressHydrationWarning>
-            <div className="flex text-[#FFA41C] mb-2" suppressHydrationWarning>
-              <Star className="w-4 h-4 fill-current" />
-              <Star className="w-4 h-4 fill-current" />
-              <Star className="w-4 h-4 fill-current" />
-              <Star className="w-4 h-4 fill-current" />
-              <Star className="w-4 h-4 fill-current" />
+          <div key={idx} className="bg-white flex flex-col gap-4 text-left group transition-all" suppressHydrationWarning>
+            {/* Fine vector star layout track */}
+            <div className="flex text-amber-500 gap-0.5" suppressHydrationWarning>
+              {[...Array(5)].map((_, i) => (
+                <Star key={i} className="w-4 h-4 fill-current" strokeWidth={0} />
+              ))}
             </div>
-            <h3 className="text-sm font-bold text-gray-900 mb-1">{test.name}</h3>
-            <p className="text-xs text-gray-500 mb-3">{test.role}</p>
-            <p className="text-sm text-gray-700 line-clamp-3">"{test.content}"</p>
+            
+            <p className="text-[15px] sm:text-[16px] text-gray-600 font-normal leading-relaxed flex-1">
+              &quot;{test.content}&quot;
+            </p>
+            
+            <div className="pt-4 border-t border-gray-100 mt-auto flex flex-col gap-0.5">
+              <h3 className="text-[16px] font-medium text-gray-950 tracking-normal">
+                {test.name}
+              </h3>
+              <p className="text-[14px] text-gray-400 font-normal">
+                {test.role}
+              </p>
+            </div>
           </div>
         ))}
       </div>

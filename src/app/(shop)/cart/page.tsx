@@ -11,31 +11,39 @@ import { useCartStore } from '@/store/cart.store'
 import { useAuth } from '@/hooks/useAuth'
 import { useWishlistStore } from '@/store/wishlist.store'
 import Container from '@/components/ui/Container'
-import QuantitySelector from '@/components/product/QuantitySelector'
+import CartQuantitySelector from '@/components/cart/CartQuantitySelector'
 import RecentlyViewed from '@/components/product/RecentlyViewed'
 import CartRecommendations from '@/components/cart/CartRecommendations'
 import CartSkeleton from '@/components/ui/CartSkeleton'
 import { formatCurrency, numberToIndianWords } from '@/lib/utils'
 import { getProductImageUrl } from '@/lib/supabase/storage'
-import { Trash2, ShoppingBag, XCircle, Package, Box, ShieldCheck, Truck, CheckCircle2, ExternalLink, AlertTriangle, Heart } from 'lucide-react'
-import { deleteB2BArtwork } from '@/lib/supabase/b2b-storage'
+import { Trash2, ShoppingBag, Box, ShieldCheck, Truck, AlertTriangle, Heart, Zap, Tag } from 'lucide-react'
 import { SHIPPING_THRESHOLD, SHIPPING_COST } from '@/lib/constants'
 import { showToast } from '@/components/ui/Toast'
-import { calculateTaxBreakdown } from '@/lib/tax'
-import PreviewModal from '@/components/ui/PreviewModal' 
 import StarRating from '@/components/product/StarRating'
 import { broadcast } from '@/lib/broadcast'
-import StickyCartBar from '@/components/cart/StickyCartBar'
 import SessionExpiredModal from '@/components/checkout/SessionExpiredModal'
 import CartAlertsModal from '@/components/cart/CartAlertsModal'
+import { getProductById } from '@/services/product.service'
+
+// Helper to parse variants
+function parseVariants(variants: any): Array<{ name: string; price: number; variant_mrp?: number; wholesale_price?: number; wholesale_min_qty?: number }> {
+  if (!variants) return []
+  if (typeof variants === 'string') {
+    try { return JSON.parse(variants) } catch { return [] }
+  }
+  if (Array.isArray(variants)) return variants
+  return []
+}
 
 export default function CartPage() {
   const router = useRouter()
-  const { user, isLoading } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
   const items = useCartStore((state) => state.items)
   const removeItem = useCartStore((state) => state.removeItem)
   const clearCart = useCartStore((state) => state.clearCart)
   const updateQuantity = useCartStore((state) => state.updateQuantity)
+  const addItem = useCartStore((state) => state.addItem)
   const totalPrice = useCartStore((state) => state.getTotalPrice())
   const alerts = useCartStore((state) => state.alerts)
   const clearAlerts = useCartStore((state) => state.clearAlerts)
@@ -46,18 +54,18 @@ export default function CartPage() {
   const [isCheckingOut, setIsCheckingOut] = useState(false)
   const [paymentFailed, setPaymentFailed] = useState(false)
   const [sessionExpired, setSessionExpired] = useState(false)
-
-  const [previewModalState, setPreviewModalState] = useState({ isOpen: false, url: '', name: '' })
-  const [isFetchingPreview, setIsFetchingPreview] = useState<string | null>(null)
   const [currentTimestamp, setCurrentTimestamp] = useState<number | null>(null)
   
+  const [productDetails, setProductDetails] = useState<Record<string, any>>({})
+  const [loadingVariants, setLoadingVariants] = useState<Record<string, boolean>>({})
+  const [isCartLoading, setIsCartLoading] = useState(true)
+
   useEffect(() => {
     setMounted(true)
     setCurrentTimestamp(Date.now())
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
       setPaymentFailed(params.get('payment_failed') === 'true')
-      
       if (params.get('session_expired') === 'true') {
         setSessionExpired(true)
         const url = new URL(window.location.href)
@@ -67,124 +75,131 @@ export default function CartPage() {
     }
   }, [])
 
-  if (!mounted) {
-    return <CartSkeleton />
-  }
-
-  const handleViewArtwork = async (internalPath: string) => {
-    setIsFetchingPreview(internalPath)
-    try {
-      const signedUrl = `/api/artwork?path=${encodeURIComponent(internalPath)}`
-      setPreviewModalState({
-        isOpen: true,
-        url: signedUrl,
-        name: internalPath.split('/').pop() || 'Artwork Preview'
-      })
-    } catch (error) {
-      showToast('Failed to load artwork. Please try again.', 'error')
-    } finally {
-      setIsFetchingPreview(null)
-    }
-  }
-
-  // Delete artwork files associated with a cart item
-  const deleteArtworkForItem = async (item: any) => {
-    if (!item.artwork_urls || item.artwork_urls.length === 0) return
-
-    // Delete each artwork file from Supabase
-    await Promise.all(
-      item.artwork_urls.map(async (path: string) => {
-        try {
-          await deleteB2BArtwork(path)
-        } catch (err) {
-          console.error(`Failed to delete artwork ${path}:`, err)
+  // Fetch product details for all cart items
+  useEffect(() => {
+    if (!mounted) return
+    const fetchProductDetails = async () => {
+      if (items.length === 0) {
+        setIsCartLoading(false)
+        return
+      }
+      setIsCartLoading(true)
+      const newDetails: Record<string, any> = {}
+      const newLoading = { ...loadingVariants }
+      for (const item of items) {
+        if (!productDetails[item.product_id]) {
+          newLoading[item.product_id] = true
+          setLoadingVariants(newLoading)
+          try {
+            const product = await getProductById(item.product_id)
+            if (product) newDetails[item.product_id] = product
+          } catch (e) {
+            console.error('Failed to fetch product', item.product_id, e)
+          }
+          delete newLoading[item.product_id]
+          setLoadingVariants(newLoading)
         }
-      })
-    )
+      }
+      if (Object.keys(newDetails).length) {
+        setProductDetails(prev => ({ ...prev, ...newDetails }))
+      }
+      setIsCartLoading(false)
+    }
+    fetchProductDetails()
+  }, [items, mounted])
+
+  const handleVariantChange = async (itemId: string, productId: string, newVariant: { 
+    name: string; 
+    price: number; 
+    variant_mrp?: number;
+    wholesale_price?: number;
+    wholesale_min_qty?: number;
+  }, currentQuantity: number) => {
+    const oldItem = items.find(i => i.id === itemId)
+    if (!oldItem) return
+
+    const product = productDetails[productId]
+    if (!product) return
+
+    const newName = `${product.name} (${newVariant.name})`
+    const updateItem = useCartStore.getState().updateItem
+    
+    await updateItem(itemId, {
+      name: newName,
+      retail_price: newVariant.price,
+      mrp: newVariant.variant_mrp ?? product.mrp,
+      variant_string: newVariant.name,
+      wholesale_price: newVariant.wholesale_price ?? product.wholesale_price ?? 0,
+      wholesale_min_qty: newVariant.wholesale_min_qty ?? product.wholesale_min_qty ?? 999999,
+      product_id: productId,
+    })
+    
+    showToast(`Variant changed to ${newVariant.name}`, 'success')
   }
 
-  // 🚨 SMART DISPATCH CALCULATION: Scans tiers for max delivery days
-  const maxDispatchDays = items.length > 0 
-    ? Math.max(...items.map(item => {
-        const tier = item.pricing_tiers?.find(t => t.tier_name === item.printing_type)
-        return tier?.delivery_days ?? 7
-      }))
-    : 7
+  if (!mounted) return <CartSkeleton />
+  if (isCartLoading && items.length > 0) return <CartSkeleton />
+
+  const maxDispatchDays = 2
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-[#F0F2F2] py-8">
+      <div className="min-h-screen bg-white py-12 select-none animate-fade-in font-sans antialiased">
         <Container>
-          <div className="bg-white p-8 md:p-12 rounded-md border border-gray-200 shadow-sm max-w-4xl mx-auto flex flex-col items-center text-center mb-8">
-            <div className="relative h-32 w-32 mx-auto mb-6">
-              <div className="absolute inset-0 bg-gray-50 rounded-full scale-110" />
-              <div className="relative z-10 flex items-center justify-center h-full">
-                <Box className="w-16 h-16 text-gray-400 absolute -rotate-12 translate-x-[-20%] translate-y-[-10%]" />
-                <Package className="w-12 h-12 text-gray-300 absolute rotate-12 translate-x-[25%] translate-y-[15%] border-2 border-white rounded-md bg-white" />
-                <div className="absolute bottom-2 right-2 bg-white p-1.5 rounded-sm shadow-sm border border-gray-100">
-                  {paymentFailed ? <AlertTriangle className="w-5 h-5 text-red-500" /> : <ShoppingBag className="w-5 h-5 text-gray-500" />}
-                </div>
+          <div className="max-w-xl mx-auto flex flex-col items-center text-center py-10 gap-5 mb-6">
+            <div className="relative h-24 w-24 flex items-center justify-center rounded-full bg-stone-50 border border-gray-100">
+              <ShoppingBag className="w-10 h-10 text-gray-400" strokeWidth={1.5} />
+              <div className="absolute -bottom-1 -right-1 bg-white p-1.5 rounded-full border border-gray-100 shadow-sm">
+                {paymentFailed ? <AlertTriangle className="w-4 h-4 text-red-500" strokeWidth={2} /> : <Box className="w-4 h-4 text-gray-900" strokeWidth={2} />}
               </div>
             </div>
-
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {paymentFailed ? 'Payment Not Completed' : 'Your Cart is empty'}
-            </h2>
-            <p className="text-sm text-gray-600 mb-8 max-w-md mx-auto">
-              {paymentFailed 
-                ? 'Your checkout process was interrupted. You can view your pending order in your profile to retry payment, or continue shopping to start a new order.' 
-                : 'Check your saved for later items below or continue shopping.'}
-            </p>
-            
-            <div className="flex flex-row gap-3 w-full max-w-md justify-center">
-              {!user && !isLoading && (
-                <Link href="/login?next=/cart" className="flex-1 py-2 px-4 bg-gray-900 text-white rounded-sm font-bold hover:bg-gray-800 transition-colors text-center text-sm whitespace-nowrap">
-                  Sign in
+            <div className="space-y-2">
+              <h2 className="text-4xl sm:text-4xl font-normal tracking-tight text-gray-900">
+                {paymentFailed ? 'Payment Not Completed' : 'Your Shopping Bag Is Empty'}
+              </h2>
+              <p className="text-[15px] text-gray-500 font-normal max-w-md mx-auto leading-relaxed">
+                {paymentFailed 
+                  ? 'Your transaction could not be finished. Feel free to review pending orders inside your account profile dashboard, or check your favorite items.' 
+                  : 'Browse our signature chemical-free henna collections to find your perfect pairing setup.'}
+              </p>
+            </div>
+            <div className="flex flex-row gap-3 w-full max-w-sm justify-center pt-4">
+              {!user && !authLoading && (
+                <Link href="/login?next=/cart" className="flex-1 h-12 flex items-center justify-center bg-stone-50 hover:bg-stone-100 text-gray-800 rounded-full font-bold text-[14px] transition-colors">
+                  Sign In
                 </Link>
               )}
               {paymentFailed && user && (
-                <Link href="/profile/orders" className="flex-1 py-2 px-4 bg-white text-gray-900 border border-gray-300 rounded-sm font-bold hover:bg-gray-50 transition-colors text-center text-sm shadow-sm whitespace-nowrap">
+                <Link href="/profile/orders" className="flex-1 h-12 flex items-center justify-center bg-white text-gray-700 border border-gray-200 rounded-full font-bold hover:bg-stone-50 transition-colors text-[14px] whitespace-nowrap">
                   View Orders
                 </Link>
               )}
-              <Link href="/products" className="flex-1 py-2 px-4 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded-sm font-bold transition-colors text-center text-sm shadow-sm whitespace-nowrap">
-                Shop Now
+              <Link href="/products" className="flex-1 h-12 flex items-center justify-center bg-gray-900 hover:bg-black text-white rounded-full font-bold transition-colors text-[14px] whitespace-nowrap shadow-sm">
+                Shop Collection
               </Link>
             </div>
           </div>
-          <div className="w-full bg-white p-5 md:p-6 rounded-md border border-gray-200 shadow-sm">
+          <div className="w-full border-t border-gray-100">
             <RecentlyViewed />
           </div>
         </Container>
-        <SessionExpiredModal
-          isOpen={sessionExpired}
-          onClose={() => setSessionExpired(false)}
-        />
+        <SessionExpiredModal isOpen={sessionExpired} onClose={() => setSessionExpired(false)} />
       </div>
     )
   }
 
   const shippingCost = totalPrice > SHIPPING_THRESHOLD ? 0 : SHIPPING_COST
   const finalTotal = totalPrice + shippingCost
-  const taxBreakdown = calculateTaxBreakdown(totalPrice)
+  const totalItems = items.reduce((acc, item) => acc + item.quantity, 0)
+  
+  const totalMrp = items.reduce((sum, item) => sum + (Math.max(item.mrp || 0, item.retail_price) * item.quantity), 0)
+  const totalSavings = totalMrp - totalPrice
 
   const handleClearCart = async () => {
-    // 🚨 BROADCAST: Notify checkout and other tabs of each deletion
-    for (const item of items) {
-      broadcast.send({
-        type: 'CART_ITEM_DELETED',
-        productId: item.product_id,
-        artworkUrls: item.artwork_urls || []
-      })
-    }
-    
-    // Delete all artwork files
-    await Promise.all(items.map(item => deleteArtworkForItem(item)))
-    
-    // Clear cart store
+    for (const item of items) broadcast.send({ type: 'CART_ITEM_DELETED', productId: item.product_id })
     clearCart()
     setShowConfirmClear(false)
-    showToast('Cart cleared')
+    showToast('Shopping Bag cleared')
   }
 
   const handleProceedToBuy = () => {
@@ -193,365 +208,274 @@ export default function CartPage() {
     router.push('/checkout')
   }
 
-  const totalPriceForSticky = totalPrice
-
   return (
     <>
-    <StickyCartBar totalPrice={totalPriceForSticky} />
-    <div className="min-h-screen bg-[#F0F2F2] py-6 md:py-8">
-      <Container className="pb-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
-          <div className="lg:col-span-8 bg-white p-5 md:p-6 rounded-md border border-gray-200 shadow-sm">
-
-            <div className="flex items-end justify-between border-b border-gray-200 pb-2 mb-4">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Shopping Cart</h1>
-                {items.length > 1 && (
-                  <button onClick={() => setShowConfirmClear(true)} className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline mt-1 cursor-pointer">
-                    Deselect all items
-                  </button>
-                )}
+      <div className="min-h-screen bg-white py-6 md:py-10 select-none animate-fade-in font-sans antialiased">
+        <Container className="pb-12 px-4 sm:px-8 max-w-[1400px]">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-start pt-2">
+            
+            {/* LEFT COLUMN: CART ITEMS */}
+            <div className="lg:col-span-8 flex flex-col">
+              <div className="flex items-center justify-between border-b border-gray-200 pb-5 mb-2 h-[44px]">
+                <div className="flex items-baseline gap-3">
+                  <h1 className="text-3xl sm:text-3xl font-normal tracking-tight text-gray-900">Your Cart</h1>
+                  <span className="text-[15px] text-gray-500 font-medium">({totalItems} Items)</span>
+                </div>
               </div>
-              <span className="text-sm font-medium text-gray-500 hidden sm:block pb-1">Price</span>
-            </div>
 
-            <div className="flex flex-col">
-              {items.map((item, index) => {
-                const isSaved = savedProductIds.includes(item.product_id)
-                let imageSrc = '/placeholder-product.svg'
-                if (item.image) {
-                  imageSrc = getProductImageUrl(item.image)
-                }
+              {items.length > 1 && (
+                <div className="flex justify-start py-2">
+                  <button onClick={() => setShowConfirmClear(true)} className="text-[14px] font-medium text-gray-500 hover:text-red-500 transition-colors cursor-pointer flex items-center gap-1.5">
+                    <Trash2 className="w-4 h-4" strokeWidth={1.8} />
+                    Clear bag
+                  </button>
+                </div>
+              )}
 
-                // 🚨 DYNAMIC TIER PARSING
-                // 🔒 THE FIX (Replace lines 143-144)
-                const tier = item.pricing_tiers?.find(t => t.tier_name === item.printing_type)
-                // Secure fallback: If the tier lacks a defined minimum, default to your wholesale floor (100)
-                // instead of letting users drop the quantity down to 1.
-                const fallbackMinQty = 100
-                const minQuantity = tier?.min_quantity && tier.min_quantity > 0 ? tier.min_quantity : fallbackMinQty
-                const dynamicDeliveryDays = tier?.delivery_days ?? 7
-                
-                return (
-                  <div key={`${item.id}-${item.printing_type}`} className={`flex gap-4 md:gap-6 py-5 ${index !== items.length - 1 ? 'border-b border-gray-200' : ''}`}>
-                    <div className="relative w-24 h-24 md:w-32 md:h-32 bg-gray-50 rounded-sm border border-gray-100 overflow-hidden flex-shrink-0">
-                      <Image 
-                        src={imageSrc} 
-                        alt={item.name} 
-                        fill 
-                        sizes="(max-width: 768px) 96px, 128px" 
-                        className="object-cover mix-blend-multiply"
-                        priority={index < 3}
-                        unoptimized={imageSrc.startsWith('http') || imageSrc.includes('supabase')}
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement
-                          target.src = '/placeholder-product.svg'
-                        }}
-                      />
-                    </div>
+              <div className="flex flex-col divide-y divide-gray-100">
+                {items.map((item, index) => {
+                  const isSaved = savedProductIds.includes(item.product_id)
+                  const imageSrc = item.image ? getProductImageUrl(item.image) : '/placeholder-product.svg'
+                  const isBulkOnly = item.retail_price === item.wholesale_price && (item.wholesale_min_qty ?? 1) > 1
+                  const minQuantity = isBulkOnly ? item.wholesale_min_qty : 1
+                  
+                  const product = productDetails[item.product_id]
+                  const variants = product ? parseVariants(product.variants) : []
+                  const displayMrp = item.mrp
+                  const isLoadingVariants = loadingVariants[item.product_id]
 
-                    <div className="flex flex-col flex-1 min-w-0">
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="flex-1 min-w-0">
-                          <Link href={`/product/${item.slug}`} target="_blank" rel="noopener noreferrer" className="text-base sm:text-lg font-medium text-gray-900 line-clamp-2 hover:text-[#007185] hover:underline cursor-pointer leading-snug">
+                  // Check if wholesale is active for this item
+                  const isWholesaleActive = item.wholesale_price && item.wholesale_price > 0 && 
+                                            item.wholesale_min_qty && item.quantity >= item.wholesale_min_qty
+
+                  const discountPct = displayMrp && displayMrp > item.price
+                    ? Math.round(((displayMrp - item.price) / displayMrp) * 100)
+                    : 0
+
+                  return (
+                    <div key={item.id} className="flex flex-col gap-4 py-6">
+                      <div className="flex gap-4 md:gap-6 items-start w-full">
+                        <div className="flex flex-col items-center gap-4 flex-shrink-0">
+                          <div className="relative w-24 h-24 md:w-32 md:h-32 bg-stone-50 border border-gray-100 rounded-xl overflow-hidden">
+                            <Image 
+                              src={imageSrc} 
+                              alt={item.name} 
+                              fill 
+                              sizes="128px" 
+                              className="object-contain p-2 transition-transform duration-300 hover:scale-105"
+                              priority={index < 3}
+                              unoptimized={imageSrc.startsWith('http') || imageSrc.includes('supabase')}
+                            />
+                          </div>
+                          <CartQuantitySelector
+                            quantity={item.quantity}
+                            onQuantityChange={(q) => {
+                              updateQuantity(item.id, q)
+                              broadcast.send({ type: 'CART_ITEM_UPDATED', productId: item.product_id })
+                            }}
+                            min={minQuantity} 
+                            max={item.stock > 0 ? item.stock : 99999}
+                          />
+                        </div>
+
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <Link 
+                            href={`/product/${item.slug}`} 
+                            className="text-[18px] sm:text-[22px] font-medium text-gray-900 line-clamp-2 hover:text-blue-600 transition-colors cursor-pointer leading-tight"
+                          >
                             {item.name}
                           </Link>
 
-                          <div className="mt-1 mb-1">
-                            <div className="hidden sm:flex">
-                              <StarRating rating={item.rating ?? 4.5} reviewCount={item.review_count ?? 128} size="sm" />
-                            </div>
-                            <div className="flex sm:hidden">
-                              <StarRating rating={item.rating ?? 4.5} reviewCount={item.review_count ?? 128} size="sm" hideReviewCount={true} />
-                            </div>
+                          {item.description && (
+                            <p className="text-[14px] sm:text-[15px] text-gray-500 font-normal line-clamp-1 mt-1.5">
+                              {item.description}
+                            </p>
+                          )}
+
+                          <div className="flex items-center gap-1 pt-3">
+                            <StarRating rating={item.rating ?? 4.5} reviewCount={item.review_count ?? 128} size="md" hideReviewCount={false} />
                           </div>
 
-                          <div className="flex sm:hidden items-center gap-1.5 mt-1 flex-wrap mb-1">
-                            <span className="text-lg font-bold text-gray-900 whitespace-nowrap">
+                          {/* Pricing row – uses store's active price */}
+                          <div className="flex items-center gap-3 mt-3 flex-wrap">
+                            {discountPct > 0 && (
+                              <span className="text-[20px] sm:text-[22px] font-bold text-emerald-600 tracking-tight">
+                                ↓{discountPct}%
+                              </span>
+                            )}
+                            {displayMrp && displayMrp > item.price && (
+                              <span className="text-[20px] sm:text-[22px] text-gray-400 line-through font-normal">
+                                {formatCurrency(displayMrp * item.quantity)}
+                              </span>
+                            )}
+                            <span className="text-[20px] sm:text-[22px] font-bold text-gray-950">
                               {formatCurrency(item.price * item.quantity)}
                             </span>
-                            {item.original_price && item.original_price > item.price && (
-                              <span className="text-xs text-gray-400 line-through whitespace-nowrap">
-                                {formatCurrency(item.original_price * item.quantity)}
+                            {isWholesaleActive && (
+                              <span className="text-[12px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <Tag className="w-3 h-3" strokeWidth={1.5} />
+                                bulk rate
                               </span>
                             )}
                           </div>
 
-                          {item.description && (
-                            <p className="text-xs text-gray-600 mt-1.5 mb-2 line-clamp-2 hidden sm:block">{item.description}</p>
-                          )}
-
-                          {((item as any).weight || (item as any).dimensions) && (
-                            <div className="text-[11px] text-gray-500 mb-1.5 gap-3 hidden sm:flex">
-                              {(item as any).weight && <span><span className="font-medium text-gray-700">Weight:</span> {(item as any).weight} kg</span>}
-                              {(item as any).dimensions && <span><span className="font-medium text-gray-700">Dimensions:</span> {(item as any).dimensions.length}x{(item as any).dimensions.width}x{(item as any).dimensions.height} cm</span>}
+                          {/* Unit price info when wholesale active */}
+                          {isWholesaleActive && (
+                            <div className="text-[12px] text-emerald-600 mt-0.5">
+                              {formatCurrency(item.price)}/unit (wholesale)
                             </div>
                           )}
-                          
-                          <div className="mt-2 text-xs text-green-700 flex flex-col gap-0.5">
-                            <span className="font-medium flex items-center gap-1">
-                              <Truck className="w-3 h-3" /> Factory Dispatched
-                            </span>
-                            <span className="text-gray-600">
-                              Estimated Delivery by <span className="font-bold">{currentTimestamp ? new Date(currentTimestamp + dynamicDeliveryDays * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' }) : '...'}</span>
-                            </span>
-                          </div>
-                          <p className="text-xs text-green-700 mt-1 font-medium">In stock</p>
-                          
-                          {item.printing_type && item.printing_type !== 'None' && item.printing_type !== 'Retail (Readymade)' && (
-                            <div className="mt-2 text-xs sm:text-[13px] text-gray-700 bg-blue-50/50 p-2 sm:p-3 rounded-md border border-blue-100/50 space-y-1.5 sm:space-y-2 w-fit max-w-full">
-                              <p>
-                                <span className="font-bold text-gray-900">Customization:</span> {tier?.tier_name || item.printing_type}
-                              </p>
-                              
-                              {item.printing_instructions && (
-                                <p className="text-gray-700 italic leading-relaxed line-clamp-3 sm:line-clamp-none" title={item.printing_instructions}>
-                                  <span className="font-semibold not-italic text-gray-900">Notes:</span> &quot;{item.printing_instructions}&quot;
-                                </p>
-                              )}
 
-                              {item.artwork_urls && item.artwork_urls.length > 0 && (
-                                <div className="mt-1 flex flex-wrap gap-2 pt-0.5">
-                                  {item.artwork_urls.map((url, idx) => (
-                                    <button
-                                      key={idx}
-                                      onClick={() => handleViewArtwork(url)}
-                                      disabled={isFetchingPreview === url}
-                                      className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:py-1.5 py-1 sm:px-3 bg-white border border-blue-200 hover:border-[#007185] hover:bg-[#F0F8FF] text-[11px] sm:text-xs font-bold text-[#007185] rounded-md transition-colors shadow-sm cursor-pointer"
-                                    >
-                                      {isFetchingPreview === url ? (
-                                        <><div className="w-3 h-3 border-2 border-[#007185] border-t-transparent rounded-full animate-spin" /> Fetching...</>
-                                      ) : (
-                                        <><ExternalLink className="w-3 sm:w-3.5 h-3 sm:h-3.5" /> View File {idx + 1}</>
-                                      )}
-                                    </button>
+                          {/* Variant dropdown */}
+                          {variants.length > 0 && (
+                            <div className="mt-2">
+                              {isLoadingVariants ? (
+                                <div className="h-9 w-32 bg-gray-100 animate-pulse rounded-md" />
+                              ) : (
+                                <select
+                                  value={item.variant_string || variants[0]?.name || ''}
+                                  aria-label={`Select variant for ${item.name}`}
+                                  onChange={(e) => {
+                                    const selected = variants.find(v => v.name === e.target.value)
+                                    if (selected) {
+                                      handleVariantChange(item.id, item.product_id, selected, item.quantity)
+                                    }
+                                  }}
+                                  className="h-9 px-3 border border-gray-200 rounded-lg text-[13px] font-medium bg-white focus:outline-none focus:border-gray-950 transition-all cursor-pointer"
+                                >
+                                  {variants.map(v => (
+                                    <option key={v.name} value={v.name}>
+                                      {v.name} – {formatCurrency(v.price)}
+                                      {v.wholesale_price && v.wholesale_min_qty && ` (${v.wholesale_min_qty}+ → ${formatCurrency(v.wholesale_price)})`}
+                                    </option>
                                   ))}
-                                </div>
+                                </select>
                               )}
                             </div>
-                          )}
-                          
-                        </div>
-                        
-                        <div className="hidden sm:block text-right shrink-0 ml-2">
-                          <p className="text-base sm:text-lg font-bold text-gray-900 whitespace-nowrap">
-                            {formatCurrency(item.price * item.quantity)}
-                          </p>
-                          {item.quantity > 1 && (
-                            <p className="text-xs text-gray-500 mt-0.5 whitespace-nowrap">{formatCurrency(item.price)} each</p>
-                          )}
-                          {item.original_price && item.original_price > item.price && (
-                            <p className="text-xs text-gray-400 line-through mt-0.5">
-                              <span className="whitespace-nowrap">{formatCurrency(item.original_price)}</span>
-                            </p>
                           )}
                         </div>
                       </div>
 
-                      <div className="mt-auto pt-3 sm:pt-4 flex flex-wrap items-center gap-3 sm:gap-6">
-                        <QuantitySelector
-                          quantity={item.quantity}
-                          onQuantityChange={(q) => {
-                            updateQuantity(item.id, q);
-                            // 🚨 BROADCAST: Notify checkout and other tabs of quantity change
-                            broadcast.send({
-                              type: 'CART_ITEM_UPDATED',
-                              productId: item.product_id,
-                              printingType: item.printing_type || 'Retail (Readymade)'
-                            });
-                          }}
-                          min={minQuantity} 
-                          max={item.stock > 0 ? item.stock : 99999}
-                        />
-                        
-                        <div className="flex items-center gap-3 sm:gap-4 ml-2 sm:ml-0 border-l sm:border-0 border-gray-200 pl-3 sm:pl-0">
+                      {/* Action buttons */}
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 mt-1 w-full">
+                        <div className="flex flex-1 items-center justify-between sm:justify-start gap-3 sm:gap-10 w-full text-[15px] sm:text-[16px] font-medium text-gray-600">
                           <button
-                            type="button"
-                            onClick={() => {
+                            onClick={async () => {
                               const willBeSaved = !isSaved
-                              showToast(willBeSaved ? 'Saved to Wishlist' : 'Removed from Wishlist', 'success')
                               try {
-                                toggleItem(item.product_id)
+                                const result = await toggleItem(item.product_id)
+                                if (result === false && willBeSaved) {
+                                  sessionStorage.setItem('pendingWishlist', item.product_id)
+                                  const currentUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
+                                  router.push(`/login?next=${currentUrl}`)
+                                } else {
+                                  showToast(willBeSaved ? 'Saved to wishlist' : 'Removed from wishlist', 'success')
+                                }
                               } catch (error: any) {
-                                if (error.message === 'unauthorized') router.push('/login?next=/cart')
-                                else showToast('Failed to update wishlist')
+                                showToast('Failed to update wishlist', 'error')
                               }
                             }}
-                            className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-[#717273] hover:text-[#C7511F] transition-colors cursor-pointer group"
-                            title={isSaved ? "Remove from Wishlist" : "Save for later"}
+                            className="flex items-center gap-2 hover:text-gray-900 transition-colors cursor-pointer group py-2 whitespace-nowrap"
                           >
-                            <Heart className={`w-4 h-4 transition-all ${isSaved ? 'fill-[#CC0C39] text-[#CC0C39]' : 'group-hover:scale-110'}`} />
-                            <span className="hidden xs:inline">{isSaved ? 'Saved' : 'Save'}</span>
+                            <Heart className={`w-5 h-5 ${isSaved ? 'fill-red-500 text-red-500' : ''}`} strokeWidth={1.8} />
+                            <span>{isSaved ? 'Saved' : 'Save for later'}</span>
                           </button>
-
                           <span className="text-gray-300">|</span>
-
-                          <Link
-                            href={`/product/${item.slug}?edit_item=${item.id}`}
-                            className="text-xs sm:text-sm font-medium text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer"
-                          >
-                            Edit
-                          </Link>
-
-                          <span className="text-gray-300">|</span>
-
                           <button
-                            type="button"
-                            onClick={async () => {
-                              // 🚨 BROADCAST: Notify checkout and other tabs of deletion (regardless of artwork)
-                              broadcast.send({
-                                type: 'CART_ITEM_DELETED',
-                                productId: item.product_id,
-                                artworkUrls: item.artwork_urls || []
-                              })
-                              
-                              await deleteArtworkForItem(item)
+                            onClick={() => {
+                              broadcast.send({ type: 'CART_ITEM_DELETED', productId: item.product_id })
                               removeItem(item.id)
-                              showToast('Item removed')
+                              showToast('Item removed from bag', 'success')
                             }}
-                            className="text-xs sm:text-sm font-medium text-[#f60101] hover:text-[#ff4d00] hover:underline cursor-pointer"
+                            className="flex items-center gap-2 hover:text-red-500 transition-colors py-2 cursor-pointer"
                           >
-                            Delete
+                            <Trash2 className="w-5 h-5" strokeWidth={1.8} />
+                            <span>Remove</span>
+                          </button>
+                          <span className="text-gray-300">|</span>
+                          <button
+                            onClick={handleProceedToBuy}
+                            className="flex items-center gap-2 text-gray-900 hover:text-black transition-colors whitespace-nowrap py-2 cursor-pointer"
+                          >
+                            <Zap className="w-5 h-5" strokeWidth={1.8} />
+                            <span>Buy this now</span>
                           </button>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
 
-            <div className="text-right border-t border-gray-200 pt-4 mt-2">
-              <p className="text-lg text-gray-900 flex flex-wrap items-end justify-end gap-2">
-                <span>Subtotal ({items.length} items):</span> <span className="font-bold whitespace-nowrap">{formatCurrency(totalPrice)}</span>
-              </p>
+            {/* RIGHT COLUMN: ORDER SUMMARY */}
+            <div className="lg:col-span-4 w-full">
+              <div id="order-summary-section" className="w-full lg:sticky lg:top-24 flex flex-col gap-6">
+                <div className="flex items-center justify-between border-b border-gray-200 pb-5 mb-2 h-[44px]">
+                  <h3 className="text-3xl sm:text-3xl font-normal tracking-tight text-gray-900">Order Summary</h3>
+                </div>
+                <div className="flex flex-col gap-4 text-[15px] text-gray-600 font-normal pb-5 border-b border-gray-200">
+                  <div className="flex justify-between gap-4">
+                    <span>Subtotal</span>
+                    <span className="text-gray-900 font-normal whitespace-nowrap">{formatCurrency(totalPrice)}</span>
+                  </div>
+                  {totalSavings > 0 && (
+                    <div className="flex justify-between gap-4">
+                      <span>Discount</span>
+                      <span className="text-emerald-600 font-normal whitespace-nowrap">− {formatCurrency(totalSavings)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between gap-4">
+                    <span>Delivery Charges</span>
+                    <span className="text-emerald-600 font-normal whitespace-nowrap">{shippingCost === 0 ? 'Free Shipping' : formatCurrency(shippingCost)}</span>
+                  </div>
+                  <div className="flex justify-between items-start font-normal text-gray-900 text-[18px] pt-4 border-t border-gray-100 mt-2 w-full">
+                    <span className="whitespace-nowrap">Total Amount</span>
+                    <div className="flex flex-col items-end text-right flex-1 ml-4">
+                      <span className="whitespace-nowrap tracking-tight">{formatCurrency(finalTotal)}</span>
+                      <span className="text-[13px] sm:text-[14px] text-gray-400 font-normal mt-1 italic capitalize tracking-tight leading-tight w-full text-right">{numberToIndianWords(finalTotal)}</span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={handleProceedToBuy}
+                  disabled={isCheckingOut}
+                  className="w-full h-14 flex items-center justify-center bg-gray-900 text-white rounded-full font-bold text-[15px] tracking-wide hover:bg-black active:scale-[0.99] transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+                >
+                  {isCheckingOut ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Proceed to Checkout'}
+                </button>
+                <div className="flex items-start gap-2 text-[13px] text-gray-500 leading-relaxed font-normal">
+                  <ShieldCheck className="w-4 h-4 flex-shrink-0 text-gray-400 mt-0.5" strokeWidth={1.5} />
+                  <span>Insulated fresh shipping • Secure Payments • 100% Authentic</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Right Column: Order Summary */}
-          <div className="lg:col-span-4 space-y-4">
-            <div id="order-summary-section" className="bg-white p-5 md:p-6 rounded-md border border-gray-200 shadow-sm lg:sticky lg:top-24">
-              
-              <div className="flex items-center gap-3 mb-5 p-3 bg-gray-50 border border-gray-100 rounded-lg">
-                <div className="bg-white p-2 rounded-full shadow-sm shrink-0 border border-gray-100">
-                  <Truck className="w-5 h-5 text-gray-700" />
-                </div>
+          <div className="mt-12 border-t border-gray-100 pt-6">
+            {items.length === 0 ? <RecentlyViewed /> : <CartRecommendations />}
+          </div>
+
+          {showConfirmClear && mounted && createPortal(
+            <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+              <div className="absolute inset-0 cursor-pointer" onClick={() => setShowConfirmClear(false)} />
+              <div className="relative z-10 bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm border border-gray-100 animate-zoom-in text-left flex flex-col gap-4">
                 <div>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Estimated Dispatch</p>
-                  <p className="text-sm font-bold text-gray-900">{maxDispatchDays} Days <span className="font-normal text-gray-600 text-xs">(All items combined)</span></p>
+                  <h3 className="text-xl font-normal text-gray-900">Empty Shopping Bag?</h3>
+                  <p className="text-[14px] text-gray-500 font-medium mt-2">This will clear all {items.length} items from your bag.</p>
+                </div>
+                <div className="flex gap-3 pt-4 w-full">
+                  <button onClick={() => setShowConfirmClear(false)} className="flex-1 h-11 text-[14px] font-bold text-gray-700 border border-gray-200 bg-white hover:bg-gray-50 rounded-full transition-colors cursor-pointer">Cancel</button>
+                  <button onClick={handleClearCart} className="flex-1 h-11 text-[14px] font-bold text-white bg-red-500 hover:bg-red-600 rounded-full transition-colors shadow-sm cursor-pointer">Clear bag</button>
                 </div>
               </div>
-
-              <div className="flex items-start gap-2 mb-4 text-sm text-green-700">
-                <ShieldCheck className="w-5 h-5 flex-shrink-0" />
-                <span><span className="font-bold text-gray-900">B2B Guarantee:</span> Your order includes 100% compliant and 18% GST Invoicing for Input Tax Credit.</span>
-              </div>
-
-              <div className="mb-6 border-b border-gray-200 pb-4">
-                <div className="flex flex-wrap items-end justify-between gap-2 mb-1">
-                  <span className="text-lg text-gray-900">Total Payable:</span> 
-                  <span className="font-bold whitespace-nowrap text-2xl text-gray-900">{formatCurrency(finalTotal)}</span>
-                </div>
-                <p className="text-xs text-gray-500 font-medium">Subtotal for {items.reduce((acc, item) => acc + item.quantity, 0).toLocaleString()} items</p>
-              </div>
-
-              <button
-                onClick={handleProceedToBuy}
-                disabled={isCheckingOut}
-                className="w-full h-11 flex items-center justify-center bg-[#FFD814] text-gray-900 rounded-full font-medium text-[15px] hover:bg-[#F7CA00] active:scale-[0.98] transition-all shadow-sm border border-[#FCD200] disabled:opacity-75 disabled:cursor-wait cursor-pointer"
-              >
-                {isCheckingOut ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
-                    <span>Processing Secure Checkout...</span>
-                  </div>
-                ) : (
-                  'Proceed to Buy'
-                )}
-              </button>
-
-              <div className="mt-4 pt-4 flex flex-col gap-2 text-xs text-gray-600">
-                <div className="flex justify-between gap-2">
-                  <span>Items Total (Excl. GST):</span>
-                  <span className="text-right whitespace-nowrap ml-2">{formatCurrency(taxBreakdown.basePrice)}</span>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <span>Estimated GST (18%):</span>
-                  <span className="text-right whitespace-nowrap ml-2">{formatCurrency(taxBreakdown.totalGST)}</span>
-                </div>
-                
-                <div className="flex justify-between gap-2 mt-1 border-t border-gray-100 pt-2">
-                  <span>Delivery:</span>
-                  <span className="text-right whitespace-nowrap ml-2">{shippingCost === 0 ? 'Free' : formatCurrency(shippingCost)}</span>
-                </div>
-                
-                <div className="flex justify-between text-[#B12704] font-bold text-sm mt-2 pt-2 border-t border-gray-200 gap-2">
-                  <span>Order Total:</span>
-                  <span className="text-right whitespace-nowrap ml-2">{formatCurrency(finalTotal)}</span>
-                </div>
-                
-                {finalTotal > 0 && (
-                  <div className="text-right text-[15px] text-gray-500 mt-1.5 italic">
-                    {numberToIndianWords(finalTotal)}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {items.length === 0 ? (
-          <div className="mt-6 w-full bg-white p-5 md:p-6 rounded-md border border-gray-200 shadow-sm">
-            <RecentlyViewed />
-          </div>
-        ) : (
-          <CartRecommendations />
-        )}
-
-        {/* Delete Confirmation Modal - Using Portal */}
-        {showConfirmClear && mounted && createPortal(
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-md shadow-xl max-w-sm w-full p-6 text-center animate-in fade-in zoom-in duration-200 border border-gray-200">
-              <div className="w-12 h-12 mx-auto mb-4 bg-red-50 rounded-full flex items-center justify-center">
-                <XCircle className="w-6 h-6 text-red-600" />
-              </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">Clear Cart?</h3>
-              <p className="text-sm text-gray-600 mb-6">
-                This action cannot be undone. All {items.length} items will be removed from your cart.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowConfirmClear(false)}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-800 bg-white border border-gray-300 hover:bg-gray-50 rounded-sm transition-colors shadow-sm cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleClearCart}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-sm transition-colors shadow-sm border border-red-700 cursor-pointer"
-                >
-                  Clear All
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-      </Container>
-
-      <PreviewModal 
-        isOpen={previewModalState.isOpen} 
-        onClose={() => setPreviewModalState({ isOpen: false, url: '', name: '' })} 
-        fileUrl={previewModalState.url} 
-        fileName={previewModalState.name} 
-      />
-      <SessionExpiredModal
-        isOpen={sessionExpired}
-        onClose={() => setSessionExpired(false)}
-      />
-      <CartAlertsModal alerts={alerts} onDismiss={clearAlerts} />
-    </div>
+            </div>,
+            document.body
+          )}
+        </Container>
+        <SessionExpiredModal isOpen={sessionExpired} onClose={() => setSessionExpired(false)} />
+        <CartAlertsModal alerts={alerts} onDismiss={clearAlerts} />
+      </div>
     </>
   )
 }

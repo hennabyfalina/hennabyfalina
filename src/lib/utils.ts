@@ -4,7 +4,7 @@ export function generateOrderNumber() {
   // Generates format: RPC-XXXXXXX-XXXXXXX (Amazon Style)
   const part1 = Math.floor(1000000 + Math.random() * 9000000); // 7 digits
   const part2 = Math.floor(1000000 + Math.random() * 9000000); // 7 digits
-  return `RPC-${part1}-${part2}`;
+  return `HBF-${part1}-${part2}`;
 }
 
 export function formatCurrency(amount: number): string {

@@ -6,7 +6,6 @@ export interface UserProfile {
   id: string
   name: string
   email: string
-  phone: string | null
   role: string
   avatar_url?: string | null  // Add avatar URL field
 }
@@ -19,14 +18,19 @@ export async function getProfile(): Promise<UserProfile | null> {
   // Get avatar URL from user metadata (Google OAuth provides this)
   const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
 
-  // Use the RPC function that bypasses RLS
-  const { data, error } = await supabase.rpc('get_user_profile', { user_id: user.id })
+  // Fetch profile from users table directly
+  const { data: profile, error } = await supabase
+    .from('users')
+    .select('id, name, email, role')
+    .eq('id', user.id)
+    .single()
+
   if (error) {
-    console.error('Profile fetch error:', error)
+    if (error.code !== 'PGRST116') { // Ignore "no rows returned" error
+      console.error('Profile fetch error:', error)
+    }
     return null
   }
-  
-  const profile = data?.[0] || null
   if (profile) {
     return {
       ...profile,

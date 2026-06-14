@@ -4,104 +4,88 @@ import Container from '@/components/ui/Container'
 
 export default function OrderDetailsLoading() {
   return (
-    <div className="min-h-screen bg-white animate-pulse">
-      <Container className="py-8 md:py-12 max-w-4xl">
-        {/* Back button skeleton */}
+    <div className="min-h-screen bg-white py-8 md:py-16 animate-pulse select-none text-left">
+      <Container className="max-w-[1000px] px-4 sm:px-8">
+        
+        {/* Left-Aligned Back button skeleton line */}
         <div className="mb-6">
-          <div className="h-5 w-28 bg-gray-200 rounded" />
+          <div className="h-4 w-32 bg-stone-100 rounded-md" />
         </div>
 
-        {/* Main order card skeleton */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-32 bg-gray-200 rounded" />
-                <div className="h-6 w-20 bg-gray-200 rounded-full" />
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mt-2">
-                <div className="h-4 w-32 bg-gray-200 rounded" />
-                <div className="hidden sm:block w-px h-4 bg-gray-300" />
-                <div className="h-4 w-28 bg-gray-200 rounded" />
-              </div>
+        {/* Left-Aligned Main header typographic skeleton strip */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-stone-100 pb-6 mb-10 w-full">
+          <div className="space-y-2.5">
+            <div className="h-9 w-52 bg-stone-100 rounded-lg" />
+            <div className="flex items-center gap-3">
+              <div className="h-4 w-28 bg-stone-100 rounded-md" />
+              <div className="w-1 h-1 rounded-full bg-stone-200" />
+              <div className="h-4 w-36 bg-stone-100 rounded-md" />
             </div>
-            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-              <div className="h-10 w-28 bg-gray-200 rounded-md" />
-              <div className="h-10 w-28 bg-gray-200 rounded-md" />
-            </div>
+          </div>
+          <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0">
+            <div className="h-9 w-28 bg-stone-50 rounded-xl" />
+            <div className="h-9 w-28 bg-stone-50 rounded-xl" />
           </div>
         </div>
 
-        {/* Tracking timeline skeleton */}
-        <div className="mt-6 bg-white border border-gray-200 rounded-2xl p-6 md:p-8 shadow-sm">
-          <div className="h-7 w-64 bg-gray-200 rounded mb-2" />
-          <div className="mt-8 space-y-6">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex items-start gap-4">
-                <div className="w-8 h-8 bg-gray-200 rounded-full shrink-0" />
-                <div className="flex-1">
-                  <div className="h-5 w-32 bg-gray-200 rounded mb-1" />
-                  <div className="h-4 w-48 bg-gray-200 rounded" />
+        {/* Borderless Tracking timeline workflow skeleton */}
+        <div className="mb-14 border-b border-stone-100 pb-12 w-full">
+          <div className="h-5 w-44 bg-stone-100 rounded-md mb-8" />
+          <div className="space-y-6">
+            {[1, 2, 3].map((timeline) => (
+              <div key={timeline} className="flex items-start gap-4">
+                <div className="w-6 h-6 bg-stone-50 rounded-full shrink-0" />
+                <div className="flex-1 space-y-2 pt-0.5">
+                  <div className="h-4 w-32 bg-stone-100 rounded-md" />
+                  <div className="h-3.5 w-48 bg-stone-100 rounded-md" />
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* 3-column info grid skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+        {/* Product listing stream rows ledger skeleton */}
+        <div className="mb-14 border-b border-stone-100 pb-10 w-full">
+          <div className="h-5 w-36 bg-stone-100 rounded-md mb-6" />
+          <div className="flex flex-col w-full space-y-6">
+            {[1, 2].map((item) => (
+              <div key={item} className="flex flex-col sm:flex-row gap-6 items-start justify-between w-full border-b border-stone-50 pb-6 last:border-0 last:pb-0">
+                <div className="flex gap-5 flex-1 w-full">
+                  {/* Thumb Box Shape Placeholder */}
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-stone-50 border border-stone-100 rounded-2xl shrink-0" />
+                  
+                  {/* Description Info Lines Placeholders */}
+                  <div className="flex-1 space-y-2.5 pt-0.5">
+                    <div className="h-4.5 w-full max-w-md bg-stone-100 rounded-md" />
+                    <div className="h-4 w-28 bg-stone-100 rounded-md" />
+                    <div className="h-4 w-40 bg-stone-100 rounded-md pt-1" />
+                  </div>
+                </div>
+                
+                {/* Button actions structure side track placeholder */}
+                <div className="flex flex-row sm:flex-col items-start sm:items-end gap-3 shrink-0 w-full sm:w-44 pt-0.5 justify-between sm:justify-start">
+                  <div className="h-4 w-16 bg-stone-100 rounded-md" />
+                  <div className="h-9 bg-stone-50 rounded-xl w-28 sm:w-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 🚀 THE APPLE-STYLE 3-COLUMN PARAMETER MATRIX SKELETON ROW */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-12 w-full pt-2">
           {[1, 2, 3].map((col) => (
-            <div key={col} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-              <div className="h-6 w-40 bg-gray-200 rounded mb-4 pb-3 border-b border-gray-200" />
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <div className="h-4 w-24 bg-gray-200 rounded" />
-                  <div className="h-4 w-32 bg-gray-200 rounded" />
-                </div>
-                <div className="flex gap-2">
-                  <div className="h-4 w-20 bg-gray-200 rounded" />
-                  <div className="h-4 w-28 bg-gray-200 rounded" />
-                </div>
-                <div className="flex gap-2">
-                  <div className="h-4 w-28 bg-gray-200 rounded" />
-                  <div className="h-4 w-36 bg-gray-200 rounded" />
-                </div>
+            <div key={col} className="space-y-4 w-full">
+              <div className="h-4 w-40 bg-stone-100 rounded-md pb-2 border-b border-stone-50 w-full" />
+              <div className="space-y-2.5">
+                <div className="h-4 w-11/12 bg-stone-100 rounded-md" />
+                <div className="h-4 w-4/5 bg-stone-100 rounded-md" />
+                <div className="h-4 w-3/4 bg-stone-100 rounded-md" />
               </div>
             </div>
           ))}
         </div>
 
-        {/* Order items section skeleton */}
-        <div className="mt-6 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-          <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-            <div className="h-6 w-24 bg-gray-200 rounded" />
-          </div>
-          <div className="divide-y divide-gray-200">
-            {[1, 2].map((item) => (
-              <div key={item} className="p-6 flex flex-col md:flex-row gap-5 items-start">
-                <div className="flex gap-5 flex-1 w-full">
-                  {/* Image placeholder */}
-                  <div className="w-20 h-20 md:w-28 md:h-28 bg-gray-200 rounded-xl border border-gray-200 shrink-0" />
-                  
-                  {/* Product details */}
-                  <div className="flex-1 space-y-2">
-                    <div className="h-5 w-48 bg-gray-200 rounded" />
-                    <div className="h-4 w-32 bg-gray-200 rounded" />
-                    <div className="h-5 w-24 bg-gray-200 rounded" />
-                    <div className="h-4 w-56 bg-gray-200 rounded" />
-                  </div>
-                </div>
-                
-                {/* Action buttons */}
-                <div className="flex flex-col items-center gap-3 shrink-0 w-full md:w-48">
-                  <div className="h-5 w-20 bg-gray-200 rounded" />
-                  <div className="h-10 w-full bg-gray-200 rounded-full" />
-                  <div className="h-8 w-24 bg-gray-200 rounded" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
       </Container>
     </div>
   )

@@ -9,14 +9,15 @@ import SaveViewedProduct from '@/components/product/SaveViewedProduct'
 import { siteConfig } from '@/config/site'
 import dynamic from 'next/dynamic'
 import ProductInteractiveSection from '@/components/product/ProductInteractiveSection'
-import StickyBuyBar from '@/components/product/StickyBuyBar'
+import ProductPageHeader from '@/components/product/ProductPageHeader'
+import ProductActionDock from '@/components/product/ProductActionDock'
 
 const FrequentlyBoughtTogether = dynamic(() => import('@/components/product/FrequentlyBoughtTogether'), {
-  loading: () => <div className="w-full h-32 bg-gray-50 animate-pulse rounded-lg mt-8" />
+  loading: () => <div className="w-full h-32 bg-stone-50/40 animate-pulse rounded-xl mt-6" />
 })
 
 const RelatedProducts = dynamic(() => import('@/components/product/RelatedProducts'), {
-  loading: () => <div className="w-full h-64 bg-gray-50 animate-pulse rounded-lg mt-8" />
+  loading: () => <div className="w-full h-64 bg-stone-50/40 animate-pulse rounded-xl mt-6" />
 })
 
 interface ProductPageProps {
@@ -30,7 +31,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
 
   return {
     title: product.meta_title || `${product.name} | ${siteConfig.name}`,
-    description: product.meta_description || product.description || `Buy ${product.name} online. High-quality packaging materials.`,
+    description: product.meta_description || product.description || `Discover premium organic ${product.name} at Henna By Falina. 100% chemical-free and crafted for impeccable henna designs.`,
     openGraph: {
       type: 'website',
       title: product.name,
@@ -40,6 +41,11 @@ export async function generateMetadata({ params }: ProductPageProps) {
     alternates: {
       canonical: `/product/${product.slug}`,
     },
+    // Custom layout flags parsed by global Layout nodes to turn off default panels
+    other: {
+      hideGlobalMobileNav: 'true',
+      hideGlobalMobileBottomNav: 'true'
+    }
   }
 }
 
@@ -51,23 +57,16 @@ export default async function ProductPage({ params }: ProductPageProps) {
     notFound()
   }
 
-  // Fetch the Frequently Bought Together bundle
+  // Fetch Frequently Bought Together bundle items
   let bundleProducts: any[] = []
   if (product.frequently_bought_together && product.frequently_bought_together.length > 0) {
     bundleProducts = await getProductsByIdsWithSignedUrls(product.frequently_bought_together)
   }
 
   const hasStock = product.stock > 0
-  const sellingPrice = product.selling_price ?? product.price ?? 0
-  const regularPrice = product.price ?? 0
-  const discountPercentage = regularPrice > sellingPrice ? Math.round(((regularPrice - sellingPrice) / regularPrice) * 100) : 0
+  const retailPrice = product.retail_price ?? 0
 
-  // Determine the baseline tier for the sticky bar logic
-  const tiers = product.pricing_tiers || []
-  const defaultTier = tiers.length > 0 ? tiers[0] : null
-  const minQuantity = defaultTier ? defaultTier.min_quantity : 1
-
-  // 🚨 Enterprise JSON-LD Schema (SEO Core)
+  // Enterprise JSON-LD Schema (Clean SEO Core)
   const jsonLd: any = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -82,7 +81,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     offers: {
       "@type": "Offer",
       priceCurrency: "INR",
-      price: sellingPrice,
+      price: retailPrice,
       availability: hasStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
       seller: {
         "@type": "Organization",
@@ -100,7 +99,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   }
 
   return (
-    <div className="bg-white min-h-screen pb-12">
+    <div className="bg-white min-h-screen pb-24 md:pb-32 select-none font-sans antialiased text-gray-900 selection:bg-gray-950 selection:text-white">
       <script
         id="schema-product"
         type="application/ld+json"
@@ -108,71 +107,64 @@ export default async function ProductPage({ params }: ProductPageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
       />
       
-      <StickyBuyBar
-        product={product} 
-        sellingPrice={sellingPrice} 
-        hasStock={hasStock} 
-        minQuantity={minQuantity} 
+      {/* 📱 MOBILE TOP NAV TUNNEL BAR */}
+      <ProductPageHeader productName={product.name} productId={product.id} />
+      
+      {/* 💻 STICKY ACTION HORIZON DOCK (Floats centered at base on scroll for both desktop and mobile users) */}
+      <ProductActionDock 
+        product={product}
+        sellingPrice={retailPrice}
+        hasStock={hasStock}
       />
 
-      <SaveViewedProduct 
-        product={{
-          id: product.id,
-          name: product.name,
-          slug: product.slug,
-          price: product.price,
-          image: product.images?.[0] || '',
-          images: product.images || [],
-          selling_price: product.selling_price || product.price,
-          description: product.description,
-          rating: product.rating,
-          review_count: product.review_count,
-          stock: product.stock, 
-        }}
-      />
+      <SaveViewedProduct product={product} /> 
 
-      {/* Breadcrumb Navigation */}
-      <div className="bg-white border-b border-gray-200 py-2 hidden md:block">
-        <Container className="max-w-[1500px]">
-          <div className="text-xs text-gray-500 flex gap-2">
-            <Link href="/" className="hover:underline">Home</Link>
-            <span>›</span>
-            <Link href="/products" className="hover:underline">Products</Link>
-            <span>›</span>
-            <span className="text-gray-900 truncate">{product.name}</span>
-          </div>
-        </Container>
-      </div>
+      {/* 🌟 FIXED: Balanced Split Layout for Desktop, Centered Stream for Mobile */}
+      <Container className="pt-20 pb-6 md:pt-10 max-w-[1100px] mx-auto px-4 sm:px-6 flex flex-col gap-8">
+        
+        {/* Minimal Desktop Navigation Breadcrumbs */}
+        <nav className="hidden md:flex items-center gap-2 text-[12px] font-medium tracking-wide text-gray-400">
+          <Link href="/" className="hover:text-gray-900 transition-colors">Home</Link>
+          <span className="text-gray-200">/</span>
+          <Link href="/products" className="hover:text-gray-900 transition-colors">Products</Link>
+          <span className="text-gray-200">/</span>
+          <span className="text-gray-900 font-normal capitalize">
+            {product.name.toLowerCase()}
+          </span>
+        </nav>
 
-      <Container className="py-4 md:py-6 max-w-[1500px]">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start relative">
-          
-          <div className="lg:col-span-5 lg:sticky lg:top-28 relative z-[1] w-full self-start">
+        <div className="flex flex-col md:flex-row gap-10 lg:gap-16 items-start">
+          {/* Large Media Canvas Case (Left side on Desktop) */}
+          <div className="w-full md:w-1/2 sticky top-24">
             <ProductImageGallery images={product.images || []} productName={product.name} />
           </div>
 
-          {/* Unified Middle & Right Columns (Spans 7 cols) - Client Side Interactive Logic */}
-          <div className="lg:col-span-7 w-full relative z-[2]">
+          {/* Fluid Inline Options and Text Content (Right side on Desktop) */}
+          <div className="w-full md:w-1/2 relative z-20">
+             {/* 🌟 FIXED: Removed hardcoded regularPrice and discountPercentage, we let the inner engine handle it */}
              <ProductInteractiveSection 
                 product={product} 
                 hasStock={hasStock} 
-                sellingPrice={sellingPrice} 
-                regularPrice={regularPrice}
-                discountPercentage={discountPercentage}
+                sellingPrice={retailPrice} 
              />
           </div>
-
         </div>
 
-        {/* Frequently Bought Together Bundle */}
+        {/* Curated Recommendations & Cross-Sell Blocks */}
+        <div className="relative z-0 mt-0 pt-0 md:pt-10">
+          {bundleProducts.length > 0 && (
+            <FrequentlyBoughtTogether 
+              mainProduct={product as any} 
+              bundleProducts={bundleProducts} 
+            />
+          )}
+        </div>
+
+        {/* Infinite Related Products Swiper Deck */}
         <div className="relative z-0">
-          <FrequentlyBoughtTogether mainProduct={product as any} bundleProducts={bundleProducts} />
-        </div>
-
-        {/* Related Products Carousel */}
-        <div className="relative z-0 border-t border-gray-200 mt-8">
           <RelatedProducts currentProductId={product.id} categoryId={product.category_id} />
         </div>
+        
       </Container>
     </div>
   )

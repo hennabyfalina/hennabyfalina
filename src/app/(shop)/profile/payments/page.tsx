@@ -3,11 +3,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import Container from '@/components/ui/Container'
 import { siteConfig } from '@/config/site'
+import { ChevronRight, ShieldCheck } from 'lucide-react'
 
 export const metadata = {
-  title: `Payment Options | ${siteConfig.name}`
+  title: `Payment Options | ${siteConfig.name} Studio`
 }
 
 export default async function PaymentsPage() {
@@ -19,37 +21,51 @@ export default async function PaymentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white py-6 md:py-10">
-      <Container className="max-w-[1000px]">
-        {/* Breadcrumb */}
-        <div className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline mb-4">
-          <Link href="/profile">Your Account</Link> <span className="text-gray-500 mx-1">›</span> <span className="text-[#C7511F]">Payment options</span>
+    <div className="min-h-screen bg-white py-8 md:py-14 select-none font-sans antialiased text-left">
+      <Container className="max-w-[1000px] px-4 sm:px-8">
+        
+        {/* Breadcrumb Navigation - Converted to Premium Capitalized Semibold Tones */}
+        <div className="text-[13px] font-semibold text-gray-400 hover:text-gray-900 mb-4 transition-colors flex items-center gap-1">
+          <Link href="/profile">Your Account</Link> 
+          <ChevronRight className="w-3.5 h-3.5 text-gray-300" /> 
+          <span className="text-gray-900">Payment Options</span>
         </div>
+
+        {/* Master Page Header */}
+        <h1 className="text-3xl md:text-4xl font-normal text-gray-900 mb-8 tracking-tight capitalize">Payment Options</h1>
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          <div className="lg:col-span-8 space-y-6 pt-2">
+          <div className="lg:col-span-8 space-y-6">
             
-            <div className="w-full flex items-start p-5 border border-gray-300 bg-gray-50 rounded-lg shadow-sm">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center shrink-0 mt-0.5 overflow-hidden p-1.5">
-                  <svg viewBox="0 0 24 24" fill="none" xmlns="https://ps.w.org/razorpay-quick-payments/assets/icon-256x256.png?rev=2256765" className="w-full h-full text-[#3395FF]">
-                    <path d="M22.436 0l-11.91 7.773-1.174 4.276 6.625-4.297L11.65 24h4.391l6.395-24z" fill="currentColor" />
-                    <path d="M1.564 0l-.44 1.606L8.4 1.547l.45-1.547H1.564z" fill="currentColor" />
-                  </svg>
+            {/* 🚀 FIXED: Clean borderless Google-style layout with Razorpay branding */}
+            <div className="w-full flex items-start py-2 bg-white">
+              <div className="flex items-start gap-4 w-full">
+                
+                {/* Razorpay Brand Icon */}
+                <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shrink-0 overflow-hidden">
+                  <Image 
+                    src="/razorpay-icon.jpg" 
+                    alt="Razorpay" 
+                    width={40} 
+                    height={40} 
+                    className="object-contain"
+                  />
                 </div>
-                <div className="text-left">
-                  <div className="font-bold text-gray-900 mb-1">Secure Payments by Razorpay</div>
-                  <div className="text-sm text-gray-600 leading-relaxed">
-                    We do not store your payment methods or card details on our servers. All transactions are securely encrypted and processed by Razorpay, supporting Credit/Debit Cards, UPI, Netbanking, and more.
-                  </div>
-                  
+
+                {/* Secure Gateway Description Metadata */}
+                <div className="flex-1 min-w-0 pt-0.5">
+                  <h2 className="font-normal text-gray-950 text-[15px] sm:text-[16px] tracking-tight capitalize mb-1.5">
+                    Secure Payments by Razorpay
+                  </h2>
+                  <p className="text-[13px] sm:text-[14px] text-gray-400 font-normal leading-relaxed capitalize">
+                    We do not store your payment methods or personal card details on our servers. All transactions are securely encrypted and processed directly by Razorpay, supporting Credit/Debit Cards, UPI Instant Transfers, Netbanking, and other verified payment portals.
+                  </p>
                 </div>
+
               </div>
             </div>
 
           </div>
-
         </div>
       </Container>
     </div>

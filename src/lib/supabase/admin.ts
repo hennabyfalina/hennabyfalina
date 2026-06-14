@@ -15,6 +15,10 @@ export const createAdminClient = () => {
     throw new Error('Missing Supabase environment variables for admin client')
   }
 
+  if (supabaseServiceKey === process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    console.warn('🚨 WARNING: SUPABASE_SERVICE_ROLE_KEY matches the ANON key. This will cause "permission denied" errors because it lacks bypass RLS privileges.')
+  }
+
   return createClient(
     supabaseUrl,
     supabaseServiceKey,

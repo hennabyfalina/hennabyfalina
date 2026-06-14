@@ -5,7 +5,6 @@ import Razorpay from 'razorpay'
 import { createClient } from '@/lib/supabase/server'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
-import { calculateTaxBreakdown } from '@/lib/tax'
 import { 
   generateIdempotencyKey, 
   isValidIdempotencyKey, 
@@ -167,7 +166,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(errorResponse, { status: 500 })
     }
 
-    const taxBreakdown = calculateTaxBreakdown(order.total_amount)
     const finalIdempotencyKey = clientIdempotencyKey || generateIdempotencyKey('payment')
     
     // Validate amount before creating Razorpay order
@@ -189,11 +187,6 @@ export async function POST(request: NextRequest) {
         internal_order_id: orderId,
         user_id: userId,
         idempotency_key: finalIdempotencyKey,
-        b2b_gst_compliant: 'true',
-        base_amount_inr: taxBreakdown.basePrice.toString(),
-        total_gst_inr: taxBreakdown.totalGST.toString(),
-        cgst_9_percent: taxBreakdown.cgst.toString(),
-        sgst_9_percent: taxBreakdown.sgst.toString()
       },
     }
 

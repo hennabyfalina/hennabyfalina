@@ -1,30 +1,38 @@
 // src/lib/supabase/storage.ts
 
 import { createClient } from './client'
-import path from 'path'
 
+/**
+ * Global Asset Resolver: Generates direct web paths out of the shop-assets bucket.
+ * Supports automated server-side scaling, layout resizing, and webp compression optimization.
+ */
 export function getPublicUrl(imagePath: string, width?: number, height?: number): string {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!supabaseUrl) return '/placeholder-product.svg';
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!supabaseUrl) return '/placeholder-product.svg'
 
-  const bucketUrl = `${supabaseUrl}/storage/v1/object/public/products/`;
-  const cleanPath = imagePath.replace(/^(\.\.\/|\/)+/, '');
+  // 🌟 FIXED: Maps directly onto your new single-bucket 'shop-assets' design channel
+  const bucketUrl = `${supabaseUrl}/storage/v1/object/public/shop-assets/`
+  const cleanPath = imagePath.replace(/^(\.\.\/|\/)+/, '')
 
   if (!width) {
-    return `${bucketUrl}${cleanPath}`;
+    return `${bucketUrl}${cleanPath}`
   }
 
-  // 🔒 Ask Supabase to scale, compress, and output in WebP format automatically
-  return `${bucketUrl}${cleanPath}?width=${width}&height=${height || ''}&resize=contain&format=webp&quality=80`;
+  // Ask Supabase storage layers to resize and serve optimized webp assets directly on the edge
+  return `${bucketUrl}${cleanPath}?width=${width}&height=${height || ''}&resize=contain&format=webp&quality=80`
 }
 
+/**
+ * Universal shortcut utility to resolve images instantly across components.
+ */
 export function getProductImageUrl(imagePath: string | null | undefined): string {
   if (!imagePath) return '/placeholder-product.svg'
+  
   if (imagePath.startsWith('http://') || imagePath.startsWith('https://') || imagePath.startsWith('/')) {
     return imagePath
   }
-  const hasTempPrefix = imagePath.startsWith('temp/')
-  return getPublicUrl(hasTempPrefix ? imagePath : `temp/${imagePath}`)
+  
+  return getPublicUrl(imagePath)
 }
 
 function validateFile(file: File): void {
@@ -39,18 +47,26 @@ function validateFile(file: File): void {
   }
 }
 
-export async function uploadProductImage(file: File): Promise<string> {
+/**
+ * Administrative asset upload handler pushing files into the clean sub-folders.
+ * @param folder supports 'products', 'categories', or 'collections' subpath directories.
+ */
+export async function uploadProductImage(
+  file: File, 
+  folder: 'products' | 'categories' | 'collections' = 'products'
+): Promise<string> {
   validateFile(file)
   const supabase = createClient()
 
-  // Generate an un-guessable cryptographic baseline name
   const fileExt = file.name.split('.').pop()
   const cryptoToken = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)
-  const filePath = `temp/${Date.now()}_${cryptoToken}.${fileExt}`
+  
+  // 🌟 FIXED: Accommodates our clean new collections folder tree structural layer
+  const filePath = `${folder}/${Date.now()}_${cryptoToken}.${fileExt}`
 
   const { error } = await supabase.storage
-    .from('products')
-    .upload(filePath, file, { cacheControl: '3600', upsert: false })
+    .from('shop-assets')
+    .upload(filePath, file, { cacheControl: '31536000', upsert: false })
 
   if (error) throw new Error(`Upload fault: ${error.message}`)
   return filePath
@@ -59,13 +75,12 @@ export async function uploadProductImage(file: File): Promise<string> {
 export async function deleteProductImage(imagePath: string): Promise<void> {
   const supabase = createClient()
   
-  // 🔒 SECURE: Strict traversal pattern blocking
   if (imagePath.includes('..') || imagePath.includes('//') || Object.getOwnPropertyNames(imagePath).length > 200) {
     throw new Error('Unauthorized system execution exception context path')
   }
 
   const cleanPath = imagePath.replace(/^(\.\.\/|\/)+/, '')
-  await supabase.storage.from('products').remove([cleanPath])
+  await supabase.storage.from('shop-assets').remove([cleanPath])
 }
 
 export async function fileExists(imagePath: string): Promise<boolean> {
@@ -73,7 +88,7 @@ export async function fileExists(imagePath: string): Promise<boolean> {
   const cleanPath = imagePath.replace(/^(\.\.\/|\/)+/, '')
   
   try {
-    const { data, error } = await supabase.storage.from('products').download(cleanPath)
+    const { data, error } = await supabase.storage.from('shop-assets').download(cleanPath)
     return !error && !!data
   } catch {
     return false

@@ -101,7 +101,7 @@ export async function POST(request: Request) {
                   text: {
                     preview_url: true,
                     // 🚨 CHANGE THE WA.ME LINK BELOW TO UNCLE ISMATH'S REAL NUMBER 🚨
-                    body: `Hi! \n\nThis is the automated dispatch system for Razack Packaging Centre.\n\nTo chat directly with our support team regarding your order or custom printing, please click the link below:\n\n https://wa.me/916383151922`
+                    body: `Hi! \n\nThis is the automated dispatch system for Henna By Falina.\n\nTo chat directly with our support team regarding your order or custom printing, please click the link below:\n\n https://wa.me/916383151922`
                   }
                 }),
               }));

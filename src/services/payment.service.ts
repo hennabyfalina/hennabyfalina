@@ -1,5 +1,7 @@
 // src/services/payment.service.ts
 
+'use server'
+
 import { createAdminClient } from '@/lib/supabase/admin'
 import { releaseStockReservation, deductOrderStock } from '@/services/inventory.service'
 
@@ -54,6 +56,7 @@ export async function updatePaymentStatus(
     .from('orders')
     .update(updateData)
     .eq('id', orderId)
+    .in('payment_status', ['pending', 'failed'])
     .select('id')
     .maybeSingle()
 

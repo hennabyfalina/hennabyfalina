@@ -76,7 +76,7 @@ export async function getFullWishlist() {
       id,
       product_id,
       products (
-        id, name, slug, price, selling_price, images, stock, rating, review_count
+        id, name, slug, retail_price, wholesale_price, images, stock, rating, review_count
       )
     `)
     .eq('user_id', user.id)

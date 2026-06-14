@@ -6,7 +6,7 @@ import AddressesClient from './AddressesClient'
 import { siteConfig } from '@/config/site'
 
 export const metadata = {
-  title: `Your Addresses | ${siteConfig.name}`
+  title: `Your Addresses | ${siteConfig.name} Studio`
 }
 
 export default async function AddressesPage() {

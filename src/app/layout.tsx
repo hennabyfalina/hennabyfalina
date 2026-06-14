@@ -8,21 +8,19 @@ import CartSyncProvider from '@/components/CartSyncProvider'
 import InstallPrompt from '@/components/ui/InstallPrompt'
 import PWAUpdater from '@/components/ui/PWAUpdater'
 import WishlistProvider from '@/components/providers/WishlistProvider'
-import QuickViewModal from '@/components/product/QuickViewModal'
 import { siteConfig } from '@/config/site'
 import { Analytics } from '@vercel/analytics/next'
 import SplashScreen from '@/components/ui/SplashScreen'
 import BroadcastListener from '@/components/providers/BroadcastListener'
 
 const inter = localFont({
-  // Download 'Inter-VariableFont.ttf' and place it in your 'public/fonts' directory
-  src: '../../public/fonts/Inter-VariableFont.ttf',
+  src: '../../public/fonts/Inter-Sans-VariableFont.ttf',
   display: 'swap',
   variable: '--font-inter',
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://razackpackagingcentre.com'),
+  metadataBase: new URL('https://hennabyfalina.com'),
   title: {
     default: siteConfig.name,
     template: `%s | ${siteConfig.shortName}`,
@@ -31,16 +29,16 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_IN',
-    url: 'https://razackpackagingcentre.com',
+    url: 'https://hennabyfalina.com',
     title: siteConfig.name,
     description: siteConfig.description,
     siteName: siteConfig.name,
     images: [
       {
-        url: '/icon-512x512.png', // Fallback to your highest quality app icon
+        url: '/icon-512x512.png',
         width: 512,
         height: 512,
-        alt: `${siteConfig.name} Logo`,
+        alt: `${siteConfig.name} Visual Identity Logo`,
       }
     ],
   },
@@ -66,13 +64,13 @@ const globalJsonLd = {
   "@context": "https://schema.org",
   "@type": "LocalBusiness",
   "name": siteConfig.name,
-  "image": "https://razackpackagingcentre.com/icon-512x512.png", 
+  "image": "https://hennabyfalina.com/icon-512x512.png", 
   "telephone": siteConfig.contact.phone.primary,
   "email": siteConfig.contact.email.orders,
   "address": {
     "@type": "PostalAddress",
     "streetAddress": siteConfig.address.line1,
-    "streetAddress2": siteConfig.address.line2,
+    "streetAddress2": siteConfig.address.line2 || "",
     "addressLocality": siteConfig.address.city,
     "addressRegion": siteConfig.address.state,
     "postalCode": siteConfig.address.pincode,
@@ -81,8 +79,8 @@ const globalJsonLd = {
   "openingHoursSpecification": {
     "@type": "OpeningHoursSpecification",
     "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-    "opens": "10:00",
-    "closes": "22:00"
+    "opens": "09:00 AM",
+    "closes": "21:00 PM"
   }
 }
 
@@ -94,7 +92,8 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#131314' },
+    // 🚀 FIXED: Deep Dark pure token alignment matching your exact IDE workspace preference
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
   ],
 }
 
@@ -121,8 +120,9 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(globalJsonLd).replace(/</g, '\\u003c') }}
         />
       </head>
+      {/* 🚀 FIXED: Polished base configuration class profiles to map into sterile clean monochrome layouts */}
       <body 
-        className="bg-[#eaeded] text-gray-900 antialiased w-full min-h-[100dvh] flex flex-col"
+        className="bg-white text-gray-900 antialiased w-full min-h-[100dvh] flex flex-col selection:bg-gray-900 selection:text-white"
         suppressHydrationWarning
       >
         <SplashScreen />
@@ -132,9 +132,7 @@ export default function RootLayout({
           <InstallPrompt />
           <PWAUpdater />
           <Analytics />
-          <QuickViewModal />
           <BroadcastListener />
-          {/* ⚡ Pre-fetches in the background without blocking page load */}
           <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
         </WishlistProvider>
       </body>

@@ -74,7 +74,7 @@ export default function NameModal({ userId, email, onComplete }: { userId: strin
           <button
             type="submit"
             disabled={loading || !name.trim()}
-            className="w-full py-2.5 text-sm font-normal text-gray-900 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm transition-colors shadow-sm disabled:opacity-50"
+            className="w-full py-2.5 text-sm font-bold text-white bg-[#2874f0] hover:bg-[#1259cc] border border-[#2874f0] rounded-sm transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
           >
             {loading ? 'Saving...' : 'Save & Continue'}
           </button>

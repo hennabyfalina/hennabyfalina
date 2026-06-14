@@ -1,20 +1,26 @@
+// src/app/~offline/page.tsx
+
 'use client'
 
 import { WifiOff } from 'lucide-react'
 
 export default function OfflinePage() {
   return (
-    <div className="min-h-[70vh] flex flex-col items-center justify-center bg-white px-4 text-center">
-      <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mb-6 shadow-sm border border-gray-200">
-        <WifiOff className="w-12 h-12 text-gray-400" strokeWidth={1.5} />
+    <div className="min-h-[75vh] flex flex-col items-center justify-center bg-white px-4 text-center select-none animate-in fade-in duration-300">
+      <div className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mb-5">
+        <WifiOff className="w-6 h-6 text-gray-400" strokeWidth={1.5} />
       </div>
-      <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">You're Offline</h1>
-      <p className="text-gray-600 text-sm md:text-base max-w-sm mb-8">
-        It looks like you've lost your internet connection. Please check your network settings and try again.
+      
+      {/* 🚀 FIXED: Shifted string layout to clear Capitalized font case */}
+      <h1 className="text-xl sm:text-2xl font-bold tracking-wide text-gray-900 mb-2 capitalize">Connection Lost</h1>
+      <p className="text-gray-400 text-[13px] font-medium max-w-xs mb-8 leading-relaxed capitalize">
+        It looks like your device is currently offline. Please check your network signal parameters and try again.
       </p>
+      
+      {/* 🚀 FIXED: Replaced bright yellow tags with clean minimal charcoal capsules */}
       <button 
         onClick={() => window.location.reload()}
-        className="px-8 py-2.5 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm text-sm font-bold text-[#0F1111] transition-colors shadow-sm"
+        className="h-11 px-8 bg-gray-900 hover:bg-black text-white rounded-full text-[12px] font-bold tracking-wide transition-all shadow-md active:scale-[0.99] cursor-pointer capitalize"
       >
         Try Again
       </button>

@@ -200,9 +200,9 @@ export default function AdminGatePage() {
         {/* Footer */}
         <div className="mt-8 text-center flex flex-col items-center gap-4">
           <div className="flex items-center gap-6">
-            <Link href="/terms" className="text-xs admin-text-muted hover:admin-text-primary transition-colors">Conditions</Link>
-            <Link href="/privacy" className="text-xs admin-text-muted hover:admin-text-primary transition-colors">Privacy</Link>
-            <Link href="/contact" className="text-xs admin-text-muted hover:admin-text-primary transition-colors">Help</Link>
+            <Link href="/terms-conditions" className="text-xs admin-text-muted hover:admin-text-primary transition-colors">Conditions</Link>
+            <Link href="/privacy-policy" className="text-xs admin-text-muted hover:admin-text-primary transition-colors">Privacy</Link>
+            <Link href="/contact-support" className="text-xs admin-text-muted hover:admin-text-primary transition-colors">Help</Link>
           </div>
           <p className="text-[11px] text-[#565959] font-mono">
             &copy; {new Date().getFullYear()} {siteConfig.name} Workspace

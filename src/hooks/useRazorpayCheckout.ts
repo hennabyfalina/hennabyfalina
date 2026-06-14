@@ -2,10 +2,9 @@
 
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { createOrder } from '@/services/order.service'
 import { useCartStore } from '@/store/cart.store'
-import { useProductDraftStore } from '@/store/productDraft.store'
 import { siteConfig } from '@/config/site'
 import { generateIdempotencyKey } from '@/lib/idempotency'
 
@@ -25,22 +24,22 @@ export function useRazorpayCheckout() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const clearCart = useCartStore((state) => state.clearCart)
   
-  // Prevent double-click and track idempotency
+  // Prevent double-click and track idempotency signatures
   const isProcessingRef = useRef(false)
   const currentIdempotencyKeyRef = useRef<string | null>(null)
 
   const processPayment = useCallback(async (payload: CheckoutPayload) => {
     const { user, items, finalTotal, shippingMethod, shippingCost, selectedAddressId, formData, checkoutSessionId } = payload
     
-    // Double-click prevention
+    // Double-click circuit prevention
     if (isProcessingRef.current) {
       console.log('[Checkout] Payment already in progress. Ignoring duplicate call.')
       return
     }
     
     if (!user) {
-      console.error('[Checkout] No user found')
-      setCheckoutError('Please log in to continue')
+      console.error('[Checkout] No authorized user found in session profile context')
+      setCheckoutError('please log in to continue')
       return
     }
     
@@ -48,60 +47,56 @@ export function useRazorpayCheckout() {
     setIsProcessingCheckout(true)
     setCheckoutError(null)
 
-    // 🆕 Validate finalTotal before proceeding
+    // Validate finalTotal before initiating external network pipes
     if (finalTotal <= 0) {
-      console.error('[Checkout] Invalid order amount:', finalTotal)
-      setCheckoutError('Unable to process order. Please refresh and try again.')
+      console.error('[Checkout] Invalid order total transaction value calculation:', finalTotal)
+      setCheckoutError('unable to process order. please refresh and try again.')
       isProcessingRef.current = false
       setIsProcessingCheckout(false)
       return
     }
 
-    // Generate unique idempotency key
+    // Generate clear idempotency keys using item configuration matrix hashes
     const cartSignature = items
-      .map(item => `${item.product_id}|${item.printing_type}|${item.quantity}`)
+      .map(item => `${item.product_id}|${item.quantity}`)
       .sort()
       .join(',')
+      
     const baseIdempotencyKey = generateIdempotencyKey('session')
     currentIdempotencyKeyRef.current = baseIdempotencyKey
     
-    console.log(`[Checkout] Starting payment with base idempotency key: ${baseIdempotencyKey}, amount: ₹${finalTotal}`)
+    console.log(`[Checkout] Starting payment sequence with key: ${baseIdempotencyKey}, amount: ₹${finalTotal}`)
 
     try {
       const addressData: any = { shippingMethod }
 
       if (shippingMethod === 'delivery') {
-        // Check if selectedAddressId is a valid UUID (existing address)
+        // Enforce UUID structural format validity parameters
         const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedAddressId || '')
 
         if (!selectedAddressId || !isValidUuid) {
-          throw new Error('Please select a valid delivery address before placing the order.')
+          throw new Error('please select a valid delivery address before placing your order.')
         }
         
         addressData.addressId = selectedAddressId
-        console.log('[Checkout] Using delivery address ID:', selectedAddressId)
+        console.log('[Checkout] Attaching delivery address ID:', selectedAddressId)
       } else {
-        // Pickup: store contact info in order's pickup_contact column
+        // Home Pickup: store contact info in destination parameters
         addressData.pickupContact = {
           name: formData.name,
           phone: formData.phone,
           pincode: formData.pincode,
         }
-        console.log('[Checkout] Using pickup contact')
+        console.log('[Checkout] Attaching home studio pickup contact')
       }
 
-      // 1. Create Internal Order in DB with address/pickup data
-      console.log('[Checkout] Creating order...')
+      // 1. Generate core transaction record inside internal backend database tables
+      console.log('[Checkout] Creating internal order logs...')
       const orderData = {
         items: items.map(item => ({
           product_id: item.product_id,
           quantity: item.quantity,
-          printing_type: item.printing_type,
-          artwork_urls: item.artwork_urls,
-          artwork_sizes: item.artwork_sizes,
-          printing_instructions: item.printing_instructions,
           price: item.price,
-          is_temp: true 
         })),
         totalAmount: finalTotal,
         shippingCost: shippingCost,
@@ -112,24 +107,14 @@ export function useRazorpayCheckout() {
         addressData,
       }
 
-      // our custom verification tracking fields safely if your type signature supports metadata properties:
-      const completePayload = {
-        ...orderData,
-        expected_total_for_logging: finalTotal,
-        client_shipping_cost: shippingCost
-      }
-
       const order = await createOrder(orderData)
-      console.log('[Checkout] Order created:', order.id, order.order_number)
+      console.log('[Checkout] Order registered successfully:', order.id, order.order_number)
       
-      // Clear drafts and cart after order is created
-      items.forEach(item => {
-        useProductDraftStore.getState().clearDraft(item.product_id)
-      })
+      // Wipe frontend application cart stores to lock active state mutations for Step 2 confirmation
       await clearCart()
 
-      // 2. Initialize Razorpay
-      console.log('[Checkout] Initializing Razorpay payment...')
+      // 2. Fetch signed options object back from internal API routing points (Review & Pay trigger)
+      console.log('[Checkout] Initializing encrypted backend razorpay session payload...')
       const response = await fetch('/api/razorpay', {
         method: 'POST',
         headers: { 
@@ -144,34 +129,27 @@ export function useRazorpayCheckout() {
         })
       })
 
-      // 🆕 Better error handling for API response
       if (!response.ok) {
-        let errorMessage = 'Failed to initialize payment gateway'
+        let errorMessage = 'failed to initialize secure payment session'
         try {
           const errorData = await response.json()
           errorMessage = errorData.error || errorMessage
-          console.error('[Checkout] Payment API error:', errorData)
+          console.error('[Checkout] Payment initialization error:', errorData)
         } catch (e) {
           const errorText = await response.text()
-          console.error('[Checkout] Payment API error (non-JSON):', errorText)
+          console.error('[Checkout] Payment initialization error string:', errorText)
         }
         throw new Error(errorMessage)
       }
 
       const data = await response.json()
-      console.log('[Checkout] Razorpay API response:', { 
-        hasOrderId: !!data.orderId, 
-        hasKeyId: !!data.keyId,
-        amount: data.amount,
-        existing: data.existing
-      })
       
       if (!data.orderId || !data.keyId) {
-        console.error('[Checkout] Invalid Razorpay response:', data)
-        throw new Error('Invalid payment configuration received from server.')
+        console.error('[Checkout] Invalid properties received from gateway parser:', data)
+        throw new Error('invalid payment gateway response. please contact support.')
       }
 
-      // 🔒 GATEWAY CIRCUIT BREAKER: Enforce strict execution timeouts
+      // 🔒 GATEWAY SCRIPTS CIRCUIT BREAKER: Avoid script block hang issues
       const GATEWAY_TIMEOUT_MS = 8000;
       const waitForGatewayScript = new Promise((resolve, reject) => {
         if ((window as any).Razorpay) {
@@ -186,18 +164,18 @@ export function useRazorpayCheckout() {
         }, 250);
         setTimeout(() => {
           clearInterval(interval);
-          reject(new Error('Gateway connectivity timeout exceeded.'));
+          reject(new Error('payment server timeout. network is congested, please retry.'));
         }, GATEWAY_TIMEOUT_MS);
       });
 
       try {
         await waitForGatewayScript;
       } catch (scriptError: any) {
-        throw new Error('Payment network is currently congested. Please try again or choose an alternative option.');
+        throw new Error(scriptError.message);
       }
 
-      // 3. Open Razorpay Checkout Modal
-      console.log('[Checkout] Opening Razorpay modal for order:', data.orderId)
+      // 3. Mount and trigger the secure checkout script overlay interface (Step 2 Finalization)
+      console.log('[Checkout] Launching transaction verification checkout frame:', data.orderId)
       
       const options = {
         key: data.keyId,
@@ -216,11 +194,12 @@ export function useRazorpayCheckout() {
           order_id: order.id,
           shipping_method: shippingMethod
         },
-        theme: { color: '#007185' },
+        // 🚀 FIXED: Transformed cyan accent into pitch black to integrate seamlessly into our minimalist design theme
+        theme: { color: '#000000' },
         handler: async function (response: any) {
-          console.log('[Checkout] Payment successful:', response.razorpay_payment_id)
+          console.log('[Checkout] Transaction signature cleared successfully:', response.razorpay_payment_id)
           
-          // ⚡ OPTIMIZATION: Eagerly verify the signature to bypass the 3-5 second webhook delay.
+          // ⚡ OPTIMIZATION: Fire eager background validation calls to bypass system webhooks
           try {
             await fetch('/api/razorpay/verify', {
               method: 'POST',
@@ -231,14 +210,16 @@ export function useRazorpayCheckout() {
               })
             })
           } catch (e) {
-            console.warn('[Checkout] Eager verification bypassed, falling back to webhook.')
+            console.warn('[Checkout] Eager signature check bypassed. Falling back onto global webhook pools.')
           }
           
           window.location.href = `/order/${order.id}?new_order=true`
         },
         modal: {
           ondismiss: function() {
-            console.log('[Checkout] Payment modal dismissed by user')
+            console.log('[Checkout] Transaction window closed by explicit customer dismiss swipe')
+            setIsProcessingCheckout(false)
+            isProcessingRef.current = false
             window.location.href = `/profile/orders?filter=failed`
           }
         }
@@ -247,15 +228,17 @@ export function useRazorpayCheckout() {
       const rzp = new (window as any).Razorpay(options)
       
       rzp.on('payment.failed', function (response: any) {
-        console.error('[Checkout] Payment failed:', response.error)
+        console.error('[Checkout] Transaction declined or failed by bank limits:', response.error)
+        setIsProcessingCheckout(false)
+        isProcessingRef.current = false
         window.location.href = `/profile/orders?filter=failed`
       })
       
       rzp.open()
 
     } catch (err: any) {
-      console.error('[Checkout] Error:', err)
-      setCheckoutError(err.message || 'An unexpected error occurred during checkout.')
+      console.error('[Checkout] Structural workflow execution error:', err)
+      setCheckoutError(err.message || 'an unexpected configuration glitch happened.')
       setIsProcessingCheckout(false)
       isProcessingRef.current = false
     }

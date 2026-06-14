@@ -36,27 +36,33 @@ export const useWishlistStore = create<WishlistState>((set, get) => ({
     const currentIds = get().savedProductIds
     const isCurrentlySaved = currentIds.includes(productId)
     
-    // OPTIMISTIC UPDATE: Instantly change the UI heart to Red
+    // OPTIMISTIC UPDATE
     if (isCurrentlySaved) {
       set({ savedProductIds: currentIds.filter(id => id !== productId) })
     } else {
       set({ savedProductIds: [...currentIds, productId] })
     }
 
-    // Background DB update
-    const response = await toggleWishlistItem(productId)
-    
-    if (!response.success) {
-      // 🚨 Rollback the UI if the database failed (e.g. user wasn't logged in)
-      set({ savedProductIds: currentIds })
+    try {
+      const response = await toggleWishlistItem(productId)
       
-      if (response.error === 'unauthorized') {
-        throw new Error('unauthorized')
+      if (!response.success) {
+        // Rollback on failure
+        set({ savedProductIds: currentIds })
+        
+        if (response.error === 'unauthorized') {
+          // Return a special value instead of throwing
+          return false
+        }
+        throw new Error('Failed to toggle')
       }
-      throw new Error('Failed to toggle')
+      
+      return response.added!
+    } catch (error) {
+      // Rollback on network errors
+      set({ savedProductIds: currentIds })
+      throw error
     }
-    
-    return response.added!
   },
 
   clearWishlist: () => {

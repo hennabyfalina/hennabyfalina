@@ -1,32 +1,30 @@
 // src/components/checkout/OrderSummary.tsx
 
 import Image from 'next/image'
-import Link from 'next/link'
-import React, { useState, useEffect } from 'react'
-import { getPublicUrl } from '@/lib/supabase/storage'
+import React, { useState } from 'react'
+import { getProductImageUrl } from '@/lib/supabase/storage'
 import { formatCurrency, numberToIndianWords } from '@/lib/utils'
-import { calculateTaxBreakdown } from '@/lib/tax'
-import StarRating from '@/components/product/StarRating'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, Lock } from 'lucide-react'
+
+interface OrderItem {
+  id: string
+  name: string
+  quantity: number
+  price: number
+  image?: string
+  original_price?: number
+}
 
 interface OrderSummaryProps {
-  items: Array<{
-    name: string
-    quantity: number
-    price: number
-    image?: string
-    original_price?: number
-    printing_type?: string
-    rating?: number | null
-    review_count?: number | null
-    artwork_urls?: string[] 
-    printing_instructions?: string | null
-    customization_details?: any // To handle potential nested structure
-  }>
+  items: OrderItem[]
   subtotal: number
   shipping: number
   total: number
   shippingMethod: 'delivery' | 'pickup'
+  ctaText?: string
+  onCtaClick?: () => void
+  isCtaDisabled?: boolean
+  showCtaSpinner?: boolean
 }
 
 function OrderSummary({
@@ -34,179 +32,129 @@ function OrderSummary({
   subtotal,
   shipping,
   total,
-  shippingMethod
+  shippingMethod,
+  ctaText,
+  onCtaClick,
+  isCtaDisabled,
+  showCtaSpinner
 }: OrderSummaryProps) {
-  const taxInfo = calculateTaxBreakdown(subtotal)
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0)
-
-  const [isExpanded, setIsExpanded] = useState(false)
-  const [isAtBottom, setIsAtBottom] = useState(false)
-  const [, setIsMobile] = useState(false)
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 1024)
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
-
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const target = e.currentTarget;
-    const scrollBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
-    // Use a small threshold (2px) to account for rounding errors
-    setIsAtBottom(scrollBottom <= 2);
-  };
+  const [isExpanded, setIsExpanded] = useState(true)
 
   return (
-    <div className="bg-white rounded-sm border border-[#D5D9D9] p-5 shadow-sm">
-      <div className="flex items-center justify-between mb-4 border-b border-[#D5D9D9] pb-2">
-        <h2 className="text-lg font-bold text-[#0F1111]">Order Summary</h2>
+    <div className="w-full bg-white flex flex-col gap-4 font-sans antialiased text-left select-none" suppressHydrationWarning>
+      
+      {/* 🚀 FIXED: Upscaled order header layout weight to premium Capitalized case states */}
+      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+        <h3 className="text-[27px] font-normal text-gray-900 tracking-tight capitalize">
+          Order Summary
+        </h3>
         <button
+          type="button"
           onClick={() => setIsExpanded(!isExpanded)}
-          className="p-1 text-[#007185] hover:text-[#C7511F] flex items-center gap-1 text-sm font-bold cursor-pointer transition-colors"
+          className="text-gray-400 hover:text-gray-900 flex items-center gap-1 text-[13px] font-semibold transition-colors cursor-pointer capitalize"
         >
-          {isExpanded ? 'Hide Details' : 'Show Details'}
-          {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          <span>{isExpanded ? 'Hide Items' : 'Show Items'}</span>
+          {isExpanded ? <ChevronUp className="w-4 h-4" strokeWidth={2} /> : <ChevronDown className="w-4 h-4" strokeWidth={2} />}
         </button>
       </div>
       
+      {/* Collapsible Product Shelf List */}
       {isExpanded && (
-        <>
-          <div 
-            onScroll={handleScroll}
-            className="flex flex-col gap-4 max-h-[40vh] overflow-y-auto overscroll-contain pr-1 no-scrollbar mb-4 relative"
-          >
-            {items.map((item, index) => {
-              let imageUrl = '/placeholder-product.svg'
-              if (item.image) {
-                imageUrl = item.image.startsWith('http') || item.image.startsWith('/') 
-                  ? item.image 
-                  : getPublicUrl(item.image)
-              }
-              
-              return (
-                <div key={index} className="flex gap-4 items-start border-b border-[#E7E7E7] pb-4 last:border-0 last:pb-0">
-                  <div className="relative w-16 h-16 rounded-sm bg-gray-50 border border-gray-100 overflow-hidden shrink-0">
-                    <Image 
-                      src={imageUrl}
-                      alt={item.name} 
-                      fill 
-                      sizes="64px"
-                      className="object-cover p-1 mix-blend-multiply" 
-                      unoptimized={imageUrl.startsWith('http') || imageUrl.includes('supabase')}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-base font-medium text-gray-900 line-clamp-2 leading-snug">{item.name}</h4>
-                    <div className="mt-1 mb-1">
-                      <StarRating rating={item.rating ?? 4.5} reviewCount={0} hideReviewCount={true} size="sm" />
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                      <p className="text-base font-bold text-gray-900 whitespace-nowrap">{formatCurrency(item.price)}</p>
-                      {item.original_price && item.original_price > item.price && (
-                        <p className="text-sm text-gray-500 line-through whitespace-nowrap">{formatCurrency(item.original_price)}</p>
-                      )}
-                    </div>
-                    
-                    {item.printing_type && item.printing_type !== 'None' && (
-                      <div className="mt-2 text-xs text-gray-700 bg-blue-50/50 p-2 rounded-md border border-blue-100/50 space-y-1">
-                        <p><span className="font-bold text-gray-900">Type:</span> {item.printing_type}</p>
-                        {(() => {
-                          const parseUrls = (data: any): string[] => {
-                            if (!data) return [];
-                            if (Array.isArray(data)) return data;
-                            if (typeof data === 'string') {
-                              try { const parsed = JSON.parse(data); if (Array.isArray(parsed)) return parsed; } catch { if (data.trim().length > 0) return [data]; }
-                            }
-                            return [];
-                          };
-                          const urls = parseUrls(item.artwork_urls).length > 0 ? parseUrls(item.artwork_urls) : parseUrls(item.customization_details?.artwork_urls);
-                          if (urls.length > 0) {
-                            return (
-                              <p className="text-[#007185] font-medium">
-                                ({urls.length} file{urls.length > 1 ? 's' : ''} included)
-                              </p>
-                            )
-                          }
-                          return null;
-                        })()}
-                        {(item.printing_instructions || item.customization_details?.printing_instructions) && (
-                          <p className="text-gray-600 italic">
-                            <span className="font-semibold not-italic text-gray-800">Notes:</span> &quot;{item.printing_instructions || item.customization_details?.printing_instructions}&quot;
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-start gap-2 mt-1 flex-wrap">
-                      <p className="text-sm text-gray-700 font-medium">Qty: {item.quantity}</p>
-                    </div>
-                  </div>
-                  <div className="text-base font-semibold text-gray-900 shrink-0 mt-0.5 whitespace-nowrap ml-2">
-                    {formatCurrency(item.price * item.quantity)}
+        <div className="flex flex-col gap-1 max-h-[260px] overflow-y-auto no-scrollbar mb-2 pr-1">
+          {items.map((item) => {
+            const imageUrl = item.image ? getProductImageUrl(item.image) : '/placeholder-product.svg'
+            
+            return (
+              <div key={item.id} className="flex gap-4 items-center py-3 px-1 w-full">
+                
+                {/* Weightless Thumbnail Framework Box */}
+                <div className="relative w-12 h-12 rounded-xl bg-[#F1F3F4] overflow-hidden shrink-0">
+                  <Image 
+                    src={imageUrl}
+                    alt={item.name} 
+                    fill
+                    sizes="48px"
+                    className="object-contain p-1 mix-blend-multiply" 
+                  />
+                </div>
+                
+                {/* Product Metadata Tiers */}
+                <div className="flex-1 min-w-0 space-y-0.5">
+                  <h4 className="text-[14px] sm:text-[15px] font-semibold text-gray-900 line-clamp-1 leading-tight capitalize">
+                    {item.name}
+                  </h4>
+                  <div className="flex items-center gap-2 text-[13px] text-gray-500 font-medium">
+                    <span className="capitalize">
+                      Qty: {item.quantity}
+                    </span>
                   </div>
                 </div>
-              )
-            })}
-            
-            {/* Scroll Indicator for Mobile/Small views */}
-            {items.length >= 2 && !isAtBottom && (
-              <div className="sticky bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none flex items-end justify-center pb-1">
-                <ChevronDown className="w-6 h-6 text-gray-900 animate-bounce stroke-[3]" />
-              </div>
-            )}
-          </div>
 
-          <div className="border-t border-[#D5D9D9] pt-4 mb-4" />
-        </>
+                {/* Right Cumulative Pricing Node */}
+                <div className="text-[14px] sm:text-[15px] font-normal text-gray-900 shrink-0 ml-auto">
+                  {formatCurrency(item.price * item.quantity)}
+                </div>
+
+              </div>
+            )
+          })}
+        </div>
       )}
 
-      <div className="space-y-2.5 text-base text-[#0F1111]">
-        <div className="flex justify-between gap-2">
-          <span>Items ({totalItems}):</span>
-          <span className="font-medium whitespace-nowrap ml-2">{formatCurrency(subtotal)}</span>
+      {/* 🚀 FIXED: Pure Capitalized typography calculation fields with enhanced medium-bold weighting */}
+      <div className="space-y-4 text-[14px] text-gray-500 font-normal pt-1 w-full">
+        
+        <div className="flex justify-between items-baseline">
+          <span className="capitalize">Subtotal ({totalItems} Items):</span>
+          <span className="text-gray-900 font-normal whitespace-nowrap">{formatCurrency(subtotal)}</span>
         </div>
 
-        <div className="flex justify-between gap-2 text-sm text-gray-600 pt-1">
-          <span>Base Price:</span>
-          <span className="whitespace-nowrap ml-2">{formatCurrency(taxInfo.basePrice)}</span>
-        </div>
-        <div className="flex justify-between gap-2 text-sm text-gray-600 pb-1">
-          <span>Total GST (18%):</span>
-          <span className="whitespace-nowrap ml-2">{formatCurrency(taxInfo.totalGST)}</span>
-        </div>
-
-        <div className="flex justify-between gap-2 border-t border-dashed border-gray-200 pt-2 mt-1">
-          <span>Shipping:</span>
-          {shippingMethod === 'pickup' ? (
-            <span className="font-medium text-green-600 whitespace-nowrap ml-2">Free (Pickup)</span>
-          ) : shipping === 0 ? (
-            <span className="font-medium text-green-600 whitespace-nowrap ml-2">Free</span>
-          ) : (
-            <span className="font-medium whitespace-nowrap ml-2">{formatCurrency(shipping)}</span>
-          )}
+        <div className="flex justify-between items-baseline border-t border-gray-50 pt-4 mt-1">
+          <span className="capitalize">Shipping Charges:</span>
+          <span className={shipping === 0 ? "text-emerald-700 font-semibold capitalize whitespace-nowrap" : "text-gray-900 font-normal whitespace-nowrap"}>
+            {shippingMethod === 'pickup' ? 'Free Pickup' : (shipping === 0 ? 'Complimentary' : formatCurrency(shipping))}
+          </span>
         </div>
         
-        <div className="border-t border-[#D5D9D9] pt-3 mt-3">
-          <div className="flex justify-between items-center gap-2">
-            <span className="text-lg font-bold text-[#B12704] shrink-0">Order Total:</span>
-            <span className="text-xl font-bold text-[#B12704] whitespace-nowrap ml-2">{formatCurrency(total)}</span>
+        {/* Total Final Execution Row */}
+        <div className="border-t border-gray-100 pt-4 mt-2 w-full">
+          <div className="flex justify-between items-baseline text-gray-900 font-semibold">
+            <span className="text-[23px] capitalize">Total Payable:</span>
+            <span className="text-[23px] font-bold tracking-tight text-gray-900 whitespace-nowrap">
+              {formatCurrency(total)}
+            </span>
           </div>
+          
           {total > 0 && (
-             <div className="text-right text-[13px] text-gray-500 mt-1.5 italic">
+            <div className="text-right text-[15px] text-gray-400 font-normal mt-2 italic tracking-wide">
               {numberToIndianWords(total)}
             </div>
           )}
-          <div className="mt-4 pt-4 border-t border-gray-100 text-center">
-            <Link 
-              href="/cart" 
-              className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer font-medium"
-            >
-              Return to Cart
-            </Link>
-          </div>
         </div>
+
       </div>
+
+      {/* 💻 Desktop Smart Morphing CTA Button */}
+      {ctaText && onCtaClick && (
+        <div className="hidden md:block pt-4 w-full">
+          <button
+            type="button"
+            onClick={onCtaClick}
+            disabled={isCtaDisabled}
+            className="w-full h-12 bg-black hover:bg-stone-900 text-white rounded-xl text-[15px] font-normal tracking-wide transition-all disabled:opacity-50 cursor-pointer normal shadow-none outline-none flex items-center justify-center gap-2"
+          >
+            {showCtaSpinner ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <>
+                {ctaText.includes('Pay') && <Lock className="w-4 h-4 text-white/90" strokeWidth={2} />}
+                <span>{ctaText}</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

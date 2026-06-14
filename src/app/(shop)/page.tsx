@@ -1,12 +1,11 @@
 // src/app/(shop)/page.tsx
 
 import { Metadata } from 'next'
-import { getFeaturedProductsWithSignedUrls } from '@/services/product.service'
 import HeroSection from '@/components/home/HeroSection'
 import CategorySection from '@/components/home/CategorySection'
+import DesignCollectionsSection from '@/components/home/DesignCollectionsSection'
+import ServicesSection from '@/components/home/ServicesSection'
 import FeaturedProductsSection from '@/components/home/FeaturedProductsSection'
-import CustomOrderSection from '@/components/home/CustomOrderSection'
-import WholesaleSection from '@/components/home/WholesaleSection'
 import WhyChooseUsSection from '@/components/home/WhyChooseUsSection'
 import TestimonialsSection from '@/components/home/TestimonialsSection'
 import ContactSection from '@/components/home/ContactSection'
@@ -14,15 +13,15 @@ import { createClient } from '@/lib/supabase/server'
 import dynamic from 'next/dynamic'
 
 export const metadata: Metadata = {
-  title: 'Razack Packaging Centre | Wholesale Packaging Solutions',
-  description: 'Premium wholesale packaging, readymade boxes, and custom printing solutions.',
+  title: 'Henna by falina | Premium Organic Henna Cones & Essentials',
+  description: 'Discover premium, 100% chemical-free organic henna cones, pure essential oils, triple-sifted powder, and custom bridal artist kits.',
   alternates: {
-    canonical: 'https://www.razackpackagingcentre.com',
+    canonical: 'https://www.hennabyfalina.com',
   },
 }
 
 const RecentlyBoughtCarousel = dynamic(() => import('@/components/product/RecentlyBoughtCarousel'), {
-  loading: () => <div className="w-full h-[340px] bg-white border border-gray-100 animate-pulse rounded-sm shadow-sm" />
+  loading: () => <div className="w-full h-[340px] bg-white border border-gray-50 animate-pulse rounded-2xl" />
 })
 
 export default async function HomePage() {
@@ -30,47 +29,74 @@ export default async function HomePage() {
   const { data: { user } } = await supabase.auth.getUser()
   const userId = user?.id || null
 
-  const { data: categories } = await supabase
+  const { data: allCategories } = await supabase
     .from('categories')
     .select(`
       id,
       name,
       slug,
       image,
+      type,
       products (id)
     `)
     .order('display_order', { ascending: true })
 
-  const categoriesWithCount = categories?.map(category => ({
+  const shopCategories = allCategories?.filter(c => c.type === 'shop') || []
+
+  const { data: databaseCollections } = await supabase
+    .from('collections')
+    .select('*')
+    .order('display_order', { ascending: true })
+
+  const categoriesWithCount = shopCategories.map(category => ({
     ...category,
     product_count: category.products?.length || 0,
-  })) || []
+  }))
 
-  const featuredProducts = await getFeaturedProductsWithSignedUrls(8)
+  const { data: featuredProducts } = await supabase
+    .from('products')
+    .select('*')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
+    .limit(8)
 
   return (
-    <div className="flex-1 flex flex-col w-full bg-[#eaeded] pb-8" suppressHydrationWarning>
-      {/* Hero spans full width on mobile, max-width on desktop */}
-      <div className="w-full max-w-[1500px] mx-auto relative" suppressHydrationWarning>
+    <div className="flex-1 flex flex-col w-full bg-white pb-16 select-none font-sans antialiased text-gray-900" suppressHydrationWarning>
+      <div className="w-full max-w-[1600px] mx-auto relative">
+        
+        {/* Block 1: Premium Immersive Hero Area */}
         <HeroSection />
         
-        {/* Main Content Container with negative margin to pull up over hero gradient */}
-        <div className="px-2 sm:px-4 relative z-10 -mt-12 sm:-mt-32 space-y-4 sm:space-y-6" suppressHydrationWarning>
+        {/* Main Content Layout Block (Clean, un-boxed spacing standard) */}
+        <div className="px-4 sm:px-8 relative z-10 -mt-8 sm:-mt-16 space-y-12 sm:space-y-20 max-w-[1400px] mx-auto w-full">
+          
+          {/* Block 2: Visual Mini-Navigation Bubbles */}
           <CategorySection categories={categoriesWithCount} />
           
-          {/* Recently Bought Carousel */}
+          {/* Block 3: Returning Shopper Personalization Shelf */}
           {userId && <RecentlyBoughtCarousel userId={userId} />}
           
-          <FeaturedProductsSection products={featuredProducts} title="Featured Products" />
+          {/* Block 4: Featured Products Shelf */}
+          <FeaturedProductsSection 
+            products={featuredProducts || []} 
+            title="Featured collection" 
+          />
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6" suppressHydrationWarning>
-            <WholesaleSection />
-            <CustomOrderSection />
-          </div>
-          
+          {/* 🌟 NEW Block 2.5: Curated Design Portfolios Horizontal Swiper Strip */}
+          <DesignCollectionsSection collections={databaseCollections || []} />
+
+          {/* 🌟 NEW Block 2.6: Bespoke Studio Services Section */}
+          <ServicesSection />
+
+          {/* Block 5: Core Value Pillars & Trust Framework */}
           <WhyChooseUsSection />
+          
+          {/* Block 6: Social Proof & Testimonials */}
           <TestimonialsSection />
+          
+          {/* Block 7: Clean Connect Footer Area */}
           <ContactSection />
+          
         </div>
       </div>
     </div>

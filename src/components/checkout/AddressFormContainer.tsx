@@ -32,16 +32,15 @@ export default function AddressFormContainer({
   const isEditing = addressMode === 'EDITING'
 
   return (
-    <div className="bg-white rounded-sm">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-bold text-[#0F1111] text-lg">
-          {isEditing 
-            ? (isDelivery ? 'Edit address' : 'Edit Pickup Contact')
-            : (isDelivery ? 'Add a new address' : 'Add Pickup Details')
-          }
-        </h3>
+    <div className="bg-white w-full flex flex-col gap-4 animate-fade-in font-sans antialiased text-left select-none -mt-4">
+      
+      <div className="flex items-start justify-between pb-1">
+        <h4 className="font-normal text-[27px] text-gray-900 tracking-tight capitalize">
+          {isDelivery ? 'Delivery Address' : 'Pickup Details'}
+        </h4>
       </div>
 
+      {/* Embedded Form Field Slate */}
       <AddressForm 
         formData={formData} 
         onChange={updateFormField} 
@@ -49,26 +48,6 @@ export default function AddressFormContainer({
         hideTitle={true}
       />
 
-      <div className={`mt-6 flex items-center gap-3 pt-4 border-t border-[#D5D9D9] ${savedAddressesLength === 0 ? 'justify-center' : 'justify-end'}`}>
-        {isEditing && (
-          <button 
-            onClick={onCancel} 
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-sm transition-colors cursor-pointer border border-[#D5D9D9]"
-          >
-            Cancel
-          </button>
-        )}
-        <button 
-          onClick={onSave} 
-          disabled={!canSaveAddress || isSavingAddress} 
-          className="px-6 py-2 text-sm font-bold text-[#0F1111] bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-        >
-          {isSavingAddress 
-            ? 'Saving...' 
-            : (isEditing ? (isDelivery ? 'Update Address' : 'Update Contact') : (isDelivery ? 'Save Address' : 'Save Contact Details'))
-          }
-        </button>
-      </div>
     </div>
   )
 }

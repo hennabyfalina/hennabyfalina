@@ -1,11 +1,16 @@
-razack-packaging-centre/
+henna-by-falina/
 ├── public/
 │   ├── fonts/
+│   │   ├── Inter-Sans-VariableFont.ttf
 │   │   └── Inter-VariableFont.ttf
+│   ├── alert.mp3
 │   ├── cat.jpg
-│   ├── fallback-ce627215c0e4a9af.js
 │   ├── file.svg
 │   ├── globe.svg
+│   ├── hero-henna-cone.jpg
+│   ├── hero-mehendi.jpg
+│   ├── hero-oil-bottle.jpg
+│   ├── hero-stencil.jpg
 │   ├── icon-192x192.png
 │   ├── icon-512x512.png
 │   ├── logo.png
@@ -13,14 +18,9 @@ razack-packaging-centre/
 │   ├── placeholder-category.svg
 │   ├── placeholder-loading.svg
 │   ├── placeholder-product.svg
-│   ├── privacy.html
+│   ├── privacy-policy.html
 │   ├── razorpay-icon.jpg
-│   ├── Roboto-Bold.ttf
-│   ├── Roboto-Regular.ttf
-│   ├── sw.js
-│   ├── swe-worker-5c72df51bb1f6ee0.js
-│   ├── window.svg
-│   └── workbox-f1770938.js
+│   └── window.svg
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/
@@ -28,15 +28,21 @@ razack-packaging-centre/
 │   │   │   │   └── page.tsx
 │   │   │   └── layout.tsx
 │   │   ├── (shop)/
+│   │   │   ├── about/
+│   │   │   │   └── page.tsx
 │   │   │   ├── cart/
 │   │   │   │   ├── layout.tsx
 │   │   │   │   └── page.tsx
 │   │   │   ├── checkout/
 │   │   │   │   ├── layout.tsx
 │   │   │   │   └── page.tsx
-│   │   │   ├── contact/
+│   │   │   ├── collections/
+│   │   │   │   ├── [slug]/
+│   │   │   │   │   ├── loading.tsx
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── loading.tsx
 │   │   │   │   └── page.tsx
-│   │   │   ├── custom-order/
+│   │   │   ├── contact-support/
 │   │   │   │   └── page.tsx
 │   │   │   ├── faq/
 │   │   │   │   └── page.tsx
@@ -44,7 +50,7 @@ razack-packaging-centre/
 │   │   │   │   └── [id]/
 │   │   │   │       ├── loading.tsx
 │   │   │   │       └── page.tsx
-│   │   │   ├── privacy/
+│   │   │   ├── privacy-policy/
 │   │   │   │   └── page.tsx
 │   │   │   ├── product/
 │   │   │   │   └── [slug]/
@@ -59,9 +65,6 @@ razack-packaging-centre/
 │   │   │   │   │   ├── AddressesClient.tsx
 │   │   │   │   │   ├── loading.tsx
 │   │   │   │   │   └── page.tsx
-│   │   │   │   ├── contact/
-│   │   │   │   │   ├── loading.tsx
-│   │   │   │   │   └── page.tsx
 │   │   │   │   ├── orders/
 │   │   │   │   │   ├── loading.tsx
 │   │   │   │   │   └── page.tsx
@@ -73,6 +76,7 @@ razack-packaging-centre/
 │   │   │   │   │   ├── page.tsx
 │   │   │   │   │   └── SecurityClient.tsx
 │   │   │   │   ├── settings/
+│   │   │   │   │   ├── loading.tsx
 │   │   │   │   │   └── page.tsx
 │   │   │   │   ├── loading.tsx
 │   │   │   │   ├── page.tsx
@@ -82,11 +86,10 @@ razack-packaging-centre/
 │   │   │   ├── search/
 │   │   │   │   ├── loading.tsx
 │   │   │   │   └── page.tsx
-│   │   │   ├── support/
+│   │   │   ├── services/
+│   │   │   │   ├── loading.tsx
 │   │   │   │   └── page.tsx
-│   │   │   ├── terms/
-│   │   │   │   └── page.tsx
-│   │   │   ├── wholesale/
+│   │   │   ├── terms-conditions/
 │   │   │   │   └── page.tsx
 │   │   │   ├── wishlist/
 │   │   │   │   ├── page.tsx
@@ -136,8 +139,6 @@ razack-packaging-centre/
 │   │   │   └── page.tsx
 │   │   ├── api/
 │   │   │   ├── admin/
-│   │   │   │   ├── artwork/
-│   │   │   │   │   └── route.ts
 │   │   │   │   ├── customers/
 │   │   │   │   │   ├── [id]/
 │   │   │   │   │   │   └── route.ts
@@ -154,8 +155,6 @@ razack-packaging-centre/
 │   │   │   │       ├── [id]/
 │   │   │   │       │   └── route.ts
 │   │   │   │       └── route.ts
-│   │   │   ├── artwork/
-│   │   │   │   └── route.ts
 │   │   │   ├── checkout/
 │   │   │   │   └── reserve-stock/
 │   │   │   │       └── route.ts
@@ -217,81 +216,77 @@ razack-packaging-centre/
 │   │   │   └── StockUpdateModal.tsx
 │   │   ├── auth/
 │   │   │   ├── GoogleOneTap.tsx
-│   │   │   └── NameModal.tsx
+│   │   │   ├── NameModal.tsx
+│   │   │   └── PasskeyOnboardingPrompt.tsx
 │   │   ├── cart/
 │   │   │   ├── CartAlertsModal.tsx
-│   │   │   ├── CartRecommendations.tsx
-│   │   │   └── StickyCartBar.tsx
+│   │   │   ├── CartQuantitySelector.tsx
+│   │   │   └── CartRecommendations.tsx
 │   │   ├── checkout/
 │   │   │   ├── AddressForm.tsx
 │   │   │   ├── AddressFormContainer.tsx
-│   │   │   ├── AddressSelector.tsx
 │   │   │   ├── CartChangedModal.tsx
 │   │   │   ├── CheckoutErrorAlert.tsx
 │   │   │   ├── CheckoutHeader.tsx
+│   │   │   ├── CheckoutProgressBar.tsx
 │   │   │   ├── CheckoutStepCard.tsx
 │   │   │   ├── DeliveryMethod.tsx
 │   │   │   ├── OrderSummary.tsx
 │   │   │   ├── PersistentCheckoutBar.tsx
-│   │   │   ├── ReviewOrderModal.tsx
 │   │   │   ├── SecureLoadingOverlay.tsx
 │   │   │   ├── SessionExpiredModal.tsx
 │   │   │   └── StorePickupInfo.tsx
+│   │   ├── collections/
+│   │   │   ├── InquiryForm.tsx
+│   │   │   └── LookbookOverlay.tsx
 │   │   ├── home/
 │   │   │   ├── CategorySection.tsx
 │   │   │   ├── ContactSection.tsx
-│   │   │   ├── CustomOrderSection.tsx
+│   │   │   ├── DesignCollectionsSection.tsx
 │   │   │   ├── FeaturedProductsSection.tsx
 │   │   │   ├── HeroSection.tsx
-│   │   │   ├── ProductCard.tsx
+│   │   │   ├── ServicesSection.tsx
 │   │   │   ├── TestimonialsSection.tsx
-│   │   │   ├── WholesaleSection.tsx
 │   │   │   └── WhyChooseUsSection.tsx
 │   │   ├── layout/
 │   │   │   ├── AccountModal.tsx
-│   │   │   ├── CategoriesModal.tsx
 │   │   │   ├── Footer.tsx
 │   │   │   ├── MobileBottomNav.tsx
-│   │   │   ├── MoreMenuModal.tsx
+│   │   │   ├── MobileSidebar.tsx
 │   │   │   └── Navbar.tsx
 │   │   ├── order/
-│   │   │   ├── ArtworkDownloadButton.tsx
-│   │   │   ├── ClearDraftsOnMount.tsx
 │   │   │   ├── InvoiceLink.tsx
 │   │   │   ├── PrintButton.tsx
 │   │   │   ├── RetryPaymentButton.tsx
-│   │   │   ├── TrackingTimeline.tsx
-│   │   │   └── ViewArtworkButton.tsx
+│   │   │   └── TrackingTimeline.tsx
 │   │   ├── pdf/
 │   │   │   └── InvoiceDocument.tsx
 │   │   ├── product/
 │   │   │   ├── AddToCartButton.tsx
-│   │   │   ├── B2BTermsAgreement.tsx
 │   │   │   ├── BuyNowButton.tsx
-│   │   │   ├── EditCartConfirmModal.tsx
-│   │   │   ├── EditConflictModal.tsx
 │   │   │   ├── FilterDrawer.tsx
 │   │   │   ├── FilterSidebar.tsx
 │   │   │   ├── FrequentlyBoughtTogether.tsx
-│   │   │   ├── ItemMissingModal.tsx
-│   │   │   ├── PrintingOptions.tsx
+│   │   │   ├── ProductActionDock.tsx
 │   │   │   ├── ProductCard.tsx
 │   │   │   ├── ProductHorizontalCard.tsx
 │   │   │   ├── ProductImage.tsx
 │   │   │   ├── ProductImageGallery.tsx
 │   │   │   ├── ProductInteractiveSection.tsx
+│   │   │   ├── ProductPageHeader.tsx
 │   │   │   ├── ProductsGrid.tsx
 │   │   │   ├── ProductWishlistButton.tsx
 │   │   │   ├── QuantitySelector.tsx
-│   │   │   ├── QuickViewModal.tsx
 │   │   │   ├── RecentlyBoughtCarousel.tsx
 │   │   │   ├── RecentlyViewed.tsx
 │   │   │   ├── RelatedProducts.tsx
 │   │   │   ├── SaveViewedProduct.tsx
 │   │   │   ├── ShareButton.tsx
+│   │   │   ├── ShareModal.tsx
 │   │   │   ├── StarRating.tsx
-│   │   │   ├── StickyBuyBar.tsx
 │   │   │   └── TrustBadges.tsx
+│   │   ├── profile/
+│   │   │   └── PasskeyManager.tsx
 │   │   ├── providers/
 │   │   │   ├── BroadcastListener.tsx
 │   │   │   └── WishlistProvider.tsx
@@ -308,7 +303,6 @@ razack-packaging-centre/
 │   │   │   ├── Modal.tsx
 │   │   │   ├── OrderStatusBadge.tsx
 │   │   │   ├── PhoneInput.tsx
-│   │   │   ├── PreviewModal.tsx
 │   │   │   ├── PriceRangeInputs.tsx
 │   │   │   ├── PWAUpdater.tsx
 │   │   │   ├── Section.tsx
@@ -318,7 +312,6 @@ razack-packaging-centre/
 │   │   └── CartSyncProvider.tsx
 │   ├── config/
 │   │   ├── admin.ts
-│   │   ├── checkout.ts
 │   │   ├── navigation.ts
 │   │   └── site.ts
 │   ├── hooks/
@@ -326,13 +319,13 @@ razack-packaging-centre/
 │   │   ├── useCart.ts
 │   │   ├── useCartSignature.ts
 │   │   ├── useCheckoutState.ts
+│   │   ├── useCheckoutTimer.ts
 │   │   ├── useIdleTimeout.ts
 │   │   ├── useRazorpayCheckout.ts
 │   │   └── useThemeObserver.ts
 │   ├── lib/
 │   │   ├── supabase/
 │   │   │   ├── admin.ts
-│   │   │   ├── b2b-storage.ts
 │   │   │   ├── client.ts
 │   │   │   ├── server.ts
 │   │   │   └── storage.ts
@@ -341,8 +334,8 @@ razack-packaging-centre/
 │   │   ├── compression.ts
 │   │   ├── constants.ts
 │   │   ├── idempotency.ts
+│   │   ├── pricing.ts
 │   │   ├── states.ts
-│   │   ├── tax.ts
 │   │   └── utils.ts
 │   ├── services/
 │   │   ├── admin.service.ts
@@ -356,9 +349,9 @@ razack-packaging-centre/
 │   │   └── wishlist.service.ts
 │   ├── store/
 │   │   ├── cart.store.ts
-│   │   ├── productDraft.store.ts
-│   │   ├── quickview.store.ts
+│   │   ├── recentlyViewed.store.ts
 │   │   ├── theme.store.ts
+│   │   ├── variant.store.ts
 │   │   └── wishlist.store.ts
 │   ├── types/
 │   │   └── database.types.ts

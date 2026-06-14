@@ -1,3 +1,5 @@
+// src/hooks/useCart.ts
+
 import { useEffect, useRef } from 'react'
 import { useCartStore } from '@/store/cart.store'
 
@@ -8,8 +10,11 @@ export const useCart = () => {
   const removeItem = useCartStore((state) => state.removeItem)
   const updateQuantity = useCartStore((state) => state.updateQuantity)
   const clearCart = useCartStore((state) => state.clearCart)
-  const getTotalItems = useCartStore((state) => state.getTotalItems)
-  const getTotalPrice = useCartStore((state) => state.getTotalPrice)
+  
+  // ⚡ OPTIMIZATION: Pull computed values using Zustand selectors natively
+  const totalItems = useCartStore((state) => state.getTotalItems())
+  const totalPrice = useCartStore((state) => state.getTotalPrice())
+  
   const loadCart = useCartStore((state) => state.loadCart)
   const refreshCartPrices = useCartStore((state) => state.refreshCartPrices)
 
@@ -17,6 +22,7 @@ export const useCart = () => {
 
   useEffect(() => {
     if (!hasRefreshed.current) {
+      // Automatically triggers our dynamic price drift & catalog safety shield on mount
       refreshCartPrices()
       hasRefreshed.current = true
     }
@@ -29,8 +35,8 @@ export const useCart = () => {
     removeItem,
     updateQuantity,
     clearCart,
-    totalItems: getTotalItems(),
-    totalPrice: getTotalPrice(),
+    totalItems,
+    totalPrice,
     loadCart,
     refreshCartPrices,
   }

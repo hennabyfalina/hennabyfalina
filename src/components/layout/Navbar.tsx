@@ -11,11 +11,14 @@ import { signOut } from '@/services/auth.service'
 import Image from 'next/image'
 import { useCartStore } from '@/store/cart.store'
 import { useWishlistStore } from '@/store/wishlist.store'
-import { ShoppingCart, UserCircle2, Search, ChevronDown, X, Heart, Loader2 } from 'lucide-react'
+import { ShoppingBag, UserCircle2, Search, ChevronDown, X, Heart, Loader2, Menu } from 'lucide-react'
 import { EXPLORE_LINKS, CATEGORIES_LIST } from '@/config/navigation'
 import NameModal from '@/components/auth/NameModal'
 import { searchProductsWithSignedUrls } from '@/services/product.service'
 import { siteConfig } from '@/config/site'
+
+// 🚀 WE WILL BUILD THIS NEXT
+import MobileSidebar from '@/components/layout/MobileSidebar'
 
 export default function Navbar() {
   const pathname = usePathname()
@@ -33,11 +36,15 @@ export default function Navbar() {
   const [badgePop, setBadgePop] = useState(false)
   const cartItemCount = cartItems.reduce((acc, item) => acc + item.quantity, 0)
 
-  // New states for autocomplete
   const [suggestions, setSuggestions] = useState<any[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
-  const searchContainerRef = useRef<HTMLDivElement>(null)
+  const mobileSearchRef = useRef<HTMLDivElement>(null)
+  const desktopSearchRef = useRef<HTMLDivElement>(null)
+
+  // 🚀 PM UPGRADE: Mobile State Controllers
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [showMobileSearch, setShowMobileSearch] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -60,18 +67,24 @@ export default function Navbar() {
     }
   }, [cartItemCount, mounted])
 
-  // Click outside to close autocomplete dropdown
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node;
+      const inMobile = mobileSearchRef.current?.contains(target);
+      const inDesktop = desktopSearchRef.current?.contains(target);
+      
+      if (!inMobile && !inDesktop) {
         setShowSuggestions(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
   }, [])
 
-  // Debounced search for live suggestions
   useEffect(() => {
     const timer = setTimeout(async () => {
       if (searchQuery.trim().length >= 2 && searchQuery.trim() !== searchParams.get('q')) {
@@ -93,6 +106,7 @@ export default function Navbar() {
     return () => clearTimeout(timer)
   }, [searchQuery, searchParams])
 
+  // Hide entirely on checkout to preserve deep-focus funnel
   if (pathname.startsWith('/checkout')) return null
 
   const handleSearch = (e: React.FormEvent) => {
@@ -102,6 +116,8 @@ export default function Navbar() {
     } else {
       router.push(`/search`)
     }
+    setShowSuggestions(false)
+    setShowMobileSearch(false)
   }
 
   const handleLogoutClick = () => {
@@ -129,10 +145,6 @@ export default function Navbar() {
     return `${maskedName}@${maskedMain}.${ext}`
   }
 
-  const isPartiallyActive = (path: string) => pathname.startsWith(path)
-  const isExactActive = (path: string) => pathname === path
-
-  // 🚀 Capture the exact URL the user is currently on
   let currentPath = pathname
   if (searchParams.toString()) currentPath += `?${searchParams.toString()}`
   const encodedCurrentUrl = encodeURIComponent(currentPath)
@@ -140,243 +152,284 @@ export default function Navbar() {
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'User'
   const displayEmail = isAdmin ? getMaskedEmail(user?.email || '') : user?.email
 
-  const isAccountActive = isPartiallyActive('/profile') || isPartiallyActive('/admin-gate') || isPartiallyActive('/login')
+  // Detect product page to optionally hide nav elements if needed (keeping standard for now)
+  const isProductPage = pathname.startsWith('/product/') || (pathname.startsWith('/products') && searchParams.get('category'))
 
   return (
     <>
-      {/* Sticky wrapper for navbar */}
-      <div className="sticky top-0 z-50 w-full print:hidden" suppressHydrationWarning>
-        <header className="w-full bg-white text-gray-900 border-b border-gray-200 shadow-none" suppressHydrationWarning>
-        <div className="max-w-[1400px] mx-auto px-2 sm:px-4 lg:px-6 py-1.5 sm:py-2" suppressHydrationWarning>
-          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 xl:gap-6" suppressHydrationWarning>
+      {/* 🚀 FIXED: Invisible spacer block matches exact Navbar height to prevent layout shift beneath the fixed Navbar */}
+      <div className={`w-full print:hidden h-[61px] sm:h-[65px] ${isProductPage ? 'hidden md:block' : ''}`} aria-hidden="true" />
+      
+      <div className={`fixed top-0 left-0 right-0 z-50 w-full print:hidden bg-[#F0F7FF] ${isProductPage ? 'hidden md:block' : ''}`} suppressHydrationWarning>
+        <header className="w-full text-gray-900 border-b border-blue-100/50" suppressHydrationWarning>
+          <div className="max-w-[1100px] mx-auto px-4 sm:px-6 py-1.5 sm:py-2" suppressHydrationWarning>
             
-            <div className="flex items-center justify-between shrink-0 w-full xl:w-auto" suppressHydrationWarning>
-              <Link href="/" className="flex items-center gap-2 text-lg sm:text-xl lg:text-2xl font-extrabold tracking-tight text-gray-900 transition-opacity p-1 rounded-sm">
-                <div className="relative w-8 h-8 sm:w-9 sm:h-9 overflow-hidden rounded-full border border-gray-100 shadow-sm shrink-0">
-                  <Image
-                    src="/logo.png"
-                    alt={`${siteConfig.name} Logo`}
-                    fill
-                    sizes="(max-width: 640px) 32px, 36px"
-                    className="object-cover"
-                    priority
-                  />
+            {/* MASTER CONTAINER */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-12 w-full" suppressHydrationWarning>
+              
+              {/* ========================================================================= */}
+              {/* 📱 MOBILE HEADER (HAMBURGER | LOGO | SEARCH & CART)                       */}
+              {/* ========================================================================= */}
+              <div className="flex md:hidden items-center justify-between w-full h-12" suppressHydrationWarning>
+                
+                {/* Left: Drawer Toggle */}
+                <div className="flex items-center shrink-0">
+                  <button onClick={() => setIsSidebarOpen(true)} className="p-1 -ml-1 text-gray-950 cursor-pointer outline-none transition-transform active:scale-95">
+                    <Menu className="w-[22px] h-[22px]" strokeWidth={1.5} />
+                  </button>
                 </div>
-                <span className="hidden sm:inline">{siteConfig.name}</span>
-                <span className="sm:hidden">{siteConfig.shortName}</span>
-              </Link>
 
-              {/* 🚨 NEW: Mobile Top-Right - Clean Standalone Wishlist */}
-              <div className="flex xl:hidden items-center pr-1" suppressHydrationWarning>
-                {!isAdmin && (
-                  <Link href="/wishlist" className="relative flex items-center p-1.5" aria-label="Your Wishlist">
-                    <Heart className={`w-[22px] h-[22px] ${isExactActive('/wishlist') ? 'fill-red-500 text-red-500' : 'text-gray-600 hover:text-red-500 transition-colors'}`} strokeWidth={2} />
+                {/* Middle: Integrated Search Bar */}
+                <div className="flex-1 px-3">
+                  <div ref={mobileSearchRef} className="relative w-full">
+                    <form onSubmit={handleSearch} className="relative w-full">
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                        <Search className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.5} />
+                      </div>
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true) }}
+                        placeholder="Search products..."
+                        autoComplete="off"
+                        spellCheck="false"
+                        className="w-full bg-white border border-blue-100 rounded-full py-1.5 pl-9 pr-4 text-[14px] md:text-[13px] text-gray-900 placeholder:text-gray-400 focus:border-blue-300 focus:ring-1 focus:ring-blue-50 outline-none transition-all capitalize"
+                      />
+                    </form>
+
+                    {/* Mobile Autocomplete Suggestions */}
+                    {showSuggestions && suggestions.length > 0 && (
+                      <div className="absolute top-[calc(100%+8px)] left-0 right-0 bg-white border border-gray-100 shadow-2xl rounded-xl z-[60] overflow-hidden">
+                        <ul className="py-2">
+                          {suggestions.map((product) => (
+                            <li key={product.id}>
+                              <Link href={`/product/${product.slug}`} onClick={() => { setShowSuggestions(false); setShowMobileSearch(false); }} className="flex items-center px-4 py-3 hover:bg-gray-50 cursor-pointer group transition-colors text-left">
+                                <Search className="w-4 h-4 text-gray-300 mr-4 shrink-0" strokeWidth={2} />
+                                <span className="text-[13px] font-medium text-gray-600 line-clamp-1 capitalize">{product.name}</span>
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right: Wishlist Icon */}
+                <div className="flex items-center shrink-0">
+                  <Link href="/wishlist" className="relative flex items-center p-1 outline-none transition-transform active:scale-95" aria-label="Wishlist">
+                    <Heart className="w-[20px] h-[20px] text-gray-950" strokeWidth={1.5} />
                     {mounted && wishlistItems.length > 0 && (
-                      <span className="absolute -top-0.5 -right-1 bg-[#f08804] text-[#131921] text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                      <span className="absolute -top-0.5 -right-1 bg-black text-white text-[9px] font-bold w-[17px] h-[17px] rounded-full flex items-center justify-center shadow-none">
                         {wishlistItems.length}
                       </span>
                     )}
                   </Link>
-                )}
+                </div>
+
               </div>
-            </div>
 
-            <div ref={searchContainerRef} className="flex flex-1 w-full max-w-4xl relative z-40" suppressHydrationWarning>
-              <form onSubmit={handleSearch} className="flex flex-1 w-full relative rounded-md overflow-hidden bg-white border border-gray-300 focus-within:border-[#007185] focus-within:ring-1 focus-within:ring-[#007185] transition-all shadow-none">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onFocus={() => {
-                    if (suggestions.length > 0) setShowSuggestions(true)
+              {/* ========================================================================= */}
+              {/* 💻 DESKTOP HEADER LOGO & DROPDOWNS (Hidden on Mobile)                     */}
+              {/* ========================================================================= */}
+              <div className="hidden md:flex items-center gap-10 shrink-0" suppressHydrationWarning>
+                <Link 
+                  href="/" 
+                  onClick={(e) => {
+                    if (pathname === '/') {
+                      e.preventDefault();
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
                   }}
-                  placeholder="Search for packaging materials, boxes..."
-                  className="w-full pl-4 pr-14 sm:pr-16 py-2 text-sm text-gray-900 bg-transparent focus:outline-none transition-colors placeholder-gray-500"
-                />
-                {searchQuery && (
-                  <div className="absolute right-20 sm:right-24 top-1/2 -translate-y-1/2 flex items-center">
-                    {isSearching && <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />}
+                  className="flex items-center gap-3 text-xl lg:text-2xl font-normal text-gray-900 transition-opacity hover:opacity-80">
+                  <div className="relative w-8 h-8 shrink-0">
+                    <Image src="/logo.png" alt={`${siteConfig.name} Logo`} fill sizes="32px" className="object-contain" priority />
                   </div>
-                )}
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchQuery('')
-                      setSuggestions([])
-                      setShowSuggestions(false)
-                      if (pathname === '/search') router.push('/products')
-                    }}
-                    className="absolute right-12 sm:right-14 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 focus:outline-none p-1.5 cursor-pointer bg-white"
-                    aria-label="Clear search"
-                  >
-                    <X className="w-4 h-4 md:w-5 md:h-5" />
-                  </button>
-                )}
-                <button type="submit" className="absolute right-0 top-0 bottom-0 w-12 sm:w-14 bg-[#febd69] hover:bg-[#f3a847] text-gray-900 transition-colors flex items-center justify-center focus:outline-none z-10 border-l border-[#f3a847] cursor-pointer" aria-label="Search">
-                  <Search className="w-5 h-5 stroke-[2.5]" />
-                </button>
-              </form>
+                  <span className="leading-tight tracking-tight text-[20px] font-normal capitalize" style={{ fontFamily: 'cursive' }}>
+                    {siteConfig.name}
+                  </span>
+                </Link>
 
-              {/* Autocomplete Suggestions Dropdown */}
-              {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-gray-200 shadow-2xl rounded-sm z-50 overflow-hidden" suppressHydrationWarning>
-                  <ul className="py-1">
-                    {suggestions.map((product) => (
-                      <li key={product.id}>
-                        <Link 
-                          href={`/product/${product.slug}`}
-                          onClick={() => setShowSuggestions(false)}
-                          className="flex items-center px-4 py-2.5 hover:bg-gray-50 cursor-pointer group border-b border-gray-50 last:border-0"
-                        >
-                          <Search className="w-4 h-4 text-gray-400 mr-3 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <span className="text-sm text-gray-900 font-medium line-clamp-1 group-hover:text-[#C7511F]">
-                              {product.name}
-                            </span>
-                          </div>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-
-            <div className="hidden xl:flex items-center gap-1 shrink-0" suppressHydrationWarning>
-              <nav className="flex items-center gap-1">
-
-                {/* Categories Dropdown - always visible */}
-                <div className="relative group h-full" suppressHydrationWarning>
-                  <button className="flex items-center gap-1 px-3 py-2 border border-transparent hover:border-gray-200 hover:bg-gray-50 rounded-sm transition-all outline-none text-gray-800 font-bold text-sm cursor-pointer">
-                    Categories
-                    <ChevronDown className="w-4 h-4 text-gray-500 group-hover:text-gray-900 transition-colors" />
-                  </button>
-                  <div className="absolute top-full left-0 mt-0.5 w-64 bg-white rounded-sm shadow-xl border border-gray-200 py-3 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150" suppressHydrationWarning>
-                    {CATEGORIES_LIST.map((cat) => (
-                      <Link
-                        key={cat.id}
-                        href={cat.href}
-                        target="_blank"
-                        className="block px-5 py-2 text-sm text-gray-700 hover:text-[#007185] hover:bg-gray-100 transition-colors"
-                      >
-                        {cat.label}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Explore Dropdown - hide for admin */}
-                {!isAdmin && (
-                  <div className="relative group h-full" suppressHydrationWarning>
-                    <button className="flex items-center gap-1 px-3 py-2 border border-transparent hover:border-gray-200 hover:bg-gray-50 rounded-sm transition-all outline-none text-gray-800 font-bold text-sm cursor-pointer">
-                      Explore
-                      <ChevronDown className="w-4 h-4 text-gray-500 group-hover:text-gray-900 transition-colors" />
+                <div className="flex items-center gap-6 h-full">
+                  {/* Shop Dropdown */}
+                  <div className="relative group h-full flex items-center">
+                    <button className="flex items-center gap-1 text-[14px] font-semibold text-gray-600 hover:text-gray-950 transition-colors cursor-pointer outline-none capitalize">
+                      <span>Shop</span>
+                      <ChevronDown className="w-3.5 h-3.5 text-gray-300 transition-transform duration-200 group-hover:rotate-180" strokeWidth={1.5} />
                     </button>
-                    <div className="absolute top-full left-0 mt-0.5 w-56 bg-white rounded-sm shadow-xl border border-gray-200 py-3 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150" suppressHydrationWarning>
+                    <div className="absolute top-[calc(100%+1px)] left-0 w-[400px] bg-white border border-gray-100 rounded-b-xl p-6 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 grid grid-cols-2 gap-x-6 gap-y-3 shadow-sm">
+                      <div className="absolute -top-4 left-0 right-0 h-4 bg-transparent" />
+                      {CATEGORIES_LIST.map((cat: any, index) => (
+                        <Link key={index} href={cat.href || `/search?category=${encodeURIComponent(cat.label || cat.name)}`} className="text-[13px] font-normal text-gray-500 hover:text-gray-950 transition-colors capitalize">
+                          {cat.label || cat.name}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Explore Dropdown */}
+                  <div className="relative group h-full flex items-center">
+                    <button className="flex items-center gap-1 text-[14px] font-semibold text-gray-600 hover:text-gray-950 transition-colors cursor-pointer outline-none capitalize">
+                      <span>Explore</span>
+                      <ChevronDown className="w-3.5 h-3.5 text-gray-300 transition-transform duration-200 group-hover:rotate-180" strokeWidth={1.5} />
+                    </button>
+                    <div className="absolute top-[calc(100%+1px)] left-0 w-[400px] bg-white border border-gray-100 rounded-b-xl p-6 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 grid grid-cols-2 gap-x-6 gap-y-3 shadow-sm" suppressHydrationWarning>
+                      <div className="absolute -top-4 left-0 right-0 h-4 bg-transparent" />
                       {EXPLORE_LINKS.map((link) => (
-                        <Link
-                          key={link.href}
-                          href={link.href}
-                          target="_blank"
-                          className="block px-5 py-2 text-sm text-gray-700 hover:text-[#007185] hover:bg-gray-100 transition-colors"
-                        >
+                        <Link key={link.href} href={link.href} className="text-[13px] font-normal text-gray-500 hover:text-gray-950 transition-colors capitalize">
                           {link.label}
                         </Link>
                       ))}
                     </div>
                   </div>
-                )}
+                </div>
+              </div>
 
-                {/* Account Dropdown */}
-                <div className="relative group h-full" suppressHydrationWarning>
-                  <Link href={user ? (isAdmin ? "/admin-gate" : "/profile") : `/login?next=${encodedCurrentUrl}`} target="_blank" className="flex items-center gap-2 px-3 py-2 border border-transparent hover:border-gray-200 hover:bg-gray-50 rounded-sm transition-all outline-none">
-                    <UserCircle2 className={`w-6 h-6 ${isAccountActive ? 'text-[#0B57D0]' : 'text-gray-600 group-hover:text-gray-900'}`} strokeWidth={1.5} />
-                    <div className="flex flex-col items-start leading-none text-left" suppressHydrationWarning>
-                      <span className="text-[11px] font-medium text-gray-500">
-                        {isLoading ? 'Loading...' : (user ? 'Hello,' : 'Sign in')}
-                      </span>
-                      <span className="text-sm font-bold text-gray-900 flex items-center gap-1">
-                        {user ? displayName.split(' ')[0] : 'Account & Lists'}
-                        <ChevronDown className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-900 transition-colors" />
-                      </span>
+              {/* ========================================================================= */}
+              {/* 🔍 RESPONSIVE SEARCH BAR (Expands on Mobile, Persistent on Desktop)       */}
+              {/* ========================================================================= */}
+              <div className="hidden md:block w-full md:max-w-xl relative z-40" suppressHydrationWarning>
+                <div ref={desktopSearchRef} className="w-full relative flex flex-col">
+                  <form onSubmit={handleSearch} className="flex flex-1 w-full relative rounded-full overflow-hidden bg-white border border-blue-100 focus-within:border-blue-300 focus-within:ring-1 focus-within:ring-blue-50 transition-all duration-300">
+                    <div className="absolute left-4 top-0 bottom-0 flex items-center justify-center pointer-events-none">
+                      <Search className="w-[16px] h-[16px] text-gray-300" strokeWidth={1.5} />
                     </div>
-                  </Link>
-
-                  <div className="absolute top-full right-0 mt-0.5 w-72 bg-white rounded-sm shadow-2xl border border-gray-200 py-4 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150" suppressHydrationWarning>
-                    {user ? (
-                      <div className="px-4">
-                        <div className="bg-gray-50 p-3 rounded-sm border border-gray-200 mb-3">
-                          <p className="text-sm font-bold text-gray-900 truncate">{displayName}</p>
-                          <p className="text-xs text-gray-500 truncate">{displayEmail}</p>
-                        </div>
-                        <div className="space-y-1">
-                          <h4 className="text-sm font-bold text-gray-900 mb-2 px-1">Account</h4>
-                          {isAdmin ? (
-                            <Link href="/admin-gate" target="_blank" className="block px-2 py-1.5 text-sm text-gray-700 hover:text-[#007185] hover:underline transition-colors">Admin Dashboard</Link>
-                          ) : (
-                            <>
-                              <Link href="/profile" target="_blank" className="block px-2 py-1.5 text-sm text-gray-700 hover:text-[#007185] hover:underline transition-colors">Your Profile</Link>
-                              <Link href="/profile/orders" target="_blank" className="block px-2 py-1.5 text-sm text-gray-700 hover:text-[#007185] hover:underline transition-colors">Your Orders</Link>
-                              <Link href="/wishlist" target="_blank" className="block px-2 py-1.5 text-sm text-gray-700 hover:text-[#007185] hover:underline transition-colors">Your Wishlist</Link>
-                            </>
-                          )}
-                        </div>
-                        <div className="border-t border-gray-200 mt-3 pt-3">
-                          <button onClick={handleLogoutClick} className="w-full text-left px-2 py-1.5 text-sm text-red-600 hover:text-red-800 hover:underline transition-colors cursor-pointer">Sign Out</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="px-6 py-2 text-center flex flex-col items-center" suppressHydrationWarning>
-                        <Link href={`/login?next=${encodedCurrentUrl}`} target="_blank" className="w-full py-2 bg-[#FFD814] hover:bg-[#FFD814] text-gray-900 text-sm font-medium rounded-sm border border-[#FFD814] shadow-sm transition-colors">
-                          Sign in
-                        </Link>
-                        <p className="text-xs mt-3 text-gray-600">
-                          New customer? <Link href={`/login?next=${encodedCurrentUrl}`} target="_blank" className="text-[#007185] hover:underline hover:text-orange-600">Start here.</Link>
-                        </p>
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true) }}
+                      placeholder="Search products..."
+                      autoComplete="off"
+                      spellCheck="false"
+                      className="w-full pl-11 pr-12 py-2 text-[13px] text-gray-900 bg-transparent focus:outline-none placeholder-gray-400 font-medium shadow-none border-none outline-none capitalize"
+                    />
+                    {searchQuery && (
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center">
+                        {isSearching && <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />}
+                        {!isSearching && (
+                          <button type="button" onClick={() => { setSearchQuery(''); setSuggestions([]); setShowSuggestions(false); if (pathname === '/search') router.push('/products'); }} className="text-gray-300 hover:text-gray-900 focus:outline-none cursor-pointer">
+                            <X className="w-3.5 h-3.5" strokeWidth={1.5} />
+                          </button>
+                        )}
                       </div>
                     )}
+                  </form>
+
+                  {/* Curated Autocomplete Suggestions Panel Box */}
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="absolute top-[calc(100%+4px)] left-0 right-0 bg-white border border-gray-100 shadow-lg rounded-xl z-50 overflow-hidden" suppressHydrationWarning>
+                      <ul className="py-2">
+                        {suggestions.map((product) => (
+                          <li key={product.id}>
+                            <Link href={`/product/${product.slug}`} onClick={() => { setShowSuggestions(false); setShowMobileSearch(false); }} className="flex items-center px-4 py-3 hover:bg-gray-50 cursor-pointer group transition-colors text-left">
+                              <Search className="w-3.5 h-3.5 text-gray-200 mr-4 shrink-0 transition-colors group-hover:text-gray-900" strokeWidth={1.5} />
+                              <div className="flex-1 min-w-0">
+                                <span className="text-[13px] font-normal text-gray-500 line-clamp-1 group-hover:text-gray-950 capitalize">
+                                  {product.name}
+                                </span>
+                              </div>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ========================================================================= */}
+              {/* 💻 DESKTOP RIGHT ACTIONS (Hidden on Mobile)                               */}
+              {/* ========================================================================= */}
+              <div className="hidden md:flex items-center justify-end gap-8 shrink-0 text-gray-600" suppressHydrationWarning>
+                <Link href="/wishlist" className="flex items-center gap-2 hover:text-gray-950 transition-colors" suppressHydrationWarning>
+                  <div className="relative flex items-center">
+                    <Heart className="w-[20px] h-[20px]" strokeWidth={1.2} />
+                    {mounted && wishlistItems.length > 0 && (
+                      <span className="absolute -top-1.5 -right-2 bg-black text-white text-[9px] font-medium w-[16px] h-[16px] rounded-full flex items-center justify-center shadow-none">
+                        {wishlistItems.length}
+                      </span>
+                    )}
                   </div>
+                  <span className="text-[14px] font-semibold capitalize">Wishlist</span>
+                </Link>
+
+                {/* Account Trigger Session Handling Matrix */}
+                <div className="relative group h-full flex items-center" suppressHydrationWarning>
+                  {isLoading ? (
+                    <div className="w-12 h-6 bg-gray-50 animate-pulse rounded-full"></div>
+                  ) : user ? (
+                    <Link href={isAdmin ? "/admin-gate" : "/profile"} className="flex items-center gap-2 hover:text-gray-950 transition-colors cursor-pointer">
+                      <UserCircle2 className="w-[20px] h-[20px]" strokeWidth={1.2} />
+                      <span className="text-[14px] font-semibold capitalize">{displayName.split(' ')[0]}</span>
+                    </Link>
+                  ) : (
+                    <Link href={`/login?next=${encodedCurrentUrl}`} className="bg-black text-white px-6 h-9 rounded-full text-[13px] font-semibold hover:bg-stone-800 transition-colors flex items-center justify-center capitalize shadow-sm">
+                      Log In
+                    </Link>
+                  )}
+
+                  {/* Refined Account Submenu Workspace Dropdown Panel */}
+                  {user && (
+                    <div className="absolute top-[calc(100%+1px)] right-0 w-52 bg-white rounded-b-xl border border-gray-100 py-2 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 shadow-sm text-left" suppressHydrationWarning>
+                      <div className="absolute -top-4 left-0 right-0 h-4 bg-transparent" />
+                      <div className="px-5 py-3 border-b border-gray-50 mb-1">
+                        <p className="text-[13px] font-normal text-gray-950 truncate capitalize">{displayName}</p>
+                        <p className="text-[11px] font-normal text-gray-400 truncate mt-0.5">{displayEmail}</p>
+                      </div>
+                      <div className="flex flex-col">
+                        {isAdmin && (
+                          <Link href="/admin-gate" className="px-5 py-2 text-[13px] font-normal text-gray-500 hover:bg-gray-50 hover:text-gray-950 transition-colors border-b border-gray-50 capitalize">Admin Dashboard</Link>
+                        )}
+                        <Link href="/profile" className="px-5 py-2 text-[13px] font-normal text-gray-500 hover:bg-gray-50 hover:text-gray-950 transition-colors capitalize">Profile</Link>
+                        <Link href="/profile/orders" className="px-5 py-2 text-[13px] font-normal text-gray-500 hover:bg-gray-50 hover:text-gray-950 transition-colors capitalize">My Orders</Link>
+                        <Link href="/wishlist" className="px-5 py-2 text-[13px] font-normal text-gray-500 hover:bg-gray-50 hover:text-gray-950 transition-colors capitalize">My Wishlist</Link>
+                        <button onClick={handleLogoutClick} className="w-full text-left px-5 py-2.5 text-[13px] font-normal text-gray-400 hover:bg-gray-50 hover:text-red-500 transition-colors cursor-pointer border-t border-gray-50 mt-1 capitalize outline-none">
+                          Logout
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Cart Icon - hide for admin */}
-                {!isAdmin && (
-                  <Link href="/cart" className="flex items-end gap-1 px-3 py-2 border border-transparent hover:border-gray-200 hover:bg-gray-50 rounded-sm transition-all ml-1 group" suppressHydrationWarning>
-                    <div className="relative flex items-center" suppressHydrationWarning>
-                      <ShoppingCart className={`w-8 h-8 transition-colors ${isExactActive('/cart') ? 'text-[#0B57D0]' : 'text-gray-600 group-hover:text-gray-900'}`} strokeWidth={1.5} />
-                      {mounted && cartItemCount > 0 ? (
-                        <span className="absolute -top-1.5 left-3.5 text-[#f08804] text-[15px] font-bold w-5 text-center">
-                          {cartItemCount}
-                        </span>
-                      ) : (
-                        <span className="absolute -top-1.5 left-3.5 text-[#f08804] text-[15px] font-bold w-5 text-center">
-                          0
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-sm font-bold text-gray-900 leading-tight">Cart</span>
-                  </Link>
-                )}
+                {/* Secure Counter Cart Anchor Basket */}
+                <Link href="/cart" className="flex items-center hover:text-gray-950 transition-colors" suppressHydrationWarning>
+                  <div className="relative flex items-center">
+                    <ShoppingBag className="w-[20px] h-[20px]" strokeWidth={1.2} />
+                    {mounted && cartItemCount > 0 && (
+                      <span className={`absolute -top-1.5 -right-2 bg-black text-white text-[9px] font-medium w-[16px] h-[16px] rounded-full flex items-center justify-center shadow-none transition-transform ${badgePop ? 'scale-110' : 'scale-100'}`}>
+                        {cartItemCount}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[14px] font-semibold capitalize ml-2">Cart</span>
+                </Link>
 
-              </nav>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
       </div>
 
+      {/* 🚀 NEW: Mobile Slide-Out Sidebar Drawer */}
+      <MobileSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+
+      {/* Logout Confirmation Dialog Modal Sheet */}
       {showLogoutConfirm && mounted && createPortal(
-        <div className="z-[999999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh' }}>
-          <div className="absolute inset-0" onClick={() => setShowLogoutConfirm(false)} style={{ touchAction: 'none' }} />
-          <div className="relative z-10 bg-white rounded-md shadow-2xl p-6 w-full max-w-sm border border-gray-200 animate-in fade-in zoom-in duration-200">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Sign out</h2>
-            <p className="text-sm text-gray-600 mb-6">Are you sure you want to sign out of your account?</p>
-            <div className="flex gap-3">
-              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-2 px-4 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 rounded-sm text-sm font-medium transition-colors cursor-pointer">
+        <div className="z-[999999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm fixed inset-0 animate-fade-in">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setShowLogoutConfirm(false)} style={{ touchAction: 'none' }} />
+          <div className="relative z-10 bg-white rounded-2xl shadow-2xl p-7 w-full max-w-sm border border-gray-100 animate-zoom-in text-left flex flex-col gap-4">
+            <div>
+              <h2 className="text-[18px] font-semibold text-gray-900 capitalize">Logout Account</h2>
+              <p className="text-[14px] text-gray-500 font-medium mt-1.5 leading-relaxed">Are you sure you want to securely logout of your account workspace?</p>
+            </div>
+            <div className="flex gap-3 pt-3 w-full">
+              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 h-11 border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 rounded-xl text-[14px] font-semibold transition-colors cursor-pointer capitalize">
                 Cancel
               </button>
-              <button onClick={confirmLogout} disabled={loggingOut} className="flex-1 py-2 px-4 bg-red-600 text-white rounded-sm text-sm font-medium hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50 border border-red-700 cursor-pointer">
-                {loggingOut ? 'Signing out...' : 'Sign out'}
+              <button onClick={confirmLogout} disabled={loggingOut} className="flex-1 h-11 bg-black text-white rounded-xl text-[14px] font-semibold hover:bg-stone-900 transition-colors disabled:opacity-30 cursor-pointer capitalize shadow-none">
+                {loggingOut ? 'Logging Out...' : 'Logout'}
               </button>
             </div>
           </div>

@@ -11,13 +11,30 @@ import { revalidateTag } from 'next/cache'
 export interface Category {
   meta_title: string
   meta_description: string
-  low_stock_threshold: number
   id: string
+  category_id?: string | null
+  parent_id?: string | null
   name: string
   slug: string
+  sku?: string | null
   description?: string | null
   image?: string | null
-  parent_id?: string | null
+  retail_price: number
+  wholesale_price: number
+  wholesale_min_qty: number
+  stock: number
+  images?: string[]
+  is_deleted: boolean
+  is_featured: boolean
+  rating: number
+  review_count: number
+  frequently_bought_together?: string[]
+  mrp: number
+  weight?: number | null
+  weight_unit?: string | null
+  gsm?: number | null
+  dimensions?: any | null
+  low_stock_threshold: number
   display_order: number
   is_active: boolean
   product_count?: number
@@ -52,7 +69,11 @@ async function fetchFromEdge(queryString: string, cacheTag: string): Promise<any
       }
     )
 
-    if (!response.ok) throw new Error('CDN response was not OK.')
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`[Edge Cache Error] Status: ${response.status}, Body: ${errorText}`)
+      throw new Error(`CDN response was not OK: ${response.status}`)
+    }
     return await response.json()
   } catch (error) {
     console.error('[Edge CDN Bypass] Fetch error falling back:', error)

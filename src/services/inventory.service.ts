@@ -2,6 +2,7 @@
 
 'use server'
 
+import { cache } from 'react'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -14,6 +15,9 @@ export interface InventoryLog {
   reason: string
   user_id: string | null
   created_at: string
+  checkout_session_id?: string | null
+  products?: { name: string } | null
+  users?: { name: string; email: string } | null
 }
 
 export interface StockReservation {
@@ -22,83 +26,92 @@ export interface StockReservation {
   quantity: number
   user_id: string
   checkout_session_id: string
-  expires_at: Date
-  created_at: Date
+  expires_at: string
+  created_at: string
 }
 
-// 🆕 Stock reservation constants
-const RESERVATION_EXPIRY_MINUTES = 10
-const RESERVATION_CLEANUP_INTERVAL_MS = 60 * 1000 // 1 minute
+export interface InventoryStats {
+  totalProducts: number
+  lowStockCount: number
+  outOfStockCount: number
+  totalInventoryValue: number
+  recentStockChanges: number
+}
+
+const RESERVATION_EXPIRY_MINUTES = 15
 
 // ============================================
-// STOCK RESERVATION SYSTEM (Phase 4)
+// STOCK RESERVATION SYSTEM
 // ============================================
 
 /**
- * 🆕 Reserve stock for a checkout session
- * Called when user enters checkout page
+ * 🚀 SECURE: Reserve stock for an active checkout session
+ * Bypasses RLS constraints safely via admin service role escalation
  */
 export async function reserveStock(
   checkoutSessionId: string,
   items: Array<{ product_id: string; quantity: number }>,
   userId: string
 ): Promise<{ success: boolean; errors?: string[] }> {
-  const supabase = createAdminClient()
+  const adminSupabase = createAdminClient()
   const errors: string[] = []
 
   for (const item of items) {
-    // Check if enough stock is available (including existing reservations)
-    const { data: product, error: productError } = await supabase
+    // 1. Fetch current catalog stock limits via root admin privileges
+    const { data: product, error: productError } = await adminSupabase
       .from('products')
       .select('stock, name')
       .eq('id', item.product_id)
-      .single()
+      .eq('is_deleted', false)
+      .limit(1)
+      .maybeSingle()
 
     if (productError || !product) {
-      errors.push(`Product ${item.product_id} not found: ${productError?.message}`)
+      console.error(`🚨 [Inventory] Product lookup failure for ID [${item.product_id}]:`, productError)
+      errors.push(`Product verification failed or permission was denied.`)
       continue
     }
 
-    // Calculate total reserved for this product across all active sessions
-    const { data: existingReservations, error: reservationError } = await supabase
+    // 2. Calculate concurrent reservations allocated across other parallel checkout sessions
+    const { data: existingReservations, error: reservationError } = await adminSupabase
       .from('stock_reservations')
       .select('quantity')
       .eq('product_id', item.product_id)
       .gt('expires_at', new Date().toISOString())
-      .neq('checkout_session_id', checkoutSessionId) // Exclude current session
+      .neq('checkout_session_id', checkoutSessionId)
 
     if (reservationError) {
-      errors.push(`Failed to check reservations for ${product.name}: ${reservationError.message}`)
+      console.error(`🚨 [Inventory] Reservation scanning failure for ${product.name}:`, reservationError)
+      errors.push(`Failed to calculate inventory allocation boundaries for ${product.name}.`)
       continue
     }
 
-    const reservedQuantity = existingReservations?.reduce((sum, r) => sum + r.quantity, 0) || 0
-    const availableStock = product.stock - reservedQuantity
+    const totalReservedAcrossSessions = existingReservations?.reduce((sum, r) => sum + r.quantity, 0) || 0
+    const availableStockPool = product.stock - totalReservedAcrossSessions
 
-    if (availableStock < item.quantity) {
-      errors.push(`Insufficient stock for ${product.name}. Only ${availableStock} available.`)
+    if (availableStockPool < item.quantity) {
+      errors.push(`Insufficient stock for ${product.name}. Only ${Math.max(0, availableStockPool)} units are available for reservation.`)
       continue
     }
 
-    // Create or update reservation
-    const expiresAt = new Date(Date.now() + RESERVATION_EXPIRY_MINUTES * 60 * 1000)
+    // 3. Commit or update the active reservation block
+    const expirationTimestamp = new Date(Date.now() + RESERVATION_EXPIRY_MINUTES * 60 * 1000)
 
-    const { error: upsertError } = await supabase
+    const { error: upsertError } = await adminSupabase
       .from('stock_reservations')
       .upsert({
         product_id: item.product_id,
         quantity: item.quantity,
         user_id: userId,
         checkout_session_id: checkoutSessionId,
-        expires_at: expiresAt.toISOString(),
+        expires_at: expirationTimestamp.toISOString(),
       }, {
-        onConflict: 'checkout_session_id, product_id',
+        onConflict: 'checkout_session_id,product_id',
       })
 
     if (upsertError) {
-      // 🔍 Log the actual error for debugging
-      console.error(`[Inventory] Upsert failed for product ${product.name}:`, upsertError)
-      errors.push(`Failed to reserve stock for ${product.name}: ${upsertError.message}`)
+      console.error(`🚨 [Inventory] Reservation block persistence failed for ${product.name}:`, upsertError)
+      errors.push(`Internal system lock down prevented securing item allocation for ${product.name}.`)
     }
   }
 
@@ -109,83 +122,83 @@ export async function reserveStock(
 }
 
 /**
- * 🆕 Release stock reservation (called on order completion or checkout abandonment)
+ * 🚀 SECURE: Release stock reservations cleanly on abandonment or error routes
  */
 export async function releaseStockReservation(
   checkoutSessionId: string,
   productId?: string
 ): Promise<void> {
-  const supabase = createAdminClient()
+  const adminSupabase = createAdminClient()
 
-  let query = supabase
+  let deletionQuery = adminSupabase
     .from('stock_reservations')
     .delete()
     .eq('checkout_session_id', checkoutSessionId)
 
   if (productId) {
-    query = query.eq('product_id', productId)
+    deletionQuery = deletionQuery.eq('product_id', productId)
   }
 
-  const { error } = await query
+  const { error } = await deletionQuery
 
   if (error) {
-    console.error('[Inventory] Failed to release reservation:', error)
+    console.error('🚨 [Inventory] Core reservation release drop:', error.message)
   }
 }
 
 /**
- * 🆕 Get current reservations for a checkout session
+ * 🚀 SECURE: Read active items assigned to a current checkout timeline
  */
 export async function getReservationsForSession(
   checkoutSessionId: string
 ): Promise<StockReservation[]> {
-  const supabase = createAdminClient()
+  const adminSupabase = createAdminClient()
 
-  const { data, error } = await supabase
+  const { data, error } = await adminSupabase
     .from('stock_reservations')
     .select('*')
     .eq('checkout_session_id', checkoutSessionId)
     .gt('expires_at', new Date().toISOString())
 
   if (error) {
-    console.error('[Inventory] Failed to get reservations:', error)
+    console.error('🚨 [Inventory] Session reservation fetch panic:', error.message)
     return []
   }
 
-  return data || []
+  return (data || []) as StockReservation[]
 }
 
 /**
- * 🆕 Verify that all items in an order have valid reservations
- * Called before order creation
+ * 🚀 SECURE: Validates matching active session rows right before finalized order execution
  */
 export async function verifyReservations(
   checkoutSessionId: string,
   items: Array<{ product_id: string; quantity: number }>
 ): Promise<{ valid: boolean; errors?: string[] }> {
-  const supabase = createAdminClient()
+  const adminSupabase = createAdminClient()
   const errors: string[] = []
 
   for (const item of items) {
-    const { data: reservation, error } = await supabase
+    const { data: reservation, error } = await adminSupabase
       .from('stock_reservations')
       .select('quantity, expires_at')
       .eq('checkout_session_id', checkoutSessionId)
       .eq('product_id', item.product_id)
-      .single()
+      .limit(1)
+      .maybeSingle()
 
     if (error || !reservation) {
-      errors.push(`No reservation found for product ${item.product_id}`)
+      errors.push(`No valid allocation lock row found for item ID: ${item.product_id}`)
       continue
     }
 
     if (new Date(reservation.expires_at) < new Date()) {
-      errors.push(`Reservation expired for product ${item.product_id}`)
+      errors.push(`Allocation holding period expired for item ID: ${item.product_id}`)
       continue
     }
 
     if (reservation.quantity !== item.quantity) {
-      errors.push(`Quantity mismatch for product ${item.product_id}`)
+      errors.push(`Quantity parameter delta detected for item ID: ${item.product_id}`)
     }
   }
 
@@ -196,40 +209,40 @@ export async function verifyReservations(
 }
 
 /**
- * 🆕 Extend reservation expiry (called when user is still active in checkout)
+ * 🚀 SECURE: Extend session reservation deadlines quietly during active checkouts
  */
 export async function extendReservationExpiry(
   checkoutSessionId: string,
   additionalMinutes: number = RESERVATION_EXPIRY_MINUTES
 ): Promise<void> {
-  const supabase = createAdminClient()
-  const newExpiry = new Date(Date.now() + additionalMinutes * 60 * 1000)
+  const adminSupabase = createAdminClient()
+  const extendedTimestamp = new Date(Date.now() + additionalMinutes * 60 * 1000)
 
-  const { error } = await supabase
+  const { error } = await adminSupabase
     .from('stock_reservations')
-    .update({ expires_at: newExpiry.toISOString() })
+    .update({ expires_at: extendedTimestamp.toISOString() })
     .eq('checkout_session_id', checkoutSessionId)
     .gt('expires_at', new Date().toISOString())
 
   if (error) {
-    console.error('[Inventory] Failed to extend reservations:', error)
+    console.error('🚨 [Inventory] Failed to extend session expiry vectors:', error.message)
   }
 }
 
 /**
- * 🆕 Clean up expired reservations (called by cron job)
+ * 🚀 SECURE: Housekeeping script executed via cron layers to wipe clean stale ghost sessions
  */
 export async function cleanupExpiredReservations(): Promise<number> {
-  const supabase = createAdminClient()
+  const adminSupabase = createAdminClient()
 
-  const { data, error } = await supabase
+  const { data, error } = await adminSupabase
     .from('stock_reservations')
     .delete()
     .lt('expires_at', new Date().toISOString())
     .select('id')
 
   if (error) {
-    console.error('[Inventory] Failed to cleanup expired reservations:', error)
+    console.error('🚨 [Inventory] Stale tracking cleanup sweep failure:', error.message)
     return 0
   }
 
@@ -237,78 +250,75 @@ export async function cleanupExpiredReservations(): Promise<number> {
 }
 
 /**
- * 🆕 Get available stock for a product (considering active reservations)
+ * 🚀 SECURE: Resolves the total stock pool minus active unexpired checkouts
  */
 export async function getAvailableStock(productId: string): Promise<number> {
-  const supabase = createAdminClient()
+  const adminSupabase = createAdminClient()
 
-  // Get current stock
-  const { data: product, error: productError } = await supabase
+  const { data: product, error: productError } = await adminSupabase
     .from('products')
     .select('stock')
     .eq('id', productId)
-    .single()
+    .limit(1)
+    .maybeSingle()
 
-  if (productError || !product) {
-    return 0
-  }
+  if (productError || !product) return 0
 
-  // Get total reserved quantity for this product
-  const { data: reservations, error: reservationError } = await supabase
+  const { data: reservations, error: reservationError } = await adminSupabase
     .from('stock_reservations')
     .select('quantity')
     .eq('product_id', productId)
     .gt('expires_at', new Date().toISOString())
 
   if (reservationError) {
-    console.error('[Inventory] Failed to get reservations:', reservationError)
+    console.error('🚨 [Inventory] Allocation calculation failure:', reservationError.message)
     return product.stock
   }
 
-  const reservedQuantity = reservations?.reduce((sum, r) => sum + r.quantity, 0) || 0
-  return Math.max(0, product.stock - reservedQuantity)
+  const activeReservationsCount = reservations?.reduce((sum, r) => sum + r.quantity, 0) || 0
+  return Math.max(0, product.stock - activeReservationsCount)
 }
 
 // ============================================
-// UNIFIED STOCK UPDATE SERVICE (NEW)
+// UNIFIED STOCK UPDATE SERVICE
 // ============================================
 
 /**
- * 🚀 Unified stock deduction for orders – called by both webhook and payment service
- * Use this instead of duplicate updateProductStock functions.
+ * 🚀 SECURE: Deducts operational stock upon successful gateway transaction execution
  */
 export async function deductOrderStock(orderId: string): Promise<void> {
-  const supabase = createAdminClient()
+  const adminSupabase = createAdminClient()
   
-  const { data: orderItems, error: itemsError } = await supabase
+  const { data: orderItems, error: itemsError } = await adminSupabase
     .from('order_items')
     .select('product_id, quantity')
     .eq('order_id', orderId)
 
   if (itemsError || !orderItems) {
-    console.error('[Inventory] Failed to fetch order items for stock deduction:', itemsError)
+    console.error('🚨 [Inventory] Failed to acquire line items for stock sync:', itemsError)
     return
   }
 
   for (const item of orderItems) {
-    // Try RPC first (recommended)
-    const { error: rpcError } = await supabase.rpc('decrement_product_stock', { 
+    // Attempt Atomic SQL procedure increment/decrement mutations first
+    const { error: rpcError } = await adminSupabase.rpc('decrement_product_stock', { 
       p_id: item.product_id, 
       decrement_qty: item.quantity 
     })
     
-    // Fallback to manual update if RPC fails
     if (rpcError) {
-      console.warn(`[Inventory] RPC failed for product ${item.product_id}, using fallback:`, rpcError)
-      const { data: product } = await supabase
+      console.warn(`⚠️ [Inventory] Database RPC sequence missed, using robust admin fallback:`, rpcError.message)
+      const { data: product } = await adminSupabase
         .from('products')
         .select('stock')
         .eq('id', item.product_id)
-        .single()
+        .limit(1)
+        .maybeSingle()
+
       if (product) {
-        await supabase
+        await adminSupabase
           .from('products')
-          .update({ stock: Math.max(0, product.stock - item.quantity) })
+          .update({ stock: Math.max(0, product.stock - item.quantity), updated_at: new Date().toISOString() })
           .eq('id', item.product_id)
       }
     }
@@ -316,11 +326,10 @@ export async function deductOrderStock(orderId: string): Promise<void> {
 }
 
 // ============================================
-// EXISTING INVENTORY FUNCTIONS (Enhanced)
+// METRICS AND HISTORICAL REPORTING ENGINE
 // ============================================
 
-// Get low stock products (Auto-resolves when > 10)
-export async function getLowStockAlerts() {
+export const getLowStockAlerts = cache(async () => {
   const supabase = await createServerClient()
   
   const { data, error } = await supabase
@@ -328,17 +337,17 @@ export async function getLowStockAlerts() {
     .select('id, name, stock')
     .lte('stock', 10)
     .eq('is_active', true)
+    .eq('is_deleted', false)
     .order('stock', { ascending: true })
   
   if (error) {
-    console.error('Error fetching low stock products:', error)
+    console.error('🚨 [Inventory] Failed to capture metric low alerts:', error.message)
     return []
   }
   
   return data || []
-}
+})
 
-// Get inventory logs for a product
 export async function getInventoryLogs(productId: string, limit = 50): Promise<InventoryLog[]> {
   const supabase = await createServerClient()
   
@@ -350,14 +359,13 @@ export async function getInventoryLogs(productId: string, limit = 50): Promise<I
     .limit(limit)
   
   if (error) {
-    console.error('Error fetching inventory logs:', error)
+    console.error('🚨 [Inventory] Failed to read structural product logs:', error.message)
     return []
   }
   
-  return data || []
+  return (data || []) as InventoryLog[]
 }
 
-// Update product stock with logging (enhanced with reservation check)
 export async function updateStock(
   productId: string, 
   newStock: number, 
@@ -369,46 +377,43 @@ export async function updateStock(
   const adminSupabase = createAdminClient()
   const { data: { session } } = await supabase.auth.getSession()
   
-  // Get current stock
-  const { data: product, error: fetchError } = await supabase
+  const { data: product, error: fetchError } = await adminSupabase
     .from('products')
     .select('stock')
     .eq('id', productId)
-    .single()
+    .limit(1)
+    .maybeSingle()
   
-  if (fetchError) throw fetchError
+  if (fetchError || !product) throw new Error('Target log catalog product row match missing.')
   
   const previousStock = product.stock
   const changeAmount = newStock - previousStock
   
-  // 🆕 If this is a stock deduction for an order, verify reservation exists
   if (changeAmount < 0 && checkoutSessionId) {
-    const { data: reservation } = await supabase
+    const { data: reservation } = await adminSupabase
       .from('stock_reservations')
       .select('quantity')
       .eq('checkout_session_id', checkoutSessionId)
       .eq('product_id', productId)
-      .single()
+      .limit(1)
+      .maybeSingle()
     
     if (!reservation) {
-      throw new Error(`No stock reservation found for product ${productId}`)
+      throw new Error(`Transaction safety fault: Reservation verification match missing.`)
     }
     
-    // Release the reservation after successful stock update
     await releaseStockReservation(checkoutSessionId, productId)
   }
   
-  // Update product stock using admin client to securely bypass strict RLS constraints
   const { error: updateError } = await adminSupabase
     .from('products')
-    .update({ stock: newStock })
+    .update({ stock: newStock, updated_at: new Date().toISOString() })
     .eq('id', productId)
   
   if (updateError) throw updateError
   
   const finalReason = notes ? `${reason} - ${notes}` : reason
 
-  // Log the change using admin client
   const { error: logError } = await adminSupabase
     .from('inventory_logs')
     .insert({
@@ -419,13 +424,13 @@ export async function updateStock(
       reason: finalReason,
       user_id: session?.user?.id || null,
       checkout_session_id: checkoutSessionId || null,
+      created_at: new Date().toISOString()
     })
   
   if (logError) throw logError
 }
 
-// Get all inventory logs for global history
-export async function getAllInventoryLogs(limit = 100) {
+export async function getAllInventoryLogs(limit = 100): Promise<InventoryLog[]> {
   const supabase = await createServerClient()
   
   const { data, error } = await supabase
@@ -439,47 +444,47 @@ export async function getAllInventoryLogs(limit = 100) {
     .limit(limit)
   
   if (error) {
-    console.error('Error fetching all inventory logs:', error)
+    console.error('🚨 [Inventory] Critical panic reading global historical ledger:', error.message)
     return []
   }
   
-  return data || []
+  return (data || []) as unknown as InventoryLog[]
 }
 
-// Get inventory summary statistics
-export async function getInventoryStats() {
-  const supabase = await createServerClient()
+export async function getInventoryStats(): Promise<InventoryStats> {
+  const adminSupabase = createAdminClient()
   
-  // Get total products
-  const { count: totalProducts } = await supabase
+  const { count: totalProducts } = await adminSupabase
     .from('products')
     .select('*', { count: 'exact', head: true })
+    .eq('is_deleted', false)
   
-  // Get low stock products 
-  const { count: lowStock } = await supabase
+  const { count: lowStock } = await adminSupabase
     .from('products')
     .select('*', { count: 'exact', head: true })
     .lte('stock', 10)
     .gt('stock', 0)
+    .eq('is_active', true)
+    .eq('is_deleted', false)
   
-  // Get out of stock products
-  const { count: outOfStock } = await supabase
+  const { count: outOfStock } = await adminSupabase
     .from('products')
     .select('*', { count: 'exact', head: true })
     .eq('stock', 0)
+    .eq('is_active', true)
+    .eq('is_deleted', false)
   
-  // Get total inventory value
-  const { data: products } = await supabase
+  const { data: products } = await adminSupabase
     .from('products')
-    .select('stock, price')
+    .select('stock, retail_price')
+    .eq('is_deleted', false)
   
-  const totalValue = products?.reduce((sum, p) => sum + (p.stock * p.price), 0) || 0
+  const totalValue = products?.reduce((sum, p) => sum + (p.stock * p.retail_price), 0) || 0
   
-  // Get recent stock changes (last 7 days)
   const sevenDaysAgo = new Date()
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
   
-  const { data: recentLogs } = await supabase
+  const { data: recentLogs } = await adminSupabase
     .from('inventory_logs')
     .select('change_amount')
     .gte('created_at', sevenDaysAgo.toISOString())

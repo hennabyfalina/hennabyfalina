@@ -11,7 +11,6 @@ import { useAuth } from '@/hooks/useAuth'
 import { INDIAN_STATES } from '@/lib/states'
 import AdminPhoneInput from '@/components/admin/AdminPhoneInput'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { calculateTaxBreakdown } from '@/lib/tax'
 import OrderStatusBadge from '@/components/admin/OrderStatusBadge'
 
 interface CustomerFormData {
@@ -266,7 +265,6 @@ export default function CustomerModal({ isOpen, onClose, customer, onSuccess }: 
               ) : (
                 <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2 no-scrollbar pb-2">
                   {orderHistory.map(order => {
-                    const taxInfo = calculateTaxBreakdown(order.total_amount - (order.shipping_cost || 0))
                     const isPickup = order.shipping_method === 'pickup' || order.addresses?.[0]?.delivery_method === 'pickup' || (order.addresses?.[0]?.address_line1 || '').toLowerCase().includes('pickup')
                     
                     return (
@@ -292,14 +290,6 @@ export default function CustomerModal({ isOpen, onClose, customer, onSuccess }: 
                             <span className="admin-text-muted block mb-0.5">Delivery</span> 
                             <span className="font-medium">{isPickup ? 'Store Pickup' : 'Home Delivery'}</span>
                             <span className="ml-1 admin-text-muted">{order.shipping_cost ? `(${formatCurrency(order.shipping_cost)})` : '(Free)'}</span>
-                          </div>
-                          <div>
-                            <span className="admin-text-muted block mb-0.5">Taxable Value</span> 
-                            <span className="font-mono">{formatCurrency(taxInfo.basePrice)}</span>
-                          </div>
-                          <div>
-                            <span className="admin-text-muted block mb-0.5">Total GST (18%)</span> 
-                            <span className="font-mono">{formatCurrency(taxInfo.totalGST)}</span>
                           </div>
                         </div>
 

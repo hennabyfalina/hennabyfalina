@@ -1,45 +1,51 @@
+// src/app/not-found.tsx
+
 import Link from 'next/link'
 import Image from 'next/image'
 import { siteConfig } from '@/config/site'
+import { ChevronRight } from 'lucide-react'
 
 export default function NotFound() {
   return (
-    <div className="fixed inset-0 flex flex-col bg-white z-[9999]">
-      <main className="flex-1 flex flex-col items-center justify-center px-4 -mt-20">
-        <div className="flex flex-col md:flex-row items-center md:items-start justify-center gap-10 md:gap-16 max-w-4xl w-full">
-          {/* Graphic Side */}
-          <div className="w-48 h-48 md:w-64 md:h-64 relative flex items-center justify-center bg-gray-50 border border-gray-200 rounded-sm shadow-sm overflow-hidden pointer-events-none select-none">
+    <div className="fixed inset-0 flex flex-col bg-white z-[99999] select-none">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 -mt-16">
+        <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12 max-w-2xl w-full">
+          
+          {/* Graphic Image Column Card */}
+          <div className="w-40 h-40 md:w-48 md:h-48 relative flex items-center justify-center bg-stone-50 border border-gray-100 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.01)] overflow-hidden pointer-events-none">
             <Image 
               src="/cat.jpg" 
-              alt="Page not found" 
+              alt="Page not found context placeholder" 
               fill
               priority
-              sizes="(max-width: 768px) 192px, 256px"
-              className="object-cover"
+              sizes="(max-width: 768px) 160px, 192px"
+              className="object-cover grayscale blur-[0.2px] hover:grayscale-0 transition-all duration-700"
             />
           </div>
           
-          {/* Text Side (Amazon Match) */}
-          <div className="flex flex-col text-center md:text-left max-w-md mt-2">
-            <h1 className="text-[#e77600] text-2xl md:text-3xl font-bold mb-3">Looking for something?</h1>
-            <p className="text-gray-900 text-sm md:text-base font-medium mb-6">
-              We&apos;re sorry. The Web address you entered is not a functioning page on our site.
+          {/* Typography Interaction Links Column */}
+          <div className="flex flex-col text-center md:text-left max-w-sm">
+            {/* 🚀 FIXED: Scrubbed out loud orange colors, utilizing pure monochrome elements */}
+            <h1 className="text-gray-900 text-xl md:text-2xl font-black tracking-wide mb-2 capitalize">Looking For Something?</h1>
+            <p className="text-gray-400 text-[13px] font-medium mb-6 leading-relaxed capitalize">
+              The web location address path requested does not match an operational route link inside our studio.
             </p>
-            <div className="space-y-3">
-              <div className="flex items-center justify-center md:justify-start gap-2">
-                <span className="text-[#e77600] text-[10px]">▶</span>
-                <p className="text-gray-900 font-bold text-sm md:text-base">
-                  Go to {siteConfig.name}&apos;s <Link href="/" className="text-[#007185] hover:text-[#C7511F] hover:underline">Home Page</Link>
-                </p>
-              </div>
-              <div className="flex items-center justify-center md:justify-start gap-2">
-                <span className="text-[#e77600] text-[10px]">▶</span>
-                <p className="text-gray-900 font-bold text-sm md:text-base">
-                  Browse our <Link href="/products" className="text-[#007185] hover:text-[#C7511F] hover:underline">Product Catalog</Link>
-                </p>
-              </div>
+            
+            <div className="space-y-3 flex flex-col items-center md:items-start">
+              {/* Link Option 1 */}
+              <Link href="/" className="flex items-center gap-2 group text-[13px] font-bold text-gray-500 hover:text-gray-900 transition-colors capitalize">
+                <ChevronRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-900 transition-colors" strokeWidth={2.5} />
+                <span>Go to {siteConfig.name} home</span>
+              </Link>
+              
+              {/* Link Option 2 */}
+              <Link href="/products" className="flex items-center gap-2 group text-[13px] font-bold text-gray-500 hover:text-gray-900 transition-colors capitalize">
+                <ChevronRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-900 transition-colors" strokeWidth={2.5} />
+                <span>Browse full collection</span>
+              </Link>
             </div>
           </div>
+
         </div>
       </main>
     </div>

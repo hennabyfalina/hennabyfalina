@@ -101,7 +101,7 @@ export default function GoogleOneTap() {
       
       {isProcessing && (
          <div className="fixed top-6 right-6 z-[100] bg-white shadow-lg border border-gray-200 rounded-full px-4 py-2 flex items-center gap-3">
-           <div className="w-4 h-4 border-2 border-[#e77600] border-t-transparent rounded-full animate-spin"></div>
+           <div className="w-4 h-4 border-2 border-[#2874f0] border-t-transparent rounded-full animate-spin"></div>
            <span className="text-sm font-medium text-gray-800">Signing in securely...</span>
          </div>
       )}

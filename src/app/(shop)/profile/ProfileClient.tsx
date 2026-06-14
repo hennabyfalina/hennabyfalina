@@ -3,11 +3,12 @@
 'use client'
 
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { signOut } from '@/services/auth.service'
 import type { User } from '@supabase/supabase-js'
 import type { UserProfile } from '@/app/actions/get-profile'
-import { Package, ShoppingBag, ShieldCheck, Lock, MapPin, HeadphonesIcon, LogOut, Settings, CreditCard, Heart } from 'lucide-react'
+import { Package, ShoppingBag, ShieldCheck, Lock, MapPin, HeadphonesIcon, LogOut, Settings, CreditCard, Heart, ChevronRight } from 'lucide-react'
 import Container from '@/components/ui/Container'
 
 interface ProfileClientProps {
@@ -25,122 +26,155 @@ export default function ProfileClient({ user, profile }: ProfileClientProps) {
     window.location.href = '/'
   }
 
+  // 🚀 PM UPGRADE: Enforced perfect Capitalization and premium descriptions across link metadata arrays
   const accountLinks = [
     {
-      title: 'Products',
-      desc: 'Browse our full catalog and start shopping',
+      title: 'Products Catalog',
+      desc: 'Browse our full collections and manage active batch items',
       icon: ShoppingBag,
       href: '/products'
     },
     {
-      title: 'Orders',
-      desc: 'Track, return, or buy things again',
+      title: 'Your Orders Log',
+      desc: 'Track delivery dispatches, manage cancellations, or buy items again',
       icon: Package,
       href: '/profile/orders'
     },
     {
-      title: 'Wishlist',
-      desc: 'View and manage your saved products',
+      title: 'Saved Wishlist',
+      desc: 'View and edit your personal saved selection of premium products',
       icon: Heart,
       href: '/wishlist'
     },
     {
-      title: 'Login & security',
-      desc: 'Edit login, name, and mobile number',
+      title: 'Login & Security',
+      desc: 'Update your login information, authorized name link, and phone number',
       icon: ShieldCheck,
       href: '/profile/security'
     },
     {
-      title: 'Addresses',
-      desc: 'Edit addresses for orders and gifts',
+      title: 'Fulfillment Addresses',
+      desc: 'Manage saved hub addresses for home delivery or studio pickup options',
       icon: MapPin,
       href: '/profile/addresses'
     },
     {
-      title: 'Payment options',
-      desc: 'Razorpay secure payment methods',
+      title: 'Payment Options',
+      desc: 'Review secured transactions and integrated Razorpay parameters',
       icon: CreditCard,
       href: '/profile/payments'
     },
     {
-      title: 'Contact Us',
-      desc: 'Contact our customer service via phone or chat',
+      title: 'Contact & Support',
+      desc: 'Get in touch with our customer service team via instant chat or call',
       icon: HeadphonesIcon,
-      href: '/profile/contact'
+      href: '/contact-support'
     },
     {
-      title: 'Legal & Privacy',
-      desc: 'Terms of service and privacy policies',
+      title: 'Legal & Privacy Policy',
+      desc: 'Review clear guidelines regarding terms of service and refunds',
       icon: Lock,
-      href: '/terms'
+      href: '/terms-conditions'
     },
     {
       title: 'Account Settings',
-      desc: 'Manage your account preferences',
+      desc: 'Configure notification rules and global profile preferences',
       icon: Settings,
       href: '/profile/settings'
     }
   ]
 
   return (
-    <div className="min-h-screen bg-white py-6 md:py-10">
-      <Container className="max-w-[1000px]">
-        <h1 className="text-2xl md:text-3xl font-normal text-gray-900 mb-6 tracking-tight">Your Account</h1>
+    <div className="min-h-screen bg-white py-8 md:py-14 font-sans antialiased select-none text-left">
+      <Container className="max-w-[1000px] px-4 sm:px-8">
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+        {/* Title Heading Section */}
+        <h1 className="text-3xl md:text-4xl font-normal text-gray-900 mb-8 tracking-tight capitalize">Your Account</h1>
+        
+        {/* 🚀 FIXED: Rebuilt legacy box matrices into ultra-clean borderless Apple-style interactive panels */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
           {accountLinks.map((link, idx) => {
             const Icon = link.icon
             return (
-              <Link key={idx} href={link.href} className="flex items-start gap-4 p-4 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm group">
-                <div className="w-14 h-14 flex items-center justify-center shrink-0">
-                  <Icon className="w-8 h-8 text-[#007185] stroke-[1.5]" />
+              <Link 
+                key={idx} 
+                href={link.href} 
+                className="flex items-start gap-4 p-5 bg-white border border-gray-100 rounded-2xl hover:border-gray-200 transition-all group outline-none"
+              >
+                {/* Monochrome Soft Floating Icon Container */}
+                <div className="w-10 h-10 rounded-xl bg-stone-50/50 border border-gray-50 flex items-center justify-center shrink-0 transition-colors group-hover:bg-stone-100 group-hover:text-black text-gray-400">
+                  <Icon className="w-[21px] h-[21px] transition-colors duration-200" strokeWidth={1.8} />
                 </div>
-                <div className="flex-1 flex flex-col justify-center h-full">
-                  <h2 className="text-base font-normal text-gray-900 group-hover:text-[#C7511F] transition-colors">{link.title}</h2>
-                  <p className="text-sm text-gray-500 mt-0.5 leading-snug">{link.desc}</p>
+                
+                <div className="flex-1 flex flex-col justify-start">
+                  <div className="flex items-center justify-between gap-1 w-full">
+                    <h2 className="text-[15px] font-normal text-gray-900 transition-colors group-hover:text-black tracking-tight capitalize">
+                      {link.title}
+                    </h2>
+                    <ChevronRight className="w-3.5 h-3.5 text-gray-300 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" strokeWidth={2} />
+                  </div>
+                  <p className="text-[13px] text-gray-400 font-normal mt-1 leading-normal capitalize">
+                    {link.desc}
+                  </p>
                 </div>
               </Link>
             )
           })}
 
-          {/* Logout Button Card */}
-          <button onClick={() => setShowLogoutConfirm(true)} className="flex items-start gap-4 p-4 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-left group cursor-pointer">
-            <div className="w-14 h-14 flex items-center justify-center shrink-0">
-              <LogOut className="w-8 h-8 text-red-600 stroke-[1.5]" />
+          {/* Secure Monochrome Disconnect Handle */}
+          <button 
+            onClick={() => setShowLogoutConfirm(true)} 
+            className="flex items-start gap-4 p-5 bg-white border border-gray-100 rounded-2xl transition-all text-left group cursor-pointer outline-none"
+          >
+            <div className="w-10 h-10 rounded-xl bg-red-50/30 border border-red-50 flex items-center justify-center shrink-0 transition-colors group-hover:bg-red-50 text-red-500 group-hover:text-red-600">
+              <LogOut className="w-[20px] h-[20px] transition-colors duration-200" strokeWidth={1.8} />
             </div>
-            <div className="flex-1 flex flex-col justify-center h-full">
-              <h2 className="text-base font-normal text-gray-900 group-hover:text-red-700 transition-colors">Sign Out</h2>
-              <p className="text-sm text-gray-500 mt-0.5 leading-snug">Securely log out of your account</p>
+            <div className="flex-1 flex flex-col justify-start">
+              <h2 className="text-[15px] font-normal text-gray-900 group-hover:text-red-600 transition-colors tracking-tight capitalize">
+                Sign Out
+              </h2>
+              <p className="text-[13px] text-gray-400 font-normal mt-1 leading-normal capitalize">
+                Securely close your active session account workspace
+              </p>
             </div>
           </button>
         </div>
       </Container>
 
-      {/* Logout Modal */}
-      {showLogoutConfirm && (
-         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-white rounded-md shadow-xl max-w-sm w-full p-6 text-center border border-gray-200">
-              <h3 className="text-xl font-normal text-gray-900 mb-2">Sign out</h3>
-              <p className="text-sm text-gray-600 mb-6">
-                Are you sure you want to sign out of your account?
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowLogoutConfirm(false)}
-                  className="flex-1 py-2 text-sm font-normal text-gray-900 bg-white border border-gray-300 rounded-sm hover:bg-gray-50 shadow-sm transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleLogout}
-                  disabled={loggingOut}
-                  className="flex-1 py-2 text-sm font-normal text-gray-900 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm shadow-sm disabled:opacity-50 transition-colors"
-                >
-                  {loggingOut ? 'Signing out...' : 'Sign out'}
-                </button>
-              </div>
+      {/* ========================================================================= */}
+      {/* 🚀 MODAL DIALOG PORTAL: Synchronized 1:1 with Navbar & Sidebar Styles      */}
+      {/* ========================================================================= */}
+      {showLogoutConfirm && createPortal(
+        <div className="z-[999999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm fixed inset-0 font-sans antialiased text-left">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setShowLogoutConfirm(false)} style={{ touchAction: 'none' }} />
+          <div className="relative z-10 bg-white rounded-2xl shadow-2xl p-7 w-full max-w-sm border border-gray-50 animate-zoom-in">
+            
+            <h2 className="text-[20px] font-normal text-gray-900 mb-1.5 capitalize">Sign Out</h2>
+            <p className="text-[14px] text-gray-400 font-medium mb-6 leading-relaxed capitalize">
+              Are you sure you want to securely exit your session account?
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 py-3 px-4 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-full text-[14px] font-semibold transition-colors cursor-pointer capitalize shadow-none outline-none"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="flex-1 py-3 px-4 bg-red-600 text-white rounded-full text-[14px] font-semibold hover:bg-red-700 transition-colors shadow-none disabled:opacity-30 cursor-pointer capitalize outline-none"
+              >
+                {loggingOut ? 'Leaving...' : 'Leave Now'}
+              </button>
             </div>
-         </div>
+
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   )

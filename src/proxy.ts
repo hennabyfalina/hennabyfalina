@@ -29,12 +29,15 @@ export async function proxy(request: NextRequest) {
   const isDev = process.env.NODE_ENV !== 'production'
   
   // ✨ B2B SECURE CSP: Updated to allow Google OneTap, Supabase PDFs, and dynamic Country Flags ✨
-  response.headers.set('Content-Security-Policy', `default-src 'self'; script-src 'self' 'unsafe-inline' ${isDev ? "'unsafe-eval'" : ""} https://checkout.razorpay.com https://cdn.razorpay.com https://challenges.cloudflare.com https://www.googletagmanager.com https://va.vercel-scripts.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://*.razorpay.com https://graph.facebook.com https://vitals.vercel-insights.com https://www.google-analytics.com https://challenges.cloudflare.com https://accounts.google.com; frame-src 'self' https://api.razorpay.com https://*.razorpay.com https://challenges.cloudflare.com https://accounts.google.com https://*.supabase.co; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';`)
+  response.headers.set('Content-Security-Policy', `default-src 'self'; script-src 'self' 'unsafe-inline' ${isDev ? "'unsafe-eval'" : ""} https://checkout.razorpay.com https://cdn.razorpay.com https://challenges.cloudflare.com https://www.googletagmanager.com https://va.vercel-scripts.com https://accounts.google.com https://maps.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; img-src 'self' data: blob: https: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://*.razorpay.com https://graph.facebook.com https://vitals.vercel-insights.com https://www.google-analytics.com https://challenges.cloudflare.com https://accounts.google.com https://maps.googleapis.com; frame-src 'self' https://api.razorpay.com https://*.razorpay.com https://challenges.cloudflare.com https://accounts.google.com https://*.supabase.co https://www.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';`)
   
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      auth: {
+        experimental: { passkey: true },
+      },
       cookies: {
         get(name: string) { return request.cookies.get(name)?.value },
         set(name: string, value: string, options: CookieOptions) {

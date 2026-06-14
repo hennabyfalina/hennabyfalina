@@ -17,28 +17,30 @@ export default function CartChangedModal({ isOpen, onClose, onReturnToCart }: Ca
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white rounded-md shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 sm:p-8 border border-gray-50 animate-in zoom-in-95 duration-200">
         <div className="flex flex-col items-center text-center">
-          <div className="w-12 h-12 bg-[#FFF4F4] rounded-full flex items-center justify-center mb-4 border border-[#F2B8B5]">
-            <ShoppingCart className="w-6 h-6 text-[#B3261E]" />
+          <div className="w-12 h-12 bg-stone-50 rounded-full flex items-center justify-center mb-5">
+            <ShoppingCart className="w-5 h-5 text-gray-900" strokeWidth={1.5} />
           </div>
-          <h3 className="text-lg font-bold text-[#0F1111] mb-2">Cart Updated Externally</h3>
-          <p className="text-sm text-gray-600 mb-6">
-            We noticed your cart contents changed in another tab or window. Please review your cart to ensure your order is correct before paying.
+          
+          <h3 className="text-[18px] font-semibold text-gray-900 mb-2 tracking-tight">Cart Changed</h3>
+          <p className="text-[14px] text-gray-500 font-normal mb-8 leading-relaxed">
+            Your cart was updated in another window. Please review your items to continue.
           </p>
-          <div className="flex flex-col w-full gap-3">
+          
+          <div className="flex flex-col w-full gap-2.5">
             <button
               onClick={onReturnToCart}
-              className="w-full px-4 py-2 text-sm font-medium text-[#0F1111] bg-white border border-[#D5D9D9] hover:bg-gray-50 rounded-sm shadow-sm transition-colors cursor-pointer"
+              className="w-full h-12 flex items-center justify-center text-[14px] font-medium text-white bg-black hover:bg-stone-900 rounded-xl transition-all cursor-pointer shadow-none"
             >
-              Yes, Return to Cart
+              Review Cart
             </button>
             <button
               onClick={onClose}
-              className="w-full px-4 py-2 text-sm font-bold text-[#0F1111] bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-sm shadow-sm transition-colors cursor-pointer"
+              className="w-full h-12 flex items-center justify-center text-[14px] font-medium text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 border border-gray-200/50 rounded-xl transition-all cursor-pointer shadow-none"
             >
-              Stay in Checkout
+              Dismiss
             </button>
           </div>
         </div>

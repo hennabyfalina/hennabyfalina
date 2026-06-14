@@ -2,7 +2,7 @@
 
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 export function useAuth() {
@@ -12,136 +12,115 @@ export function useAuth() {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isNameMissing, setIsNameMissing] = useState(false)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
-  useEffect(() => {
-    const supabase = createClient()
+  const supabase = createClient()
 
-    const getUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setUser(session?.user || null)
+  const fetchUserAndProfile = useCallback(async () => {
+    setIsLoading(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    setUser(session?.user || null)
 
-      if (session?.user) {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('role, name')
-          .eq('id', session.user.id)
-          .maybeSingle()
-          
-        const userRole = userData?.role || 'customer'
-        setRole(userRole)
-        setIsAdmin(userRole === 'admin' || userRole === 'super_admin')
-        setIsSuperAdmin(userRole === 'super_admin')
-
-        const currentName = (userData?.name || '').trim()
-        const emailLower = (session?.user?.email || '').trim().toLowerCase()
-        const emailPrefix = emailLower.split('@')[0]
-        const normalize = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '')
-
-        let isGenerated = !currentName || currentName.toLowerCase() === emailLower || normalize(currentName) === normalize(emailPrefix)
-
-        const googleName = session.user.user_metadata?.full_name || session.user.user_metadata?.name
-        if (isGenerated && googleName) {
-          await supabase.from('users').update({ name: googleName }).eq('id', session.user.id)
-          isGenerated = false
-        }
-
-        setIsNameMissing(isGenerated && userRole !== 'super_admin' && userRole !== 'admin')
-      } else {
-        setRole(null)
-        setIsAdmin(false)
-        setIsSuperAdmin(false)
-        setIsNameMissing(false)
-      }
-      setIsLoading(false)
-    }
-
-    getUser()
-
-    // 🚨 ENTERPRISE CROSS-TAB SYNCHRONIZATION 🚨
-    const handleCrossTabLogout = () => {
-      if (typeof window !== 'undefined' && !(window as any).__isSigningOut) {
-        (window as any).__isSigningOut = true
+    if (session?.user) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('role, name')
+        .eq('id', session.user.id)
+        .maybeSingle()
         
-        // Instantly lock and obscure the UI across all active tabs
-        document.body.style.transition = 'all 0.2s ease-out'
-        document.body.style.filter = 'blur(20px) grayscale(100%)'
-        document.body.style.opacity = '0.4'
-        document.body.style.pointerEvents = 'none'
+      const userRole = userData?.role || 'customer'
+      setRole(userRole)
+      setIsAdmin(userRole === 'admin' || userRole === 'super_admin')
+      setIsSuperAdmin(userRole === 'super_admin')
 
-        try { sessionStorage.clear() } catch (e) {}
+      const currentName = (userData?.name || '').trim()
+      const emailLower = (session?.user?.email || '').trim().toLowerCase()
+      const emailPrefix = emailLower.split('@')[0]
+      const normalize = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '')
 
-        // Force a hard replace to instantly wipe history state for secured pages
-        window.location.replace('/')
+      let isGenerated = !currentName || currentName.toLowerCase() === emailLower || normalize(currentName) === normalize(emailPrefix)
+
+      const googleName = session.user.user_metadata?.full_name || session.user.user_metadata?.name
+      if (isGenerated && googleName) {
+        await supabase.from('users').update({ name: googleName }).eq('id', session.user.id)
+        isGenerated = false
+      }
+
+      setIsNameMissing(isGenerated && userRole !== 'super_admin' && userRole !== 'admin')
+    } else {
+      setRole(null)
+      setIsAdmin(false)
+      setIsSuperAdmin(false)
+      setIsNameMissing(false)
+    }
+    setIsLoading(false)
+  }, [supabase])
+
+  // Initial load
+  useEffect(() => {
+    fetchUserAndProfile()
+  }, [fetchUserAndProfile])
+
+  // 🚀 CROSS-TAB SYNC: Listen for token changes in localStorage
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      // If the auth token changed in another tab, refresh the user
+      if (e.key && e.key.includes('supabase-auth-token')) {
+        // Small delay to ensure Supabase client has updated
+        setTimeout(() => {
+          fetchUserAndProfile()
+        }, 100)
+      }
+      // Handle logout event
+      if (e.key === 'logout_event') {
+        fetchUserAndProfile()
       }
     }
+    
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [fetchUserAndProfile])
 
-    // 1. Listen via BroadcastChannel (Modern & Instant)
-    let bc: BroadcastChannel | null = null;
+  // 🚀 TAB VISIBILITY: Refresh when user returns to this tab
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Tab became active again – refresh auth state
+        fetchUserAndProfile()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [fetchUserAndProfile])
+
+  // 🚀 BROADCAST CHANNEL: Listen for logout events from other tabs
+  useEffect(() => {
+    let bc: BroadcastChannel | null = null
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       bc = new BroadcastChannel('auth-sync')
       bc.onmessage = (event) => {
-        if (event.data?.type === 'LOGOUT') handleCrossTabLogout()
+        if (event.data?.type === 'LOGOUT') {
+          fetchUserAndProfile()
+        }
       }
     }
-
-    // 2. Listen via Storage Event (Fallback for older browsers/stale contexts)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'logout_event' || (e.key && e.key.includes('supabase-auth-token') && !e.newValue)) {
-        handleCrossTabLogout()
-      }
+    return () => {
+      if (bc) bc.close()
     }
-    if (typeof window !== 'undefined') window.addEventListener('storage', handleStorageChange)
+  }, [fetchUserAndProfile])
 
+  // Listen to Supabase auth changes (same tab)
+  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') {
-        handleCrossTabLogout()
-        return
-      }
-
-      setUser(session?.user || null)
-      if (session?.user) {
-        supabase
-          .from('users')
-          .select('role, name')
-          .eq('id', session.user.id)
-          .maybeSingle()
-          .then(({ data }) => {
-            const userRole = data?.role || 'customer'
-            setRole(userRole)
-            setIsAdmin(userRole === 'admin' || userRole === 'super_admin')
-            setIsSuperAdmin(userRole === 'super_admin')
-            
-            const currentName = (data?.name || '').trim()
-            const emailLower = (session?.user?.email || '').trim().toLowerCase()
-            const emailPrefix = emailLower.split('@')[0]
-            const normalize = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '')
-            
-            let isGenerated = !currentName || currentName.toLowerCase() === emailLower || normalize(currentName) === normalize(emailPrefix)
-            
-            const googleName = session.user.user_metadata?.full_name || session.user.user_metadata?.name
-            if (isGenerated && googleName) {
-              supabase.from('users').update({ name: googleName }).eq('id', session.user.id).then(() => {})
-              isGenerated = false
-            }
-
-            setIsNameMissing(isGenerated && userRole !== 'super_admin' && userRole !== 'admin')
-            setIsLoading(false)
-          })
-      } else {
-        setRole(null)
-        setIsAdmin(false)
-        setIsSuperAdmin(false)
-        setIsNameMissing(false)
-        setIsLoading(false)
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+        fetchUserAndProfile()
       }
     })
 
     return () => {
       subscription.unsubscribe()
-      if (bc) bc.close()
-      if (typeof window !== 'undefined') window.removeEventListener('storage', handleStorageChange)
     }
-  }, [])
+  }, [supabase, fetchUserAndProfile])
 
   return { user, role, isAdmin, isSuperAdmin, isLoading, isNameMissing }
 }

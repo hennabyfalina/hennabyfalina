@@ -1,94 +1,108 @@
 // src/types/database.types.ts
 
-export type ProductPricingTier = {
+export type User = {
   id: string
-  product_id: string
-  tier_name: string
-  mrp: number
-  selling_price: number
-  min_quantity: number
-  requires_artwork: boolean
-  delivery_days: number
-  is_active: boolean
-  is_deleted: boolean
-  sort_order: number
+  name: string | null
+  email: string
+  phone: string | null
+  role: string
   created_at: string
   updated_at: string
 }
 
 export type Product = {
+  variants: any
+  price: number
   id: string
   name: string
   slug: string
+  sku: string | null
   description: string | null
   category_id: string | null
   stock: number
-  min_order_qty: number
   images: string[]
-  sku: any
-  dimensions: any
-  weight: any
-  weight_unit: 'kg' | 'g' | null
-  gsm: any
   is_active: boolean
+  is_deleted: boolean
   is_featured: boolean
-  is_deleted?: boolean 
   rating: number
   review_count: number
-  meta_title: string
-  meta_description: string | null
-  frequently_bought_together?: string[] | null
+  frequently_bought_together: string[] | null
   created_at: string
   updated_at: string
-  
-  // Array of dynamic pricing rules
-  pricing_tiers?: ProductPricingTier[] 
 
-  // Core pricing
-  price: number
-  selling_price: number | null
+  // 🎯 NEW HYBRID B2B PRICING CORE (Replaces legacy packaging tiers)
+  retail_price: number       // Standard retail unit price
+  wholesale_price: number    // Small wholesale group/dealer price
+  wholesale_min_qty: number  // The threshold count where wholesale price triggers
+  mrp: number                // Maximum Retail Price
+  weight: number | null
+  weight_unit: string | null
+  gsm: number | null
+  dimensions: { length: number; width: number; height: number } | null
+  meta_title: string | null
+  meta_description: string | null
 }
 
 export type Category = {
   id: string
+  category_id: string | null
+  parent_id: string | null
   name: string
   slug: string
+  sku: string | null
+  description: string | null
   image: string | null
+  retail_price: number
+  wholesale_price: number
+  wholesale_min_qty: number
+  stock: number
+  images: string[]
+  is_deleted: boolean
+  is_featured: boolean
+  rating: number
+  review_count: number
+  frequently_bought_together: string[] | null
+  mrp: number
+  weight: number | null
+  weight_unit: string | null
+  gsm: number | null
+  dimensions: any | null
+  low_stock_threshold: number
   display_order: number
+  is_active: boolean
+  meta_title: string | null
+  meta_description: string | null
   created_at: string
+  updated_at: string | null
 }
 
-// 🚨 ENTERPRISE DRAFT SCHEMA: Added address structures supporting high-resilience states
 export type Address = {
   id: string
   user_id: string
-  full_name: string
+  name: string              // Aligned directly with column 'name' from public.addresses
   phone: string
-  address_line1: string
+  address_line1: string | null
   address_line2: string | null
-  city: string
-  state: string
-  pincode: string
   landmark: string | null
+  city: string | null
+  state: string | null
+  pincode: string
+  country: string
   delivery_instructions: string | null
   is_default: boolean
-  is_temp: boolean // 🚀 Pure database source of truth state constraint
+  delivery_method: string    // 'delivery' or 'pickup'
+  is_temp: boolean           // Pure database source of truth state constraint
   created_at: string
-  updated_at: string
 }
 
-// Order and Order Item Types for B2B
+// Order and Order Item Types (Cleaned of artwork and printing overhead)
 export type OrderItem = {
   id: string
   order_id: string
   product_id: string
   quantity: number
-  price: number
-  original_price: number | null
-  printing_type: string
-  artwork_urls: string[] | null
-  artwork_sizes: number[] | null
-  printing_instructions: string | null
+  price: number              // Locked capture invoice price (Retail or Wholesale)
+  original_price: number     // Original base list price
   created_at: string
 }
 
@@ -96,15 +110,19 @@ export type Order = {
   id: string
   order_number: string
   user_id: string
-  address_id: string
+  address_id: string | null
   total_amount: number
   shipping_cost: number
-  payment_method: string
+  shipping_method: 'delivery' | 'pickup'
   payment_status: 'pending' | 'paid' | 'failed'
   status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled'
+  payment_method: string
+  payment_method_detail: string | null
   razorpay_order_id: string | null
   razorpay_payment_id: string | null
-  paid_at: string | null
+  idempotency_key: string | null
+  session_id: string | null
+  pickup_contact: { name: string; phone: string; pincode: string } | null
   created_at: string
   updated_at: string
 }

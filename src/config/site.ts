@@ -1,36 +1,36 @@
 export const siteConfig = {
-  name: "Razack Packaging Centre",
-  shortName: "Razack Packaging Centre",
-  description: "We are a packaging materials supplier based in India serving retail & wholesale customers since 1995. Your trusted partner for premium packaging solutions.",
+  name: "Henna by Falina",
+  shortName: "HB Falina",
+  description: "Premium, skin-safe organic henna products crafted in Chennai. Freshly batched and dispatched daily.",
   contact: {
     phone: {
-      primary: "+91 63831 51922",
-      secondary: "+91 94443 32283",
+      primary: "+91 63820 94394",
+      secondary: "+91 73586 71248",
     },
     email: {
-      orders: "orders@razackpackagingcentre.com",
-      support: "support@razackpackagingcentre.com",
-      general: "info@razackpackagingcentre.com",
+      orders: "orders@hennabyfalina.com",
+      support: "support@hennabyfalina.com",
+      general: "info@hennabyfalina.com",
     },
-    whatsapp: "+91 63831 51922",
+    whatsapp: "+91 63820 94394",
   },
   address: {
-    line1: "No. 25, Anderson Street, N.S.C. Bose Road",
-    line2: "(Olympic Habib Complex), Flower Bazaar, George Town",
+    line1: "No. 43, St. Xavier Street, Second Floor",
+    line2: "Seven Wells, Broadway, George Town",
     city: "Chennai",
     state: "Tamil Nadu",
     pincode: "600001",
     country: "India",
-    mapUrl: "https://www.google.com/maps/place/Razack+Packaging+Centre/@13.088911,80.2837631,18.21z/data=!3m1!5s0x3a526f5161115015:0xc18a13f16f32378d!4m6!3m5!1s0x3a526f4fccaece91:0xcfabdef606f515db!8m2!3d13.0887343!4d80.283837!16s%2Fg%2F1tfpy8dz?entry=ttu&g_ep=EgoyMDI2MDQyMi4wIKXMDSoASAFQAw%3D%3D", // Google Maps share link
+    mapUrl: "https://www.google.com/maps?sca_esv=9bf71fb085e6e221&output=search&q=St.+Xavier+Street&source=lnms&fbs=ADc_l-aN0CWEZBOHjofHoaMMDiKpaEWjvZ2Py1XXV8d8KvlI3kj_s5Jds98_ubVRf0unUVuttyzNArKNIU5GZzx4Y5djOSi5iUTuvdmR-KzdLKnPc8J97gJtmVeaOWsKOxlqo4TcVZ7ft1dMtClAqeNC9y2mJ8P_pAdCMwFy46j5j2tvTqUS2_V68iNK_vv2E5tQyCDxasV3OS5zCGOxACnsQOGmKPQxbA&entry=mc&ved=1t:200715&ictx=111", // Google Maps share link
   },
   business: {
-    gstin: "33AATPI7728L1Z3",
-    workingHours: "Mon - Sun (10:00 AM - 10:00 PM)",
+    gstin: "",
+    workingHours: "Mon - Sun (9:00 AM - 9:00 PM)",
   },
   socialLinks: {
-    instagram: "https://instagram.com/razackpackagingcentre",
-    facebook: "https://facebook.com/razackpackagingcentre",
-    twitter: "https://x.com/razackpackagingcentre",
+    instagram: "https://instagram.com/hennabyfalina",
+    facebook: "https://facebook.com/hennabyfalina",
+    twitter: "https://x.com/hennabyfalina",
   },
 } as const;
 

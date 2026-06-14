@@ -12,9 +12,9 @@ export function useCartSignature() {
   const initialSignatureRef = useRef<string>('')
 
   const getCartSignature = useCallback(() => {
-    // We ignore price here. Only product + printing + quantity defines the structural signature
+    // 🧼 Cleaned Signature: Hashing strictly on product_id + quantity matrix
     return useCartStore.getState().items
-      .map(item => `${item.product_id}|${item.printing_type}|${item.quantity}`)
+      .map(item => `${item.product_id}|${item.quantity}`)
       .sort()
       .join(',')
   }, [])
@@ -26,7 +26,7 @@ export function useCartSignature() {
     setInitialSignature(sig)
   }, [getCartSignature])
 
-  // Listen for broadcast events from other tabs
+  // Listen for real-time cross-tab updates to alert the payment interface
   useEffect(() => {
     const handleCartChange = () => {
       const currentSignature = getCartSignature()

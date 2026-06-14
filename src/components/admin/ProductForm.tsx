@@ -9,26 +9,14 @@ import { showToast } from '@/components/ui/Toast'
 import { UploadCloud, AlertTriangle, CheckCircle2, Image as ImageIcon, Plus, Trash2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 
-export interface PricingTierFormData {
-  id?: string
-  tier_name: string
-  mrp: number | string
-  selling_price: number | string
-  min_quantity: number | string
-  requires_artwork: boolean 
-  delivery_days: number | string
-  is_active: boolean
-  sort_order: number
-  promotional_badge?: string | null
-  promotional_badge_color?: string | null
-}
-
 interface ProductFormData {
   name: string
   slug: string
   description: string | null
-  price: number | string 
-  selling_price: number | string 
+  mrp: number | string
+  retail_price: number | string 
+  wholesale_price: number | string 
+  wholesale_min_qty: number | string
   stock: number | string
   sku: string | null
   category_id: string | null
@@ -45,7 +33,6 @@ interface ProductFormData {
   rating?: number | string | null
   review_count?: number | string | null
   frequently_bought_together: string[]
-  pricing_tiers: PricingTierFormData[]
 }
 
 interface ProductFormProps {
@@ -80,20 +67,10 @@ const validateProduct = (data: ProductFormData): { isValid: boolean; errors: str
   if (!data.name.trim()) errors.push('Product name is required')
   if (!data.slug.trim()) errors.push('Product slug is required')
   if (data.stock === '' || Number(data.stock) < 0) errors.push('Stock cannot be negative')
+  if (data.retail_price === '' || Number(data.retail_price) <= 0) errors.push('Retail price must be greater than 0')
+  if (data.mrp !== '' && Number(data.mrp) > 0 && Number(data.mrp) < Number(data.retail_price)) errors.push('MRP cannot be lower than Retail price')
+  if (data.wholesale_price !== '' && Number(data.wholesale_price) > Number(data.retail_price)) errors.push('Wholesale price cannot be higher than Retail price')
   
-  if (data.pricing_tiers.length === 0) {
-    errors.push('You must add at least one pricing tier (e.g., Retail)')
-  } else {
-    data.pricing_tiers.forEach((tier, index) => {
-      const tierLabel = tier.tier_name.trim() || `Tier ${index + 1}`
-      if (!tier.tier_name.trim()) errors.push(`${tierLabel}: Name is required`)
-      if (tier.mrp === '' || Number(tier.mrp) <= 0) errors.push(`${tierLabel}: MRP must be greater than 0`)
-      if (tier.selling_price === '' || Number(tier.selling_price) <= 0) errors.push(`${tierLabel}: Selling price must be greater than 0`)
-      if (Number(tier.selling_price) > Number(tier.mrp)) errors.push(`${tierLabel}: Selling price cannot be higher than MRP`)
-      if (tier.min_quantity === '' || Number(tier.min_quantity) < 1) errors.push(`${tierLabel}: Minimum quantity must be at least 1`)
-    })
-  }
-
   if (data.rating !== '' && data.rating !== null && data.rating !== undefined) {
     if (Number(data.rating) < 0 || Number(data.rating) > 5) errors.push('Rating must be between 0.0 and 5.0')
   }
@@ -119,8 +96,10 @@ export default function ProductForm({
     name: initialData.name || '',
     slug: initialData.slug || '',
     description: initialData.description || '',
-    price: initialData.price === 0 ? '' : (initialData.price || ''), 
-    selling_price: initialData.selling_price === 0 ? '' : (initialData.selling_price || ''), 
+    mrp: initialData.mrp || '',
+    retail_price: initialData.retail_price || '', 
+    wholesale_price: initialData.wholesale_price || '', 
+    wholesale_min_qty: initialData.wholesale_min_qty || 1,
     stock: initialData.stock === 0 ? '' : (initialData.stock || ''),
     sku: initialData.sku || null,
     category_id: initialData.category_id || null,
@@ -141,9 +120,6 @@ export default function ProductForm({
     rating: initialData.rating ?? 4.5,
     review_count: initialData.review_count ?? 128,
     frequently_bought_together: initialData.frequently_bought_together || [],
-    pricing_tiers: initialData.pricing_tiers?.length ? initialData.pricing_tiers : [
-      { tier_name: 'Retail (Readymade)', mrp: '', selling_price: '', min_quantity: 1, requires_artwork: false, delivery_days: 7, is_active: true, sort_order: 0, promotional_badge: null, promotional_badge_color: 'bg-[#C7511F] text-white' }
-    ],
   })
 
   const [formData, setFormData] = useState<ProductFormData>(initialFormData)
@@ -206,44 +182,7 @@ export default function ProductForm({
     }))
   }
 
-  const handleAddTier = () => {
-    setFormData(prev => ({
-      ...prev,
-      pricing_tiers: [
-        ...prev.pricing_tiers,
-        { tier_name: '', mrp: '', selling_price: '', min_quantity: 100, requires_artwork: false, delivery_days: 7, is_active: true, sort_order: prev.pricing_tiers.length, promotional_badge: null, promotional_badge_color: 'bg-[#C7511F] text-white' }
-      ]
-    }))
-  }
-
-  const handleRemoveTier = (indexToRemove: number) => {
-    setFormData(prev => {
-      const newTiers = prev.pricing_tiers.filter((_, index) => index !== indexToRemove)
-      return {
-        ...prev,
-        pricing_tiers: newTiers.map((tier, idx) => ({ ...tier, sort_order: idx }))
-      }
-    })
-  }
-
-  const handleTierChange = (index: number, field: keyof PricingTierFormData, value: any) => {
-    setFormData(prev => {
-      const newTiers = [...prev.pricing_tiers]
-      newTiers[index] = { ...newTiers[index], [field]: value }
-      
-      if (index === 0 && (field === 'mrp' || field === 'selling_price')) {
-         return {
-           ...prev,
-           pricing_tiers: newTiers,
-           price: field === 'mrp' ? value : prev.price,
-           selling_price: field === 'selling_price' ? value : prev.selling_price
-         }
-      }
-      return { ...prev, pricing_tiers: newTiers }
-    })
-  }
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (formData.images.length + newImageFiles.length + files.length > MAX_IMAGES) {
       showToast(`Maximum ${MAX_IMAGES} images allowed`, 'error')
@@ -253,11 +192,13 @@ export default function ProductForm({
     const validFiles: File[] = []
     const errors: string[] = []
 
-    files.forEach(file => {
+    for (const file of files) {
       if (!ALLOWED_FILE_TYPES.includes(file.type)) errors.push(`${file.name}: Invalid format`)
       else if (file.size > MAX_FILE_SIZE) errors.push(`${file.name}: Exceeds 5MB`)
-      else validFiles.push(file)
-    })
+      else {
+        validFiles.push(file)
+      }
+    }
 
     if (errors.length > 0) showToast(errors.join(', '), 'error')
 
@@ -324,29 +265,12 @@ export default function ProductForm({
     }
 
     try {
-      const processedTiers = formData.pricing_tiers.map(tier => {
-        const tierData: any = {
-          tier_name: tier.tier_name,
-          mrp: Number(tier.mrp) || 0,
-          selling_price: Number(tier.selling_price) || 0,
-          min_quantity: Number(tier.min_quantity) || 1,
-          delivery_days: Number(tier.delivery_days) || 7,
-          is_active: tier.is_active,
-          sort_order: tier.sort_order,
-          requires_artwork: tier.requires_artwork,
-          promotional_badge: tier.promotional_badge || null,
-          promotional_badge_color: tier.promotional_badge_color || null
-        }
-        if (tier.id) {
-          tierData.id = tier.id
-        }
-        return tierData
-      })
-
       await onSubmit({
         ...formData,
-        price: Number(formData.price) || 0, 
-        selling_price: Number(formData.selling_price) || 0, 
+        mrp: Number(formData.mrp) || 0,
+        retail_price: Number(formData.retail_price) || 0, 
+        wholesale_price: Number(formData.wholesale_price) || 0, 
+        wholesale_min_qty: Number(formData.wholesale_min_qty) || 1,
         stock: formData.stock === '' ? 0 : Number(formData.stock),
         weight: formData.weight === '' || formData.weight === null ? null : Number(formData.weight),
         weight_unit: formData.weight_unit || 'kg',
@@ -359,8 +283,7 @@ export default function ProductForm({
           width: Number(formData.dimensions.width) || 0,
           height: Number(formData.dimensions.height) || 0,
         } : null as any,
-        images: [...formData.images, ...uploadedPaths],
-        pricing_tiers: processedTiers 
+        images: [...formData.images, ...uploadedPaths]
       })
       setNewImageFiles([])
       newImagePreviews.forEach(URL.revokeObjectURL)
@@ -453,189 +376,29 @@ export default function ProductForm({
             </div>
 
             <div className="mt-8 pt-6 border-t admin-border">
-              <div className="mb-5">
-                <h4 className="text-base font-medium admin-text-primary tracking-wide">Pricing & Customization Tiers</h4>
-                <p className="text-xs admin-text-muted mt-1">Create rules and toggle artwork upload requirements per tier.</p>
+              <div className="mb-6">
+                <h4 className="text-base font-medium admin-text-primary tracking-wide">Hybrid Pricing Strategy</h4>
+                <p className="text-xs admin-text-muted mt-1">Set standard retail and bulk wholesale rates.</p>
               </div>
 
-              <div className="space-y-4">
-                {formData.pricing_tiers.length === 0 ? (
-                  <button 
-                    type="button" 
-                    onClick={handleAddTier}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#0B57D0]/10 text-[#A8C7FA] font-bold rounded-2xl border border-[#0B57D0]/30 hover:bg-[#0B57D0]/20 transition-colors cursor-pointer text-sm"
-                  >
-                    <Plus className="w-5 h-5" /> Add First Rule
-                  </button>
-                ) : (
-                  formData.pricing_tiers.map((tier, index) => (
-                    <div key={index} className="admin-bg-card border admin-border rounded-[24px] overflow-hidden group transition-all hover:border-[#565959] flex flex-col relative p-5 gap-5">
-                        
-                      {formData.pricing_tiers.length > 1 && (
-                        <button 
-                          type="button" 
-                          onClick={() => handleRemoveTier(index)}
-                          className="absolute top-4 right-4 p-2 admin-text-muted hover:bg-red-100 dark:hover:bg-[#4D2628] hover:text-red-600 dark:hover:text-[#F2B8B5] rounded-full transition-colors cursor-pointer opacity-0 group-hover:opacity-100 z-10"
-                          title="Remove Rule"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-
-                      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start md:items-end pr-10">
-                        <div className="md:col-span-6">
-                          <label className={labelClass}>Rule Name</label>
-                          <input 
-                            title="Rule Name"
-                            type="text" 
-                            value={tier.tier_name} 
-                            onChange={(e) => handleTierChange(index, 'tier_name', e.target.value)} 
-                            placeholder="e.g. Wholesale Multi-Color" 
-                            className="w-full px-4 py-2.5 admin-bg-primary border admin-border admin-text-primary rounded-xl focus:outline-none focus:border-[#A8C7FA] transition-colors text-sm" 
-                          />
-                        </div>
-                        <div className="md:col-span-3">
-                          <label className={labelClass}>Badge (Opt)</label>
-                          <input 
-                            title="Promotional Badge"
-                            type="text" 
-                            value={tier.promotional_badge || ''} 
-                            onChange={(e) => handleTierChange(index, 'promotional_badge', e.target.value)} 
-                            placeholder="e.g. Best Value" 
-                            className="w-full px-4 py-2.5 admin-bg-primary border admin-border admin-text-primary rounded-xl focus:outline-none focus:border-[#A8C7FA] transition-colors text-sm" 
-                          />
-                        </div>
-                        <div className="md:col-span-3">
-                          <label className={labelClass}>Badge Theme</label>
-                          <select 
-                            title="Badge Color Theme"
-                            value={tier.promotional_badge_color || 'bg-[#C7511F] text-white'} 
-                            onChange={(e) => handleTierChange(index, 'promotional_badge_color', e.target.value)} 
-                            className="w-full px-4 py-2.5 admin-bg-primary border admin-border admin-text-primary rounded-xl focus:outline-none focus:border-[#A8C7FA] transition-colors text-sm cursor-pointer appearance-none" 
-                          >
-                            <option value="bg-[#C7511F] text-white">Ruby Red</option>
-                            <option value="bg-[#007600] text-white">Emerald Green</option>
-                            <option value="bg-[#007185] text-white">Ocean Blue</option>
-                            <option value="bg-[#FFA41C] text-white">Sunset Orange</option>
-                            <option value="bg-[#FCD200] text-black">Electric Yellow</option>
-                            <option value="bg-[#D0BCFF] text-white">Midnight Purple</option>
-                            <option value="bg-[#565959] text-white">Graphite Grey</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 admin-bg-primary rounded-xl border admin-border">
-                        <div>
-                          <label className={labelClass}>M.R.P (₹)</label>
-                          <input 
-                            title="Maximum Retail Price"
-                            placeholder="0.00"
-                            type="number" 
-                            value={tier.mrp} 
-                            onChange={(e) => handleTierChange(index, 'mrp', e.target.value === '' ? '' : parseFloat(e.target.value))} 
-                            min="0" step="0.01" 
-                            className="w-full px-4 py-2.5 admin-bg-card border admin-border admin-text-primary rounded-lg focus:outline-none focus:border-[#A8C7FA] transition-colors text-sm" 
-                          />
-                        </div>
-                        <div>
-                          <label className={labelClass}>Selling Price (₹)</label>
-                          <input 
-                            title="Selling Price"
-                            placeholder="0.00"
-                            type="number" 
-                            value={tier.selling_price} 
-                            onChange={(e) => handleTierChange(index, 'selling_price', e.target.value === '' ? '' : parseFloat(e.target.value))} 
-                            min="0" step="0.01" 
-                            className="w-full px-4 py-2.5 admin-bg-card border admin-border admin-text-primary rounded-lg focus:outline-none focus:border-[#A8C7FA] transition-colors text-sm" 
-                          />
-                        </div>
-                        <div>
-                          <label className={labelClass}>Minimum Quantity</label>
-                          <input 
-                            title="Minimum Quantity"
-                            placeholder="1"
-                            type="number" 
-                            value={tier.min_quantity} 
-                            onChange={(e) => handleTierChange(index, 'min_quantity', e.target.value === '' ? '' : parseInt(e.target.value, 10))} 
-                            min="1" step="1" 
-                            className="w-full px-4 py-2.5 admin-bg-card border admin-border admin-text-primary rounded-lg focus:outline-none focus:border-[#A8C7FA] transition-colors text-sm" 
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
-                        
-                        <div className="flex flex-col">
-                          <label className={labelClass}>Ships In (Days)</label>
-                          <input 
-                            title="Estimated delivery days"
-                            type="number" 
-                            value={tier.delivery_days} 
-                            onChange={(e) => handleTierChange(index, 'delivery_days', e.target.value === '' ? '' : parseInt(e.target.value, 10))} 
-                            placeholder="7" 
-                            min="1"
-                            className="w-full px-4 py-2.5 admin-bg-card border admin-border admin-text-primary rounded-lg focus:outline-none focus:border-[#A8C7FA] transition-colors text-sm" 
-                          />
-                        </div>
-
-                        <div className="flex flex-col justify-end">
-                          <label className={labelClass}>Custom Artwork?</label>
-                          <div className="flex items-center gap-3 px-4 py-2.5 admin-bg-primary border admin-border rounded-lg h-11">
-                            <span className="text-xs text-[#565959] font-medium">Logo/PDF</span>
-                            <label className="relative inline-flex items-center cursor-pointer ml-auto flex-shrink-0" title="Toggle artwork requirement">
-                              <input 
-                                title="Toggle Custom Artwork Requirement"
-                                type="checkbox" 
-                                className="sr-only peer" 
-                                checked={tier.requires_artwork}
-                                onChange={(e) => handleTierChange(index, 'requires_artwork', e.target.checked)}
-                              />
-                              <div className="w-9 h-5 bg-gray-300 dark:bg-[#333538] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:after:bg-[#8E9196] peer-checked:after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#0B57D0]"></div>
-                            </label>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col justify-end">
-                          <label className={labelClass}>Rule Status</label>
-                          <div className="flex items-center gap-3 px-4 py-2.5 admin-bg-primary border admin-border rounded-lg h-11">
-                            <span className="text-xs text-[#565959] font-medium">Rule Status</span>
-                            <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-auto" title="Toggle active status">
-                              <input 
-                                title="Toggle Tier Active Status"
-                                type="checkbox" 
-                                className="sr-only peer" 
-                                checked={tier.is_active}
-                                onChange={(e) => handleTierChange(index, 'is_active', e.target.checked)}
-                              />
-                              <div className="w-9 h-5 bg-gray-300 dark:bg-[#333538] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:after:bg-[#8E9196] peer-checked:after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#0B57D0]"></div>
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-
-                      {formData.pricing_tiers.length > 1 && (
-                        <button 
-                          type="button" 
-                          onClick={() => handleRemoveTier(index)}
-                          className="w-full mt-2 p-3 bg-red-100 dark:bg-[#4D2628]/20 text-red-600 dark:text-[#F2B8B5] border border-red-200 dark:border-[#8C1D18]/30 rounded-xl text-xs font-bold uppercase tracking-widest md:hidden flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" /> Remove Rule
-                        </button>
-                      )}
-                    </div>
-                  ))
-                )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div>
+                  <label htmlFor="mrp" className={labelClass}>MRP (₹)</label>
+                  <input id="mrp" type="number" name="mrp" value={formData.mrp} onChange={handleNumberChange} placeholder="0.00" step="0.01" className={inputClass} />
+                </div>
+                <div>
+                  <label htmlFor="retail_price" className={labelClass}>Selling Price (₹) *</label>
+                  <input id="retail_price" type="number" name="retail_price" value={formData.retail_price} onChange={handleNumberChange} placeholder="0.00" step="0.01" required className={inputClass} />
+                </div>
+                <div>
+                  <label htmlFor="wholesale_price" className={labelClass}>Wholesale Price (₹)</label>
+                  <input id="wholesale_price" type="number" name="wholesale_price" value={formData.wholesale_price} onChange={handleNumberChange} placeholder="0.00" step="0.01" className={inputClass} />
+                </div>
+                <div>
+                  <label htmlFor="wholesale_min_qty" className={labelClass}>Wholesale Min Qty</label>
+                  <input id="wholesale_min_qty" type="number" name="wholesale_min_qty" value={formData.wholesale_min_qty} onChange={handleNumberChange} placeholder="1" min="1" className={inputClass} />
+                </div>
               </div>
-
-              {formData.pricing_tiers.length > 0 && (
-                <button 
-                  type="button" 
-                  onClick={handleAddTier}
-                  className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 bg-[#0B57D0]/10 text-[#A8C7FA] font-bold rounded-2xl border border-[#0B57D0]/30 hover:bg-[#0B57D0]/20 transition-colors cursor-pointer text-sm"
-                >
-                  <Plus className="w-5 h-5" /> Add Another Rule
-                </button>
-              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-6 border-t admin-border">

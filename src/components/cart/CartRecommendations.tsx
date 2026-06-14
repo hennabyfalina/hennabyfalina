@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { useCartStore } from '@/store/cart.store'
 import { getCartRecommendationsWithSignedUrls } from '@/services/product.service'
 import { ShoppingBag } from 'lucide-react'
-import ProductCard from '@/components/product/ProductCard' // ✅ Reusing your main ProductCard
+import ProductCard from '@/components/product/ProductCard'
 
 export default function CartRecommendations() {
   const items = useCartStore((state) => state.items)
@@ -39,16 +39,19 @@ export default function CartRecommendations() {
     fetchRecommendations()
   }, [items])
 
+  // 🚀 SKELETON LOADING STATE: Clean fixed-width elements matching layout standards
   if (loading) {
     return (
-      <div className="mt-8 w-full bg-white p-5 md:p-6 rounded-sm border border-gray-200 shadow-sm">
-        <h3 className="font-bold text-gray-900 text-lg mb-4">Recommmended for you</h3>
-        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="w-[220px] flex-shrink-0 animate-pulse">
-              <div className="aspect-square bg-gray-100 rounded-sm"></div>
-              <div className="h-4 bg-gray-100 rounded mt-3 w-3/4"></div>
-              <div className="h-4 bg-gray-100 rounded mt-2 w-1/2"></div>
+      <div className="mt-10 w-full select-none font-sans antialiased text-center flex flex-col items-center">
+        <div className="h-5 w-44 bg-stone-100 rounded-md mb-8 animate-pulse" />
+        <div className="flex gap-4 sm:gap-6 overflow-hidden w-full justify-start md:justify-center">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="w-[180px] sm:w-[220px] flex-shrink-0 space-y-3 text-left">
+              <div className="relative aspect-square w-full bg-stone-50/60 rounded-xl border border-gray-100/40" />
+              <div className="px-1 space-y-2">
+                <div className="h-4 bg-stone-50/80 rounded-md w-11/12" />
+                <div className="h-4 bg-stone-50 rounded-md w-16" />
+              </div>
             </div>
           ))}
         </div>
@@ -56,39 +59,56 @@ export default function CartRecommendations() {
     )
   }
 
+  // 🚀 EMPTY STATE: Flat open structure built to rest directly onto your container workspace
   if (recommendations.length === 0) {
     return (
-      <div className="mt-8 w-full bg-white p-5 md:p-6 rounded-sm border border-gray-200 shadow-sm text-center">
-        <div className="flex flex-col items-center justify-center py-8">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-            <ShoppingBag className="w-8 h-8 text-gray-400" />
-          </div>
-          <h3 className="text-lg font-bold text-gray-900 mb-2">Keep exploring</h3>
-          <p className="text-sm text-gray-600 mb-6 max-w-md">
-            Add items to your cart to see personalized recommendations.
+      <div className="w-full mt-10 py-12 text-center select-none font-sans antialiased flex flex-col items-center justify-center gap-4">
+        <div className="w-10 h-10 rounded-full bg-stone-50/60 flex items-center justify-center border border-gray-100/50 text-gray-400">
+          <ShoppingBag className="w-4 h-4" strokeWidth={1.5} />
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-[15px] font-normal text-gray-950 lowercase">
+            keep exploring
+          </h3>
+          <p className="text-[13px] text-gray-400 font-normal max-w-sm mx-auto leading-relaxed lowercase">
+            add items to your bag session to reveal custom curated matching organic products.
           </p>
+        </div>
+        <div className="pt-2">
           <Link
             href="/products"
-            className="px-6 py-2 bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 rounded-sm font-bold text-sm transition-colors border border-[#FCD200] shadow-sm"
+            className="inline-flex h-10 items-center justify-center px-6 bg-gray-950 hover:bg-black text-white rounded-xl text-[13px] font-medium transition-colors cursor-pointer lowercase shadow-xs active:scale-[0.99]"
           >
-            Continue Shopping
+            continue shopping
           </Link>
         </div>
       </div>
     )
   }
 
+  // 🚀 ACTIVE SHOWCASE STATE: Clean horizontal swiper row using exact homepage dimensions
   return (
-    <div className="mt-8 w-full bg-white p-5 md:p-6 rounded-sm border border-gray-200 shadow-sm">
-      <h3 className="font-bold text-gray-900 text-lg mb-4">Recommended for you</h3>
-      <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 snap-x">
-        {recommendations.map((product) => (
-          <div key={product.id} className="w-[220px] flex-shrink-0 snap-start h-full">
-            {/* ✅ Reusing the exact logic and design of your main ProductCard */}
-            <ProductCard product={product} priority={false} productList={recommendations} />
+    <div className="mt-10 w-full select-none font-sans antialiased flex flex-col gap-6" suppressHydrationWarning>
+      
+      {/* Centered, weightless medium text heading label */}
+      <div className="w-full text-center py-2 flex flex-col items-center justify-center">
+        <h3 className="text-3xl sm:text-4xl font-normal text-gray-950 tracking-tight capitalize">
+          Recommended For You
+        </h3>
+      </div>
+
+      {/* 🌟 FIXED: Changed grid to an infinite scroll row track to prevent image stretching */}
+      <div className="flex gap-4 sm:gap-6 overflow-x-auto pb-4 scroll-smooth no-scrollbar snap-x snap-mandatory w-full justify-start md:justify-center">
+        {recommendations.slice(0, 6).map((product) => (
+          <div 
+            key={product.id} 
+            className="w-[180px] sm:w-[220px] flex-shrink-0 snap-start px-0.5"
+          >
+            <ProductCard product={product} priority={false} />
           </div>
         ))}
       </div>
+      
     </div>
   )
 }

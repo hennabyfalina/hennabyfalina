@@ -6,7 +6,7 @@ import SecurityClient from './SecurityClient'
 import { siteConfig } from '@/config/site'
 
 export const metadata = {
-  title: `Login & Security | ${siteConfig.name}`
+  title: `Login & Security | ${siteConfig.name} Studio`
 }
 
 export default async function SecurityPage() {
@@ -17,14 +17,14 @@ export default async function SecurityPage() {
     redirect('/login?redirect=/profile/security')
   }
 
-  // Fetch the user's current data directly from the public.users table
+  // Hydrate personal session parameters from core data rows
   const { data: userData } = await supabase
     .from('users')
     .select('*')
     .eq('id', session.user.id)
     .single()
 
-  // 🚨 FETCH PHONE FROM ADDRESSES TABLE 🚨
+  // Hydrate primary phone contact records directly from the database schema indices
   const { data: addressData } = await supabase
     .from('addresses')
     .select('phone')

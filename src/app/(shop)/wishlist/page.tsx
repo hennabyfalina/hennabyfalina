@@ -5,33 +5,26 @@ import { redirect } from 'next/navigation'
 import { getFullWishlist } from '@/services/wishlist.service'
 import Container from '@/components/ui/Container'
 import WishlistClient from './WishlistClient'
+import { siteConfig } from '@/config/site'
 
 export const metadata = {
-  title: 'Your Wishlist | Razack Packaging'
+  title: `Your Wishlist | ${siteConfig.name} Studio`
 }
 
 export default async function WishlistPage() {
   const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession()
 
-  // Secure the route
   if (!session) {
     redirect('/login?next=/wishlist')
   }
 
-  // Fetch the initial data server-side for speed and SEO
   const wishlistItems = await getFullWishlist()
 
   return (
-    <div className="min-h-screen bg-[#F0F2F2] py-8">
-      <Container>
-        <div className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-normal text-gray-900 tracking-tight">Your Wishlist</h1>
-        </div>
-
-        {/* 🚨 Pass data to the Client Component for real-time reactivity */}
+    <div className="min-h-screen bg-white py-8 md:py-14 select-none animate-in fade-in duration-300">
+      <Container className="max-w-[1400px] px-4 sm:px-8">
         <WishlistClient initialItems={wishlistItems} />
-        
       </Container>
     </div>
   )

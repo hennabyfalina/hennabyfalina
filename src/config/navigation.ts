@@ -1,24 +1,80 @@
 // src/config/navigation.ts
 
 import { 
-  Mail, PenSquare, Building, FileText, MessageCircle, 
-  Layers, Box, Gift, Printer, Package, ShieldCheck
+  Sparkles, Leaf, ShoppingBag, Layers, 
+  Paintbrush, Scissors, Heart, FileText, MessageCircle,
+  Palette, Phone
 } from 'lucide-react'
 import { siteConfig } from './site'
 
 export const EXPLORE_LINKS = [
-  { href: '/custom-order', label: 'Request Custom Design', icon: PenSquare },
-  { href: '/wholesale', label: 'Bulk/Wholesale Inquiry', icon: Building },
-  { href: `https://wa.me/${siteConfig.contact.whatsapp.replace(/[^0-9]/g, '')}`, label: 'Chat with Expert', icon: MessageCircle },
-  { href: '/contact', label: 'Contact Support', icon: Mail },
-  { href: '/terms', label: 'Privacy & Terms', icon: FileText },
+  { 
+    href: '/wishlist', 
+    label: 'My Wishlist', 
+    icon: Heart 
+  },
+  { 
+    href: '/collections', 
+    label: 'Shop Collections', 
+    icon: Leaf 
+  },
+  { 
+    href: '/services', 
+    label: 'Henna Artist Services', 
+    icon: Palette
+  },
+  { 
+    href: `https://wa.me/${siteConfig.contact.phone.primary.replace(/[^0-9]/g, '')}`, 
+    label: 'Chat with Henna Studio', 
+    icon: MessageCircle 
+  },
+  { 
+    href: '/contact-support', 
+    label: 'Studio Support & Inquiries', 
+    icon: Phone 
+  },
+  { 
+    href: '/terms-conditions', 
+    label: 'Terms of Sale & Privacy', 
+    icon: FileText 
+  },
 ]
 
 export const CATEGORIES_LIST = [
-  { id: 'all', href: '/products', label: 'All Products', icon: Layers },
-  { id: 'sweet-cake-boxes', href: '/products?category=sweet-cake-boxes', label: 'Sweet & Cake Boxes', icon: Gift }, 
-  { id: 'gift-fancy-boxes', href: '/products?category=gift-fancy-boxes', label: 'Gift & Fancy Boxes', icon: Box }, 
-  { id: 'valet-rigid-boxes', href: '/products?category=valet-rigid-boxes', label: 'Valet & Rigid Boxes', icon: ShieldCheck }, 
-  { id: 'offset-printing', href: '/products?category=offset-printing', label: 'Printing Services', icon: Printer }, 
-  { id: 'packaging-materials', href: '/products?category=packaging-materials', label: 'Packaging Materials', icon: Package }, 
+  { 
+    id: 'all', 
+    href: '/collections', 
+    label: 'All Collection', 
+    icon: Layers 
+  },
+  { 
+    id: 'henna-cones', 
+    href: '/products?category=henna-cones', 
+    label: 'Henna Cones & Dips', 
+    icon: Leaf 
+  }, 
+  { 
+    id: 'combos', 
+    href: '/products?category=combo-packs', 
+    label: 'Signature Combos', 
+    icon: ShoppingBag 
+  }, 
+  { 
+    id: 'stencils', 
+    href: '/products?category=stencils', 
+    label: 'Bridal Stencils', 
+    icon: Scissors 
+  }, 
+  { 
+    id: 'kits', 
+    href: '/products?category=kits', 
+    label: 'Artist & Starter Kits', 
+    icon: Sparkles 
+  }, 
+  { 
+    id: 'essentials-raw', 
+    href: '/products?category=raw-materials-essentials', 
+    label: 'Powder, Oils & Essentials', 
+    icon: Paintbrush 
+  }, 
 ]

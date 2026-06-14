@@ -2,7 +2,7 @@
 
 'use client'
 
-import { Package, Store, Check } from 'lucide-react'
+import { Package, Home } from 'lucide-react'
 
 interface DeliveryMethodProps {
   shippingMethod: 'delivery' | 'pickup'
@@ -10,76 +10,45 @@ interface DeliveryMethodProps {
   disabled?: boolean
 }
 
-export default function DeliveryMethod({ shippingMethod, onChange, disabled = false }: DeliveryMethodProps) {
+export default function DeliveryMethod({ 
+  shippingMethod, 
+  onChange, 
+  disabled = false 
+}: DeliveryMethodProps) {
   return (
-    <div className="bg-white">
-      
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Home Delivery */}
+    <div className="w-full font-sans antialiased text-left select-none">
+      <div className="flex items-center p-1 bg-[#F1F3F4] rounded-xl sm:rounded-2xl max-w-md w-full relative">
+        
+        {/* Option A: Standard Delivery */}
         <button
           type="button"
           onClick={() => !disabled && onChange('delivery')}
           disabled={disabled}
-          className={`w-full text-left flex items-center p-4 rounded-sm border transition-all hover:border-[#FF9900] focus:outline-none cursor-pointer disabled:cursor-not-allowed ${
-            shippingMethod === 'delivery' 
-              ? 'border-[#D5D9D9] bg-white' 
-              : 'border-[#D5D9D9] bg-white hover:border-gray-400'
-          }`}
+          className={`relative flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-2 rounded-lg sm:rounded-xl text-[14px] sm:text-[15px] font-semibold transition-all duration-200 outline-none ${
+            shippingMethod === 'delivery'
+              ? 'bg-white text-gray-900 shadow-sm' 
+              : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
+          } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
         >
-          <div className="flex items-center gap-3 w-full">
-            <div
-              style={{
-                backgroundColor: shippingMethod === 'delivery' ? '#FF9900' : '#F3F4F6',
-                color: shippingMethod === 'delivery' ? 'white' : '#6B7280'
-              }}
-              className="p-1.5 rounded-sm transition-colors"
-            >
-              <Package className="w-5 h-5" />
-            </div>
-            <div className="flex-1">
-              <span className="font-bold text-[#0F1111] text-[15px]">Home Delivery</span>
-              <p className="text-sm text-gray-600 mt-0.5">Fast delivery</p>
-            </div>
-            {shippingMethod === 'delivery' && (
-              <div className="w-5 h-5 rounded-full bg-[#FF9900] flex items-center justify-center shadow-sm">
-                <Check className="w-3 h-3 text-white" />
-              </div>
-            )}
-          </div>
+          <Package className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${shippingMethod === 'delivery' ? 'text-blue-600' : 'text-gray-400'}`} strokeWidth={2} />
+          <span className="tracking-tight capitalize">Standard Delivery</span>
         </button>
 
-        {/* Store Pickup */}
+        {/* Option B: Home Pickup */}
         <button
           type="button"
           onClick={() => !disabled && onChange('pickup')}
           disabled={disabled}
-          className={`w-full text-left flex items-center p-4 rounded-sm border transition-all hover:border-[#FF9900] focus:outline-none cursor-pointer disabled:cursor-not-allowed ${
-            shippingMethod === 'pickup' 
-              ? 'border-[#D5D9D9] bg-white' 
-              : 'border-[#D5D9D9] bg-white hover:border-gray-400'
-          }`}
+          className={`relative flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-2 rounded-lg sm:rounded-xl text-[14px] sm:text-[15px] font-semibold transition-all duration-200 outline-none ${
+            shippingMethod === 'pickup'
+              ? 'bg-white text-gray-900 shadow-sm' 
+              : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
+          } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
         >
-          <div className="flex items-center gap-3 w-full">
-            <div
-              style={{
-                backgroundColor: shippingMethod === 'pickup' ? '#FF9900' : '#F3F4F6',
-                color: shippingMethod === 'pickup' ? 'white' : '#6B7280'
-              }}
-              className="p-1.5 rounded-sm transition-colors"
-            >
-              <Store className="w-5 h-5" />
-            </div>
-            <div className="flex-1">
-              <span className="font-bold text-[#0F1111] text-[15px]">Store Pickup</span>
-              <p className="text-sm text-green-700 font-bold mt-0.5">Free</p>
-            </div>
-            {shippingMethod === 'pickup' && (
-              <div className="w-5 h-5 rounded-full bg-[#FF9900] flex items-center justify-center shadow-sm">
-                <Check className="w-3 h-3 text-white" />
-              </div>
-            )}
-          </div>
+          <Home className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${shippingMethod === 'pickup' ? 'text-blue-600' : 'text-gray-400'}`} strokeWidth={2} />
+          <span className="tracking-tight capitalize">Home Pickup</span>
         </button>
+
       </div>
     </div>
   )

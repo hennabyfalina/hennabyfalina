@@ -4,7 +4,6 @@ import React from 'react'
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
 import { siteConfig } from '@/config/site'
 import { numberToIndianWords } from '@/lib/utils'
-import { calculateTaxBreakdown } from '@/lib/tax' 
 
 // Define the styles for the PDF
 const styles = StyleSheet.create({
@@ -262,8 +261,6 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
   const shippingCost = order.shipping_cost ?? (order.total_amount > 1000 ? 0 : 50)
   const subtotal = order.total_amount - shippingCost
 
-  const taxInfo = calculateTaxBreakdown(subtotal)
-
   const isStorePickup = order.delivery_method === 'pickup' || 
                         order.addresses?.delivery_method === 'pickup' ||
                         order.addresses?.address_line1?.toLowerCase().includes('pickup') || 
@@ -436,23 +433,7 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
               <Text style={[styles.text, { fontFamily: 'Helvetica-Bold' }]}>Taxable Value (Base):</Text>
               <View style={styles.amountContainer}>
                 <Text style={styles.amountSymbol}>Rs.</Text>
-                <Text style={styles.amountNumber}>{formatJustNumber(taxInfo.basePrice)}</Text>
-              </View>
-            </View>
-            
-            <View style={styles.totalRow}>
-              <Text style={[styles.text, { fontFamily: 'Helvetica-Bold' }]}>CGST (9%):</Text>
-              <View style={styles.amountContainer}>
-                <Text style={styles.amountSymbol}>Rs.</Text>
-                <Text style={styles.amountNumber}>{formatJustNumber(taxInfo.cgst)}</Text>
-              </View>
-            </View>
-            
-            <View style={styles.totalRow}>
-              <Text style={[styles.text, { fontFamily: 'Helvetica-Bold' }]}>SGST (9%):</Text>
-              <View style={styles.amountContainer}>
-                <Text style={styles.amountSymbol}>Rs.</Text>
-                <Text style={styles.amountNumber}>{formatJustNumber(taxInfo.sgst)}</Text>
+                <Text style={styles.amountNumber}>{formatJustNumber(subtotal)}</Text>
               </View>
             </View>
             

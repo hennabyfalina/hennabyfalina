@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { siteConfig } from '@/config/site'
+import SecureLoadingOverlay from '@/components/checkout/SecureLoadingOverlay'
 
 interface RetryPaymentButtonProps {
   orderId: string
@@ -21,13 +22,6 @@ export default function RetryPaymentButton({ orderId, orderNumber, amount }: Ret
   const handleRetry = async () => {
     setIsLoading(true)
     
-    // Add blur effect to the main content
-    const mainContent = document.querySelector('main') || document.body;
-    const originalFilter = mainContent.style.filter;
-    const originalTransition = mainContent.style.transition;
-    mainContent.style.transition = 'filter 0.3s ease';
-    mainContent.style.filter = 'blur(8px)';
-
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
@@ -74,7 +68,7 @@ export default function RetryPaymentButton({ orderId, orderNumber, amount }: Ret
           order_number: orderNumber,
           order_id: orderId,
         },
-        theme: { color: '#007185' },
+        theme: { color: '#000000' },
         handler: async function (response: any) {
           // ⚡ OPTIMIZATION: Eagerly verify to ensure the DB reflects "paid" instantly
           try {
@@ -91,12 +85,10 @@ export default function RetryPaymentButton({ orderId, orderNumber, amount }: Ret
           }
 
           router.replace(`/order/${orderId}?new_order=true`)
-          mainContent.style.filter = originalFilter;
         },
         modal: {
           ondismiss: function() {
             setIsLoading(false)
-            mainContent.style.filter = originalFilter;
           }
         }
       }
@@ -106,28 +98,29 @@ export default function RetryPaymentButton({ orderId, orderNumber, amount }: Ret
         console.error('[Retry] Payment failed:', response.error)
         showToast(response.error?.description || 'Payment failed. Please try another method.', 'error')
         setIsLoading(false)
-        mainContent.style.filter = originalFilter;
       })
       rzp.open()
 
     } catch (error: any) {
       showToast(error.message || 'Failed to initialize payment')
       setIsLoading(false)
-      mainContent.style.filter = originalFilter;
     }
   }
 
   return (
+    <>
+      <SecureLoadingOverlay isProcessing={isLoading} />
     <button
       onClick={handleRetry}
       disabled={isLoading}
-      className="px-4 py-2 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-xl text-sm font-medium text-gray-900 shadow-sm transition-colors text-center w-full focus:ring-2 focus:ring-[#007185] focus:outline-none flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
+      className="h-10 px-4 bg-black hover:bg-stone-900 text-white font-semibold rounded-full text-[13px] transition-colors flex items-center justify-center capitalize w-full shadow-none text-center cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
     >
       {isLoading ? (
-        <div className="w-4 h-4 border-2 border-[#0F1111]/30 border-t-[#0F1111] rounded-full animate-spin" />
+        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
       ) : (
         'Complete Payment'
       )}
     </button>
+    </>
   )
 }

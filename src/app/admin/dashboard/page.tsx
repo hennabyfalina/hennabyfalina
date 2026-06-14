@@ -1,3 +1,5 @@
+// src/app/admin/dashboard/page.tsx
+
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'

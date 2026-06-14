@@ -19,6 +19,9 @@ export const createClient = () => {
     supabaseUrl,
     supabaseAnonKey,
     {
+      auth: {
+        experimental: { passkey: true },
+      },
       // Cookie options for better security
       cookieOptions: {
         sameSite: 'lax',

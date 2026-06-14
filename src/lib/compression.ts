@@ -2,7 +2,7 @@
 
 import imageCompression from 'browser-image-compression'
 
-export async function compressArtwork(file: File): Promise<{ file: File; size: number }> {
+export async function compressProductImage(file: File): Promise<{ file: File; size: number }> {
   // Instantly bypass PDF or non-image files
   if (!file.type.startsWith('image/')) {
     return { file, size: file.size }

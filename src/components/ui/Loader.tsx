@@ -2,8 +2,12 @@
 
 export default function Loader() {
   return (
-    <div className="flex justify-center items-center p-4" suppressHydrationWarning>
-      <div className="animate-spin w-10 h-10 border-4 border-gray-100 border-t-[#007185] rounded-full shadow-sm" suppressHydrationWarning />
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/60 backdrop-blur-md transition-all duration-300" suppressHydrationWarning>
+      <div className="flex items-center gap-2.5">
+        <div className="w-2.5 h-2.5 bg-gray-900 rounded-full animate-pulse [animation-duration:1s]" />
+        <div className="w-2.5 h-2.5 bg-gray-900 rounded-full animate-pulse [animation-duration:1s] [animation-delay:200ms]" />
+        <div className="w-2.5 h-2.5 bg-gray-900 rounded-full animate-pulse [animation-duration:1s] [animation-delay:400ms]" />
+      </div>
     </div>
   )
 }
