@@ -48,3 +48,5 @@ next-env.d.ts
 
 # auto-generated tree
 FOLDER_TREE_AUTO.TXT
+
+.vercel
