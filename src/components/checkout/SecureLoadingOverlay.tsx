@@ -3,14 +3,12 @@
 'use client'
 
 import { useEffect } from 'react'
-import { Lock, ShieldCheck } from 'lucide-react'
 
 interface SecureLoadingOverlayProps {
   isProcessing: boolean
 }
 
 export default function SecureLoadingOverlay({ isProcessing }: SecureLoadingOverlayProps) {
-  // Lock scrolling when the overlay is active
   useEffect(() => {
     if (isProcessing) {
       document.body.style.overflow = 'hidden'
@@ -23,19 +21,22 @@ export default function SecureLoadingOverlay({ isProcessing }: SecureLoadingOver
   if (!isProcessing) return null
 
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white animate-in fade-in duration-300">
-      <div className="bg-white p-8 md:p-12 max-w-md w-full text-center flex flex-col items-center">
-        <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
-          <Lock className="w-8 h-8 text-[#007185] animate-pulse" />
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white animate-in fade-in duration-500">
+      <div className="flex flex-col items-center justify-center space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+        
+        {/* Apple-style minimalist spinner: thinner, elegant, precise */}
+        <div className="relative w-10 h-10">
+          <div className="absolute inset-0 border-2 border-stone-200 rounded-full" />
+          <div className="absolute inset-0 border-2 border-black border-t-transparent rounded-full animate-spin" />
         </div>
-        <h2 className="text-2xl font-extrabold text-[#0F1111] mb-2 tracking-tight">Establishing Secure Connection</h2>
-        <p className="text-gray-600 mb-8 font-medium text-sm">Please wait while we secure your order...</p>
-        <div className="flex justify-center mb-8">
-          <div className="w-10 h-10 border-4 border-[#007185]/30 border-t-[#007185] rounded-full animate-spin"></div>
-        </div>
-        <div className="bg-gray-50 rounded-md p-4 flex items-center justify-center border border-gray-200 w-full">
-          <p className="text-xs md:text-sm font-bold text-gray-700 leading-relaxed text-center">
-            Please do not refresh, go back, or close this window.
+
+        {/* Minimalist, high-clarity typography */}
+        <div className="text-center space-y-1.5">
+          <h2 className="text-[17px] font-semibold text-gray-950 tracking-tight">
+            Finalizing your order
+          </h2>
+          <p className="text-[14px] text-gray-400 font-medium tracking-wide">
+            Please stay on this page
           </p>
         </div>
       </div>

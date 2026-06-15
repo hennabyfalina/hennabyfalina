@@ -426,6 +426,7 @@ export async function updateAddress(addressId: string, addressData: AddressPaylo
     state: addressData.state || null,
     pincode: addressData.pincode,
     landmark: addressData.landmark || null,
+    delivery_instructions: addressData.delivery_instructions || null,
     delivery_method: addressData.delivery_method || 'delivery',
   }
 

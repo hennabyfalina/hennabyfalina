@@ -5,6 +5,7 @@ henna-by-falina/
 │   │   └── Inter-VariableFont.ttf
 │   ├── alert.mp3
 │   ├── cat.jpg
+│   ├── fallback-ce627215c0e4a9af.js
 │   ├── file.svg
 │   ├── globe.svg
 │   ├── hero-henna-cone.jpg
@@ -20,7 +21,10 @@ henna-by-falina/
 │   ├── placeholder-product.svg
 │   ├── privacy-policy.html
 │   ├── razorpay-icon.jpg
-│   └── window.svg
+│   ├── sw.js
+│   ├── swe-worker-5c72df51bb1f6ee0.js
+│   ├── window.svg
+│   └── workbox-f1770938.js
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/

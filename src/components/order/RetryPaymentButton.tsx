@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { siteConfig } from '@/config/site'
 import SecureLoadingOverlay from '@/components/checkout/SecureLoadingOverlay'
+import { generateIdempotencyKey } from '@/lib/idempotency'
 
 interface RetryPaymentButtonProps {
   orderId: string
@@ -38,19 +39,30 @@ export default function RetryPaymentButton({ orderId, orderNumber, amount }: Ret
       })
       if (!isScriptLoaded) throw new Error('Razorpay SDK failed to load. Please check your connection.')
 
+      const baseIdempotencyKey = generateIdempotencyKey('retry')
+
       const response = await fetch('/api/razorpay', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Idempotency-Key': `${baseIdempotencyKey}_payment`
+        },
         body: JSON.stringify({
-          amount,
           orderId,
           orderNumber,
-          userId: user.id
+          userId: user.id,
+          idempotencyKey: `${baseIdempotencyKey}_payment`
         }),
       })
 
       const razorpayData = await response.json()
       if (razorpayData.error) throw new Error(razorpayData.error)
+
+      // 🔒 GATEWAY VALIDATION: Ensure the backend correctly provided the keys before mounting
+      if (!razorpayData.orderId || !razorpayData.keyId) {
+        console.error('[Retry] Invalid gateway payload:', razorpayData)
+        throw new Error('invalid payment gateway response. please contact support.')
+      }
 
       // Open Razorpay Modal directly
       const options = {

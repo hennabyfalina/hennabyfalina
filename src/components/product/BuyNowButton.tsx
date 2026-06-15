@@ -22,6 +22,7 @@ interface BuyNowButtonProps {
     description?: string | null
     rating?: number | null
     review_count?: number | null
+    variant_name?: string | null
   }
   quantity?: number
   className?: string
@@ -61,7 +62,8 @@ export default function BuyNowButton({
         wholesale_min_qty: product.wholesale_min_qty,
         rating: product.rating || null,
         review_count: product.review_count || null,
-        mrp: product.mrp || 0
+        mrp: product.mrp || 0,
+        variant_string: product.variant_name || null
       })
 
       router.push('/checkout')

@@ -76,19 +76,6 @@ export default function CheckoutPage() {
   // 3. Razorpay Payment Processing Orchestrator
   const { processPayment, isProcessingCheckout, checkoutError } = useRazorpayCheckout()
 
-  // 🚀 ACCESS CONTROL: Prevent manual navigation to checkout
-  useEffect(() => {
-    if (!isInitializing) {
-      if (!user) {
-        router.replace('/')
-        return
-      }
-      if (items.length === 0) {
-        router.replace('/cart')
-      }
-    }
-  }, [user, items.length, isInitializing, router])
-
   const [checkoutSessionId] = useState(() => {
     if (typeof window !== 'undefined') {
       const stored = sessionStorage.getItem('checkout_session_id')
@@ -139,6 +126,13 @@ export default function CheckoutPage() {
   const totalMrp = items.reduce((sum, item) => sum + ((item.mrp && item.mrp > item.price) ? item.mrp : item.price) * item.quantity, 0)
   const totalSavings = totalMrp - subtotal
 
+  // 🚀 UX FIX: Gracefully redirect users back to the cart if they land here with an empty bag
+  useEffect(() => {
+    if (!isInitializing && items.length === 0 && !isProcessingCheckout) {
+      router.replace('/cart')
+    }
+  }, [isInitializing, items.length, isProcessingCheckout, router])
+
   useEffect(() => {
     const syncPrices = async () => {
       setIsRefreshingPrices(true)
@@ -152,7 +146,7 @@ export default function CheckoutPage() {
     return <div className="flex-1 min-h-[75vh] flex flex-col items-center justify-center bg-white"><Loader /></div>
   }
 
-  if (items.length === 0) return null
+  if (items.length === 0 && !isProcessingCheckout) return null
 
   const handleInitiateCheckout = async () => {
     if (!canPlaceOrder) { window.scrollTo({ top: 0, behavior: 'smooth' }); return }
@@ -211,7 +205,7 @@ export default function CheckoutPage() {
         isProcessing={showCtaSpinner}
       />
 
-      <div className="min-h-screen bg-white pb-32 md:pb-40 pt-[140px] sm:pt-[160px] select-none font-sans antialiased text-left">
+      <div className="min-h-screen bg-white pb-32 md:pb-40 pt-[140px] sm:pt-40 select-none font-sans antialiased text-left">
         <CheckoutHeader />
         
         {/* Step Controller Navigation Subheader Layer */}
@@ -247,8 +241,7 @@ export default function CheckoutPage() {
                               <button
                                 type="button"
                                 onClick={() => startEditing(savedAddresses.find(a => a.id === selectedAddressId))}
-                                className="text-[14px] font-semibold text-blue-600 hover:text-blue-700 transition-colors outline-none cursor-pointer bg-transparent"
-                              >
+                                className="flex items-center gap-1.5 group text-[15px] font-medium text-blue-600 hover:underline decoration-2 underline-offset-4 cursor-pointer">
                                 Edit
                               </button>
                             </div>
@@ -290,8 +283,7 @@ export default function CheckoutPage() {
                       <button 
                         type="button" 
                         onClick={() => { const currentAddr = savedAddresses.find(a => a.id === selectedAddressId); if (currentAddr) { startEditing(currentAddr); } else { startAddingNew(); } prevStep(); }} 
-                        className="text-[14px] font-semibold text-blue-600 hover:text-blue-700 transition-colors outline-none cursor-pointer bg-transparent"
-                      >
+                        className="flex items-center gap-1.5 group text-[15px] font-medium text-blue-600 hover:underline decoration-2 underline-offset-4 cursor-pointer">
                         Edit Details
                       </button>
                     </div>

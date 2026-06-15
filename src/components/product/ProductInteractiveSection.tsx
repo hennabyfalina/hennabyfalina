@@ -262,7 +262,7 @@ export default function ProductInteractiveSection({ product, hasStock }: Product
             {/* Action Buttons Frame Layout Capsule Tracks */}
             <ClientOnly fallback={<div className="h-11 bg-stone-50 animate-pulse rounded-xl" />}>
               <div className="flex flex-row gap-3 mt-2 w-full">
-                <div className="flex-1 relative [&_button]:h-12 [&_button]:rounded-full [&_button]:text-[13px] [&_button]:font-medium [&_button]:transition-all [&_button]:border-gray-200 [&_button]:hover:border-gray-400 [&_button]:shadow-none">
+                <div className="flex-1 relative [&_button]:h-12 [&_button]:rounded-full [&_button]:text-[13px] [&_button]:font-medium [&_button]:transition-all [&_button]:border-gray-200 [&_button]:hover:border-gray-400 [&_button]:shadow-none [&_button]:flex [&_button]:items-center [&_button]:justify-center">
                   <AddToCartButton
                     product={getProductWithVariant()}
                     showQuantitySelector={false}
@@ -270,7 +270,7 @@ export default function ProductInteractiveSection({ product, hasStock }: Product
                     quantity={quantity}
                   />
                 </div>
-                <div className="flex-1 relative [&_button]:h-12 [&_button]:rounded-full [&_button]:text-[13px] [&_button]:font-medium [&_button]:bg-gray-950 [&_button]:hover:bg-black [&_button]:text-white [&_button]:transition-all [&_button]:shadow-none">
+                <div className="flex-1 relative [&_button]:h-12 [&_button]:rounded-full [&_button]:text-[13px] [&_button]:font-medium [&_button]:bg-gray-950 [&_button]:hover:bg-black [&_button]:text-white [&_button]:transition-all [&_button]:shadow-none [&_button]:flex [&_button]:items-center [&_button]:justify-center">
                   <BuyNowButton product={getProductWithVariant()} quantity={quantity} />
                 </div>
               </div>

@@ -114,26 +114,6 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
           </Link>
         </div>
 
-        {/* Action Status Notification Banners - Un-boxed Flat Layout Sheet */}
-        {isNewOrder && (
-          <div className="mb-10 p-5 bg-stone-50 rounded-2xl flex items-start justify-between gap-4 animate-fade-in border border-stone-100/50">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center shrink-0 text-white">
-                <CheckCircle2 className="w-5 h-5" strokeWidth={1.8} />
-              </div>
-              <div className="space-y-0.5">
-                <h3 className="text-gray-950 font-bold text-[15px] capitalize">Order Placed Successfully</h3>
-                <p className="text-gray-400 text-[13px] font-medium leading-relaxed capitalize">
-                  Your transaction has been securely authorized. Delivery status logs and transit receipts will be dispatched via automated WhatsApp notifications.
-                </p>
-              </div>
-            </div>
-            <Link href={`/order/${id}`} className="text-gray-400 hover:text-gray-900 p-1.5 hover:bg-stone-100 rounded-lg transition-colors shrink-0 outline-none">
-              <X className="w-4 h-4" strokeWidth={2} />
-            </Link>
-          </div>
-        )}
-
         {/* Feature Policy Information Notice banner */}
         {(msg === 'cancel_soon' || msg === 'return_soon') && (
           <div className="mb-10 p-4 bg-stone-50 rounded-2xl text-[13px] font-semibold text-gray-500 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-stone-100/40">
@@ -183,7 +163,7 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
         {/* Live Delivery Status Timeline Tracker Layout */}
         {!isCancelled && !order.status.includes('cancel') && !order.status.includes('return') && (
           <div className="mb-14 border-b border-stone-100 pb-12">
-            <h2 className="text-[16px] sm:text-[17px] font-bold text-gray-950 tracking-tight mb-8 capitalize">
+            <h2 className="text-[16px] sm:text-[17px] font-normal text-gray-950 tracking-tight mb-8 capitalize">
               {order.status === 'delivered' || order.status === 'picked_up' ? (
                 <span>{isStorePickup ? 'Picked up on' : 'Delivered on'} {formatDate(order.updated_at || order.created_at)}</span>
               ) : isStorePickup ? (
@@ -266,7 +246,7 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
           
           {/* Column 1: Fulfillment Shipping Metadata */}
           <div className="space-y-3 font-medium text-gray-500">
-            <h3 className="font-bold text-[15px] tracking-tight text-gray-950 pb-2 border-b border-stone-50 capitalize">Fulfillment Destination</h3>
+            <h3 className="font-bold text-[15px] tracking-tight text-gray-950 pb-2 border-b border-stone-50 capitalize">Shipping Details</h3>
             <p className="text-gray-900 font-bold text-[14px]">{deliveryMethodLabel}</p>
             <p className="text-gray-900 font-semibold">{customerName}</p>
             
@@ -315,7 +295,7 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
                 <span className="text-gray-900 font-semibold">{formatCurrency(subtotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400 font-medium">Fulfillment Dispatch</span>
+                <span className="text-gray-400 font-medium">Delivery Charges</span>
                 <span className="text-gray-900 font-semibold">
                   {shippingCost === 0 ? 'Complimentary' : formatCurrency(shippingCost)}
                 </span>

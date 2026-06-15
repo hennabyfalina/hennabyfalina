@@ -1,4 +1,5 @@
 // src/components/checkout/CheckoutProgressBar.tsx
+
 'use client';
 
 import { Check, Timer } from 'lucide-react';
@@ -23,7 +24,7 @@ export default function CheckoutProgressBar({ currentStep, formattedTime, isExpi
 
   return (
     <div className="fixed top-[60px] left-0 right-0 w-full z-[90] flex flex-col drop-shadow-sm">
-      <div className="w-full bg-[#F1F3F4] border-b border-gray-200 py-4 sm:py-5 select-none font-sans antialiased relative">
+      <div className="w-full bg-[#F0F7FF] border-b border-blue-100/50 py-4 sm:py-5 select-none font-sans antialiased relative">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-8 relative">
         {/* Flex container – keeps everything in a single horizontal row */}
         <div className="flex items-center justify-center gap-4 sm:gap-8 max-w-md mx-auto relative">

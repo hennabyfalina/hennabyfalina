@@ -28,7 +28,7 @@ export default function PersistentCheckoutBar({
       {/* MOBILE VIEW BASE ATTACHED BOTTOM SHEET LAYER                              */}
       {/* ========================================================================= */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-[110]" style={{ position: 'fixed', bottom: 0 }}>
-        <div className="bg-white border-t border-gray-100 px-5 py-4 pb-[max(env(safe-area-inset-bottom),1.25rem)] font-sans antialiased text-left select-none shadow-2xl">
+        <div className="bg-[#F0F7FF] border-t border-blue-100/50 px-5 py-4 pb-[max(env(safe-area-inset-bottom),1.25rem)] font-sans antialiased text-left select-none shadow-2xl">
           <div className="flex items-center justify-center w-full">
             
             <button

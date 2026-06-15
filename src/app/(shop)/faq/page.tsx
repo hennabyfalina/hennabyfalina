@@ -26,7 +26,7 @@ export default function FAQPage() {
         <div className="mb-10 pb-8 border-b border-gray-100 text-center flex flex-col items-center">
           <h1 className="text-3xl md:text-4xl font-normal text-gray-900 tracking-tight capitalize">Frequently Asked Questions</h1>
           <p className="text-[14px] sm:text-[15px] text-gray-400 font-normal mt-3 max-w-xl leading-relaxed normal">
-            Everything you need to verify regarding premium studio products, fulfillment dispatches, returns policy, and wholesale selections.
+            Everything you need to verify regarding premium studio products, delivery dispatches, returns policy, and wholesale selections.
           </p>
         </div>
 

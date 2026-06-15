@@ -200,7 +200,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
 
                   {/* Delivery Status Timeline Alert Layer */}
                   <div className="flex items-center gap-3 mb-6 flex-wrap bg-stone-50/40 border border-stone-100/40 rounded-2xl px-4 py-3">
-                    <h3 className="text-[14px] sm:text-[15px] font-bold text-gray-950 tracking-tight capitalize">
+                    <h3 className="text-[14px] sm:text-[15px] font-normal text-gray-950 tracking-tight capitalize">
                       {order.status === 'delivered' ? (
                         <span>Delivered On {formatDate(order.updated_at || order.created_at)}</span>
                       ) : order.payment_status === 'failed' ? (

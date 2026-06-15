@@ -94,19 +94,9 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 1. Checkout Entry Validation Gate
-  if (path === '/checkout') {
-    const referer = request.headers.get('referer') || ''
-    const isFromCart = referer.includes('/cart')
-    
-    if (!user || !isFromCart) {
-      return NextResponse.redirect(new URL('/', request.url))
-    }
-  }
-
-  // 2. Anonymity Enforcement
+  // 1. Anonymity Enforcement
   if (!user) {
-    if ((isProtectedRoute && path !== '/checkout') || isAdminRoute || isGatePage) {
+    if (isProtectedRoute || isAdminRoute || isGatePage) {
       const redirectUrl = new URL('/login', request.url)
       redirectUrl.searchParams.set('next', path + request.nextUrl.search)
       return NextResponse.redirect(redirectUrl)
@@ -126,6 +116,10 @@ export async function proxy(request: NextRequest) {
   if (isAuthRoute) {
     if (isAdmin) {
       return NextResponse.redirect(new URL('/admin-gate', request.url))
+    }
+    const nextUrl = request.nextUrl.searchParams.get('next')
+    if (nextUrl && nextUrl.startsWith('/')) {
+      return NextResponse.redirect(new URL(nextUrl, request.url))
     }
     return NextResponse.redirect(new URL('/products', request.url))
   }

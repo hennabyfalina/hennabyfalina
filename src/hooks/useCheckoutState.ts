@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { getSavedAddresses, saveAddress, updateAddress } from '@/services/order.service'
 import { useRouter } from 'next/navigation'
 import type { AddressFormData } from '@/components/checkout/AddressForm'
+import { showToast } from '@/components/ui/Toast'
 
 export type AddressMode = 'LOADING' | 'PREVIEW' | 'ADDING' | 'EDITING'
 export type ShippingMethod = 'delivery' | 'pickup'
@@ -254,6 +255,14 @@ export function useCheckoutState() {
       // 🚀 CONVERSION BOOSTER: Instantly push them to Step 2 (Review & Pay) once details are successfully locked
       setCurrentStep(2)
       window.scrollTo({ top: 0, behavior: 'smooth' })
+      
+      // 🚀 MICRO-INTERACTION: Affirmative feedback on explicit user save
+      showToast(
+        shippingMethod === 'pickup' 
+          ? 'Pickup details saved' 
+          : 'Delivery details saved', 
+        'success'
+      )
     } catch (error: any) {
       console.error('failed to save details to database context:', error)
       setAddressError(error.message || 'failed to save credentials securely.')

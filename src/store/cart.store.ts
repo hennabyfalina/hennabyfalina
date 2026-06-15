@@ -4,6 +4,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { createClient } from '@/lib/supabase/client'
 import { broadcast } from '@/lib/broadcast'
+import { parseVariants } from '@/lib/pricing'
 
 export interface CartItem {
   mrp: number
@@ -74,7 +75,7 @@ export const useCartStore = create<CartState>()(
 
       // 🧼 Cleaned finder: Now safely matches products and optional variants
       findCartItem: (productId, variantString) => {
-        return get().items.find((item) => item.product_id === productId && (variantString ? item.variant_string === variantString : true))
+        return get().items.find((item) => item.product_id === productId && (item.variant_string || null) === (variantString || null))
       },
 
       addItem: async (newItem) => {
@@ -85,7 +86,7 @@ export const useCartStore = create<CartState>()(
           // 🎯 EXACT MATCH: Prevents variants of the same product from merging into one!
           const existingItem = currentItems.find((item) => 
             item.product_id === newItem.product_id && 
-            item.variant_string === newItem.variant_string
+            (item.variant_string || null) === (newItem.variant_string || null)
           )
           let updatedItems: CartItem[]
 
@@ -126,12 +127,19 @@ export const useCartStore = create<CartState>()(
         if (sessionErr) console.error('Cart DB Session Error:', sessionErr)
 
         if (session?.user) {
-          const { data: existing, error: selectErr } = await supabase
+          let query = supabase
             .from('cart_items')
             .select('id')
             .eq('user_id', session.user.id)
             .eq('product_id', newItem.product_id)
-            .maybeSingle()
+            
+          if (newItem.variant_string) {
+            query = query.eq('variant_string', newItem.variant_string)
+          } else {
+            query = query.is('variant_string', null)
+          }
+
+          const { data: existing, error: selectErr } = await query.maybeSingle()
             
           if (selectErr) console.error('Cart DB Select Error:', selectErr)
             
@@ -142,9 +150,20 @@ export const useCartStore = create<CartState>()(
             const { error } = await supabase.from('cart_items').insert({ 
               user_id: session.user.id, 
               product_id: newItem.product_id, 
-              quantity: finalQuantity 
+              quantity: finalQuantity,
+              variant_string: newItem.variant_string || null
             })
-            if (error) console.error('Cart DB Insert Error:', error)
+            if (error) {
+              if (error.code === '23505') {
+                console.warn('⚠️ Unique constraint hit! Healing legacy cart item to new variant...')
+                await supabase.from('cart_items').update({ 
+                  quantity: finalQuantity,
+                  variant_string: newItem.variant_string || null
+                }).eq('user_id', session.user.id).eq('product_id', newItem.product_id)
+              } else {
+                console.error('Cart DB Insert Error:', error.message || error, error.code, error.details)
+              }
+            }
           }
         } else {
           console.log('🛒 Guest user detected: Item saved securely to Local Browser Storage instead of Database.')
@@ -153,6 +172,7 @@ export const useCartStore = create<CartState>()(
 
       updateItem: async (id, updates) => {
         let targetProductId: string | null = null
+        let targetVariantString: string | null = null
         let newQuantity: number | null = null
 
         set((state) => {
@@ -165,6 +185,7 @@ export const useCartStore = create<CartState>()(
 
           const oldItem = currentItems[itemIndex]
           targetProductId = oldItem.product_id
+          targetVariantString = oldItem.variant_string || null
           const merged = { ...oldItem, ...updates }
           newQuantity = merged.quantity
           
@@ -186,10 +207,18 @@ export const useCartStore = create<CartState>()(
             const supabase = createClient()
             const { data: { session } } = await supabase.auth.getSession()
             if (session?.user) {
-              const { error } = await supabase.from('cart_items')
+              let query = supabase.from('cart_items')
                 .update({ quantity: newQuantity })
                 .eq('user_id', session.user.id)
                 .eq('product_id', targetProductId)
+              
+              if (targetVariantString) {
+                query = query.eq('variant_string', targetVariantString)
+              } else {
+                query = query.is('variant_string', null)
+              }
+                
+              const { error } = await query
               if (error) console.error('Cart DB Update Error:', error)
             }
           }
@@ -200,10 +229,14 @@ export const useCartStore = create<CartState>()(
 
       removeItem: async (id: string) => {
         let targetProductId: string | null = null
+        let targetVariantString: string | null = null
 
         set((state) => {
           const itemToRemove = state.items.find(i => i.id === id)
-          if (itemToRemove) targetProductId = itemToRemove.product_id
+          if (itemToRemove) {
+            targetProductId = itemToRemove.product_id
+            targetVariantString = itemToRemove.variant_string || null
+          }
           
           const updatedItems = state.items.filter((item) => item.id !== id)
           return { items: updatedItems, isLoading: false }
@@ -215,11 +248,19 @@ export const useCartStore = create<CartState>()(
           const supabase = createClient()
           const { data: { session } } = await supabase.auth.getSession()
           if (session?.user) {
-             const { error } = await supabase.from('cart_items')
+             let query = supabase.from('cart_items')
                .delete()
                .eq('user_id', session.user.id)
                .eq('product_id', targetProductId)
-             if (error) console.error('Cart DB Delete Error:', error)
+               
+             if (targetVariantString) {
+               query = query.eq('variant_string', targetVariantString)
+             } else {
+               query = query.is('variant_string', null)
+             }
+             
+             const { error } = await query
+             if (error) console.error('Cart DB Delete Error:', error.message || error, error.code)
           }
         }
       },
@@ -231,6 +272,7 @@ export const useCartStore = create<CartState>()(
         }
 
         let targetProductId: string | null = null
+        let targetVariantString: string | null = null
 
         set((state) => {
           const item = state.items.find((i) => i.id === id)
@@ -238,7 +280,10 @@ export const useCartStore = create<CartState>()(
             throw new Error(`Only ${item.stock} items available`)
           }
           
-          if (item) targetProductId = item.product_id
+          if (item) {
+            targetProductId = item.product_id
+            targetVariantString = item.variant_string || null
+          }
 
           const updatedItems = state.items.map((item) => {
             if (item.id === id) {
@@ -260,11 +305,19 @@ export const useCartStore = create<CartState>()(
           const supabase = createClient()
           const { data: { session } } = await supabase.auth.getSession()
           if (session?.user) {
-             const { error } = await supabase.from('cart_items')
+             let query = supabase.from('cart_items')
                .update({ quantity })
                .eq('user_id', session.user.id)
                .eq('product_id', targetProductId)
-             if (error) console.error('Cart DB Update Qty Error:', error)
+               
+             if (targetVariantString) {
+               query = query.eq('variant_string', targetVariantString)
+             } else {
+               query = query.is('variant_string', null)
+             }
+             
+             const { error } = await query
+             if (error) console.error('Cart DB Update Qty Error:', error.message || error, error.code)
           }
         }
       },
@@ -275,7 +328,7 @@ export const useCartStore = create<CartState>()(
         const { data: { session } } = await supabase.auth.getSession()
         if (session?.user) {
           const { error } = await supabase.from('cart_items').delete().eq('user_id', session.user.id)
-          if (error) console.error('Cart DB Clear Error:', error)
+          if (error) console.error('Cart DB Clear Error:', error.message || error, error.code)
         }
         set({ isLoading: false })
       },
@@ -286,20 +339,43 @@ export const useCartStore = create<CartState>()(
 
         if (localItems.length > 0) {
            // ⚡ Smart merge local items into db items seamlessly on login
-           const { data: dbItems, error: selectErr } = await supabase.from('cart_items').select('product_id, quantity').eq('user_id', userId)
-           if (selectErr) console.error('Sync DB Select Error:', selectErr)
+           const { data: dbItems, error: selectErr } = await supabase.from('cart_items').select('product_id, quantity, variant_string').eq('user_id', userId)
+           if (selectErr) console.error('Sync DB Select Error:', selectErr.message || selectErr, selectErr.code)
 
-           const dbMap = new Map((dbItems || []).map(i => [i.product_id, i.quantity]))
+           const dbMap = new Map((dbItems || []).map(i => [`${i.product_id}|${i.variant_string || ''}`, i.quantity]))
            
            for (const item of localItems) {
-             if (dbMap.has(item.product_id)) {
-               const dbQty = dbMap.get(item.product_id)!
+             const key = `${item.product_id}|${item.variant_string || ''}`
+             if (dbMap.has(key)) {
+               const dbQty = dbMap.get(key)!
                const mergedQty = Math.max(dbQty, item.quantity)
-               const { error } = await supabase.from('cart_items').update({ quantity: mergedQty }).eq('user_id', userId).eq('product_id', item.product_id)
-               if (error) console.error('Sync DB Update Error:', error)
+               let query = supabase.from('cart_items').update({ quantity: mergedQty }).eq('user_id', userId).eq('product_id', item.product_id)
+               
+               if (item.variant_string) {
+                 query = query.eq('variant_string', item.variant_string)
+               } else {
+                 query = query.is('variant_string', null)
+               }
+               
+               const { error } = await query
+               if (error) console.error('Sync DB Update Error:', error.message || error, error.code)
              } else {
-               const { error } = await supabase.from('cart_items').insert({ user_id: userId, product_id: item.product_id, quantity: item.quantity })
-               if (error) console.error('Sync DB Insert Error:', error)
+               const { error } = await supabase.from('cart_items').insert({ 
+                 user_id: userId, 
+                 product_id: item.product_id, 
+                 quantity: item.quantity,
+                 variant_string: item.variant_string || null
+               })
+               if (error) {
+                 if (error.code === '23505') {
+                   await supabase.from('cart_items').update({ 
+                     quantity: item.quantity,
+                     variant_string: item.variant_string || null
+                   }).eq('user_id', userId).eq('product_id', item.product_id)
+                 } else {
+                   console.error('Sync DB Insert Error:', error.message || error, error.code, error.details)
+                 }
+               }
              }
            }
            await get().loadCart() // Reload db truths into local state
@@ -317,29 +393,47 @@ export const useCartStore = create<CartState>()(
             .select('*, products(*)') // 🧼 Clean fetch: No joins to pricing tiers
             .eq('user_id', session.user.id)
           
-          if (error) console.error('Load Cart DB Error:', error)
+          if (error) console.error('Load Cart DB Error:', error.message || error, error.code)
 
           if (!error && dbItems && dbItems.length > 0) {
             const loadedItems: CartItem[] = dbItems.filter((item) => item.products !== null).map((item) => {
                 const prod = item.products
+                
+                let activeRetailPrice = prod.retail_price;
+                let activeMrp = prod.mrp || 0;
+                let activeWholesalePrice = prod.wholesale_price;
+                let activeWholesaleMinQty = prod.wholesale_min_qty;
+                
+                if (item.variant_string && prod.variants) {
+                  const parsedVariants = parseVariants(prod.variants);
+                  const matchedVariant = parsedVariants.find((v: any) => v.name === item.variant_string);
+                  if (matchedVariant) {
+                    activeRetailPrice = matchedVariant.price;
+                    if (matchedVariant.variant_mrp) activeMrp = matchedVariant.variant_mrp;
+                    if (matchedVariant.wholesale_price) activeWholesalePrice = matchedVariant.wholesale_price;
+                    if (matchedVariant.wholesale_min_qty) activeWholesaleMinQty = matchedVariant.wholesale_min_qty;
+                  }
+                }
+                
                 return {
                   id: item.id,
                   product_id: item.product_id,
-                  name: prod.name,
+                  name: item.variant_string ? `${prod.name} (${item.variant_string})` : prod.name,
                   slug: prod.slug,
                   quantity: item.quantity,
                   image: prod.images?.[0] || '',
                   stock: prod.stock,
                   category_id: prod.category_id,
                   description: prod.description,
-                  retail_price: prod.retail_price,
-                  wholesale_price: prod.wholesale_price,
-                  wholesale_min_qty: prod.wholesale_min_qty,
-                  mrp: prod.mrp || 0,
+                  retail_price: activeRetailPrice,
+                  wholesale_price: activeWholesalePrice,
+                  wholesale_min_qty: activeWholesaleMinQty,
+                  mrp: activeMrp,
                   rating: prod.rating,
                   review_count: prod.review_count,
+                  variant_string: item.variant_string || null,
                   // 🎯 Price calculated dynamically on load
-                  price: calculateActivePrice(item.quantity, prod.retail_price, prod.wholesale_price, prod.wholesale_min_qty)
+                  price: calculateActivePrice(item.quantity, activeRetailPrice, activeWholesalePrice, activeWholesaleMinQty)
                 }
               })
             set({ items: loadedItems })
@@ -356,11 +450,11 @@ export const useCartStore = create<CartState>()(
         
         const { data: products, error } = await supabase
           .from('products')
-          .select('id, name, retail_price, wholesale_price, wholesale_min_qty, mrp, stock, is_deleted, is_active')
+          .select('id, name, retail_price, wholesale_price, wholesale_min_qty, mrp, stock, is_deleted, is_active, variants')
           .in('id', productIds)
 
         if (error) {
-          console.error('Refresh Prices DB Error:', error)
+          console.error('Refresh Prices DB Error:', error.message || error, error.code)
           return // DO NOT wipe the cart if the DB query randomly fails!
         }
 
@@ -382,9 +476,25 @@ export const useCartStore = create<CartState>()(
               newAlerts.push(`"${item.name}" is no longer available and has been safely removed from your cart.`)
               continue
             }
+            
+            let activeRetailPrice = product.retail_price;
+            let activeMrp = product.mrp || 0;
+            let activeWholesalePrice = product.wholesale_price;
+            let activeWholesaleMinQty = product.wholesale_min_qty;
+            
+            if (item.variant_string && product.variants) {
+              const parsedVariants = parseVariants(product.variants);
+              const matchedVariant = parsedVariants.find((v: any) => v.name === item.variant_string);
+              if (matchedVariant) {
+                activeRetailPrice = matchedVariant.price;
+                if (matchedVariant.variant_mrp) activeMrp = matchedVariant.variant_mrp;
+                if (matchedVariant.wholesale_price) activeWholesalePrice = matchedVariant.wholesale_price;
+                if (matchedVariant.wholesale_min_qty) activeWholesaleMinQty = matchedVariant.wholesale_min_qty;
+              }
+            }
 
             // 2. PRICE DRIFT SHIELD
-            const newPrice = calculateActivePrice(item.quantity, product.retail_price, product.wholesale_price, product.wholesale_min_qty)
+            const newPrice = calculateActivePrice(item.quantity, activeRetailPrice, activeWholesalePrice, activeWholesaleMinQty)
             
             if (item.price !== newPrice && item.price !== 0) {
               newAlerts.push(`The price of "${item.name}" has changed to ₹${newPrice}.`)
@@ -394,10 +504,10 @@ export const useCartStore = create<CartState>()(
               ...item,
               price: newPrice,
               stock: product.stock,
-              retail_price: product.retail_price,
-              wholesale_price: product.wholesale_price,
-              wholesale_min_qty: product.wholesale_min_qty,
-              mrp: product.mrp || 0
+              retail_price: activeRetailPrice,
+              wholesale_price: activeWholesalePrice,
+              wholesale_min_qty: activeWholesaleMinQty,
+              mrp: activeMrp
             })
           }
           

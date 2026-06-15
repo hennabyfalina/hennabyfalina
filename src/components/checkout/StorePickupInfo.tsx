@@ -20,16 +20,27 @@ export default function StorePickupInfo() {
     }
   }
 
-  const mapQuery = encodeURIComponent(`${siteConfig.name} ${siteConfig.address.line1} ${siteConfig.address.city}`)
-  const mapUrl = `https://maps.google.com/?q=${mapQuery}`
-
   return (
     <div className="w-full text-left font-sans antialiased space-y-6 animate-fade-in select-none">
       
       {/* 🌟 FIXED: Upscaled text weights and enforced pure Capitalized typography layouts */}
-      <div className="space-y-1">
-        <h3 className="text-[16px] sm:text-[17px] font-semibold text-gray-900 capitalize">Home Pickup Details</h3>
-        <p className="text-[13px] sm:text-[14px] text-gray-400 font-normal normal">Pick up your order directly from our home.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h3 className="text-[16px] sm:text-[17px] font-semibold text-gray-900 capitalize">Home Pickup Details</h3>
+          <p className="text-[13px] sm:text-[14px] text-gray-400 font-normal normal">Pick up your order directly from our home.</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="h-9 px-4 flex items-center justify-center gap-2 text-[13px] font-semibold text-gray-600 bg-stone-50 hover:bg-stone-100 rounded-full transition-colors cursor-pointer capitalize shadow-none shrink-0"
+        >
+          {copied ? (
+            <Check className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2.5} />
+          ) : (
+            <Copy className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.8} />
+          )}
+          <span>{copied ? 'Copied' : 'Copy'}</span>
+        </button>
       </div>
       
       {/* 🚀 FIXED: Rebuilt into a crisp hairline division list with proper capital case letters and clear fonts */}
@@ -69,30 +80,6 @@ export default function StorePickupInfo() {
         </div>
         
       </div>
-
-      {/* Action Handle Row */}
-      <div className="flex flex-wrap items-center gap-3 pt-2">
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="h-11 px-5 flex items-center justify-center gap-2 text-[14px] font-semibold text-gray-600 bg-stone-50 hover:bg-stone-100 rounded-full transition-colors cursor-pointer capitalize shadow-none"
-        >
-          {copied ? <Check className="w-4 h-4 text-emerald-600" strokeWidth={2.5} /> : <Copy className="w-4 h-4 text-gray-400" strokeWidth={1.8} />}
-          <span>{copied ? 'Copied' : 'Copy'}</span>
-        </button>
-        
-        {/* Primary directional trigger button left solid black as required */}
-        <a
-          href={mapUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="h-11 px-6 flex items-center justify-center gap-2 text-[14px] font-semibold text-white bg-black hover:bg-stone-900 rounded-full transition-colors capitalize tracking-wide shadow-none"
-        >
-          <Navigation className="w-4 h-4" strokeWidth={1.8} />
-          <span>Get Directions</span>
-        </a>
-      </div>
-      
     </div>
   )
 }

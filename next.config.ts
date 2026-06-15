@@ -78,7 +78,7 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       // Add any other domains you plan to deploy to here
-      allowedOrigins: ['localhost:3000', 'hennabyfalina.com', 'www.hennabyfalina.com'],
+      allowedOrigins: ['localhost:3000', '127.0.0.1:3000', 'hennabyfalina.com', 'www.hennabyfalina.com'],
     },
   },
 

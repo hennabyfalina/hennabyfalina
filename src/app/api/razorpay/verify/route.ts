@@ -36,7 +36,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid payment signature' }, { status: 400 })
     }
 
-    // 3. Eagerly update the database before the webhook arrives
+    // 3. Eagerly update the database before the asynchronous webhook arrives
     const supabase = createAdminClient()
     
     let query = supabase.from('orders').select('id, payment_status, session_id')
@@ -48,13 +48,11 @@ export async function POST(req: Request) {
 
     const { data: order } = await query.single()
 
-    // Only update if it hasn't been intercepted by the webhook already (can be pending or failed)
+    // Only update if it hasn't been intercepted by the webhook already
     if (order && (order.payment_status === 'pending' || order.payment_status === 'failed')) {
       console.log(`[Razorpay Verify] Eagerly verifying order: ${order.id}`)
       
-      // Ensure razorpay_order_id is updated in case this was a retry
       await supabase.from('orders').update({ razorpay_order_id }).eq('id', order.id)
-      
       await updatePaymentStatus(order.id, razorpay_payment_id, 'paid', undefined, order.session_id)
     }
 
