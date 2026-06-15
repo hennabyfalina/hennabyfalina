@@ -41,6 +41,7 @@ export default function Navbar() {
   const [isSearching, setIsSearching] = useState(false)
   const mobileSearchRef = useRef<HTMLDivElement>(null)
   const desktopSearchRef = useRef<HTMLDivElement>(null)
+  const searchCache = useRef<Record<string, any[]>>({})
 
   // 🚀 PM UPGRADE: Mobile State Controllers
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -86,23 +87,36 @@ export default function Navbar() {
   }, [])
 
   useEffect(() => {
+    const query = searchQuery.trim()
+
+    // ⚡ TRAFFIC FILTER: Increase minimum lookup length to 3 tokens to prevent character thrashing
+    if (query.length < 3 || query === searchParams.get('q')) {
+      setSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+
+    // 🛡️ MEMORY ESCAPE: If keyword was searched before, serve it instantly from cache without checking the DB
+    if (searchCache.current[query]) {
+      setSuggestions(searchCache.current[query])
+      setShowSuggestions(true)
+      return
+    }
+
     const timer = setTimeout(async () => {
-      if (searchQuery.trim().length >= 2 && searchQuery.trim() !== searchParams.get('q')) {
-        setIsSearching(true)
-        try {
-          const results = await searchProductsWithSignedUrls(searchQuery.trim(), 6)
-          setSuggestions(results)
-          setShowSuggestions(true)
-        } catch (error) {
-          console.error('Failed to fetch suggestions', error)
-        } finally {
-          setIsSearching(false)
-        }
-      } else {
-        setSuggestions([])
-        setShowSuggestions(false)
+      setIsSearching(true)
+      try {
+        const results = await searchProductsWithSignedUrls(query, 6)
+        searchCache.current[query] = results
+        setSuggestions(results)
+        setShowSuggestions(true)
+      } catch (error) {
+        console.error('Failed to fetch autocomplete suggestions:', error)
+      } finally {
+        setIsSearching(false)
       }
-    }, 300)
+    }, 350) // Increased debounce threshold to 350ms to allow users to finish typing phrases cleanly
+
     return () => clearTimeout(timer)
   }, [searchQuery, searchParams])
 
@@ -258,10 +272,10 @@ export default function Navbar() {
                       <span>Shop</span>
                       <ChevronDown className="w-3.5 h-3.5 text-gray-300 transition-transform duration-200 group-hover:rotate-180" strokeWidth={1.5} />
                     </button>
-                    <div className="absolute top-[calc(100%+1px)] left-0 w-[400px] bg-white border border-gray-100 rounded-b-xl p-6 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 grid grid-cols-2 gap-x-6 gap-y-3 shadow-sm">
-                      <div className="absolute -top-4 left-0 right-0 h-4 bg-transparent" />
+                    <div className="absolute top-[calc(100%+14px)] left-0 w-[400px] bg-white border border-gray-100 rounded-xl p-6 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 grid grid-cols-2 gap-x-6 gap-y-4 shadow-xl">
+                      <div className="absolute -top-6 left-0 right-0 h-6 bg-transparent" />
                       {CATEGORIES_LIST.map((cat: any, index) => (
-                        <Link key={index} href={cat.href || `/search?category=${encodeURIComponent(cat.label || cat.name)}`} className="text-[13px] font-normal text-gray-500 hover:text-gray-950 transition-colors capitalize">
+                        <Link key={index} href={cat.href || `/search?category=${encodeURIComponent(cat.label || cat.name)}`} className="text-[14px] font-medium text-gray-600 hover:text-blue-600 hover:underline decoration-2 underline-offset-4 transition-all capitalize">
                           {cat.label || cat.name}
                         </Link>
                       ))}
@@ -274,10 +288,10 @@ export default function Navbar() {
                       <span>Explore</span>
                       <ChevronDown className="w-3.5 h-3.5 text-gray-300 transition-transform duration-200 group-hover:rotate-180" strokeWidth={1.5} />
                     </button>
-                    <div className="absolute top-[calc(100%+1px)] left-0 w-[400px] bg-white border border-gray-100 rounded-b-xl p-6 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 grid grid-cols-2 gap-x-6 gap-y-3 shadow-sm" suppressHydrationWarning>
-                      <div className="absolute -top-4 left-0 right-0 h-4 bg-transparent" />
+                    <div className="absolute top-[calc(100%+14px)] left-0 w-[400px] bg-white border border-gray-100 rounded-xl p-6 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 grid grid-cols-2 gap-x-6 gap-y-4 shadow-xl" suppressHydrationWarning>
+                      <div className="absolute -top-6 left-0 right-0 h-6 bg-transparent" />
                       {EXPLORE_LINKS.map((link) => (
-                        <Link key={link.href} href={link.href} className="text-[13px] font-normal text-gray-500 hover:text-gray-950 transition-colors capitalize">
+                        <Link key={link.href} href={link.href} className="text-[14px] font-medium text-gray-600 hover:text-blue-600 hover:underline decoration-2 underline-offset-4 transition-all capitalize">
                           {link.label}
                         </Link>
                       ))}
@@ -372,20 +386,20 @@ export default function Navbar() {
 
                   {/* Refined Account Submenu Workspace Dropdown Panel */}
                   {user && (
-                    <div className="absolute top-[calc(100%+1px)] right-0 w-52 bg-white rounded-b-xl border border-gray-100 py-2 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 shadow-sm text-left" suppressHydrationWarning>
-                      <div className="absolute -top-4 left-0 right-0 h-4 bg-transparent" />
+                    <div className="absolute top-[calc(100%+14px)] right-0 w-52 bg-white rounded-xl border border-gray-100 py-2 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 shadow-xl text-left" suppressHydrationWarning>
+                      <div className="absolute -top-6 left-0 right-0 h-6 bg-transparent" />
                       <div className="px-5 py-3 border-b border-gray-50 mb-1">
-                        <p className="text-[13px] font-normal text-gray-950 truncate capitalize">{displayName}</p>
+                        <p className="text-[14px] font-semibold text-gray-950 truncate capitalize">{displayName}</p>
                         <p className="text-[11px] font-normal text-gray-400 truncate mt-0.5">{displayEmail}</p>
                       </div>
                       <div className="flex flex-col">
                         {isAdmin && (
-                          <Link href="/admin-gate" className="px-5 py-2 text-[13px] font-normal text-gray-500 hover:bg-gray-50 hover:text-gray-950 transition-colors border-b border-gray-50 capitalize">Admin Dashboard</Link>
+                          <Link href="/admin-gate" className="px-5 py-2.5 text-[14px] font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-950 transition-colors border-b border-gray-50 capitalize">Admin Dashboard</Link>
                         )}
-                        <Link href="/profile" className="px-5 py-2 text-[13px] font-normal text-gray-500 hover:bg-gray-50 hover:text-gray-950 transition-colors capitalize">Profile</Link>
-                        <Link href="/profile/orders" className="px-5 py-2 text-[13px] font-normal text-gray-500 hover:bg-gray-50 hover:text-gray-950 transition-colors capitalize">My Orders</Link>
-                        <Link href="/wishlist" className="px-5 py-2 text-[13px] font-normal text-gray-500 hover:bg-gray-50 hover:text-gray-950 transition-colors capitalize">My Wishlist</Link>
-                        <button onClick={handleLogoutClick} className="w-full text-left px-5 py-2.5 text-[13px] font-normal text-gray-400 hover:bg-gray-50 hover:text-red-500 transition-colors cursor-pointer border-t border-gray-50 mt-1 capitalize outline-none">
+                        <Link href="/profile" className="px-5 py-2.5 text-[14px] font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-950 transition-colors capitalize">Profile</Link>
+                        <Link href="/profile/orders" className="px-5 py-2.5 text-[14px] font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-950 transition-colors capitalize">My Orders</Link>
+                        <Link href="/wishlist" className="px-5 py-2.5 text-[14px] font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-950 transition-colors capitalize">My Wishlist</Link>
+                        <button onClick={handleLogoutClick} className="w-full text-left px-5 py-3 text-[14px] font-medium text-gray-400 hover:bg-gray-50 hover:text-red-500 transition-colors cursor-pointer border-t border-gray-50 mt-1 capitalize outline-none">
                           Logout
                         </button>
                       </div>

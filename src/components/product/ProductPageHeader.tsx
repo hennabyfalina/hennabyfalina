@@ -23,6 +23,7 @@ export default function ProductPageHeader({ productName, productId }: ProductPag
   const [isSearching, setIsSearching] = useState(false)
   const [suggestions, setSuggestions] = useState<any[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const searchCache = useRef<Record<string, any[]>>({})
   const searchContainerRef = useRef<HTMLDivElement>(null)
 
   // Subscribing to client stores for high-fidelity counters
@@ -38,23 +39,34 @@ export default function ProductPageHeader({ productName, productId }: ProductPag
   }, [])
 
   useEffect(() => {
+    const query = searchQuery.trim()
+
+    if (query.length < 3) {
+      setSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+
+    if (searchCache.current[query]) {
+      setSuggestions(searchCache.current[query])
+      setShowSuggestions(true)
+      return
+    }
+
     const timer = setTimeout(async () => {
-      if (searchQuery.trim().length >= 2) {
-        setIsSearching(true)
-        try {
-          const results = await searchProductsWithSignedUrls(searchQuery.trim(), 6)
-          setSuggestions(results)
-          setShowSuggestions(true)
-        } catch (error) {
-          console.error('Search failed', error)
-        } finally {
-          setIsSearching(false)
-        }
-      } else {
-        setSuggestions([])
-        setShowSuggestions(false)
+      setIsSearching(true)
+      try {
+        const results = await searchProductsWithSignedUrls(query, 6)
+        searchCache.current[query] = results
+        setSuggestions(results)
+        setShowSuggestions(true)
+      } catch (error) {
+        console.error('Header search tracking failed:', error)
+      } finally {
+        setIsSearching(false)
       }
-    }, 300)
+    }, 350)
+
     return () => clearTimeout(timer)
   }, [searchQuery])
 

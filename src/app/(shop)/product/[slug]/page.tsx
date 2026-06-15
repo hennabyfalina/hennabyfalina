@@ -12,6 +12,10 @@ import ProductInteractiveSection from '@/components/product/ProductInteractiveSe
 import ProductPageHeader from '@/components/product/ProductPageHeader'
 import ProductActionDock from '@/components/product/ProductActionDock'
 
+// ⚡ ENTERPRISE CACHING LAYER: Cache all individual dynamic product pages at Vercel's Edge CDN.
+// This prevents traffic surges from hitting your database for item reads.
+export const revalidate = 3600 // Revalidate product data once per hour
+
 const FrequentlyBoughtTogether = dynamic(() => import('@/components/product/FrequentlyBoughtTogether'), {
   loading: () => <div className="w-full h-32 bg-stone-50/40 animate-pulse rounded-xl mt-6" />
 })
@@ -38,6 +42,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
       description: product.description || '',
       images: product.images?.[0] ? [product.images[0]] : [],
     },
+    //ts-ignore
     alternates: {
       canonical: `/product/${product.slug}`,
     },
@@ -110,7 +115,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       {/* 📱 MOBILE TOP NAV TUNNEL BAR */}
       <ProductPageHeader productName={product.name} productId={product.id} />
       
-      {/* 💻 STICKY ACTION HORIZON DOCK (Floats centered at base on scroll for both desktop and mobile users) */}
+      {/* 💻 STICKY ACTION HORIZON DOCK */}
       <ProductActionDock 
         product={product}
         sellingPrice={retailPrice}
@@ -119,7 +124,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       <SaveViewedProduct product={product} /> 
 
-      {/* 🌟 FIXED: Balanced Split Layout for Desktop, Centered Stream for Mobile */}
+      {/* Balanced Split Layout for Desktop, Centered Stream for Mobile */}
       <Container className="pt-20 pb-6 md:pt-10 max-w-[1100px] mx-auto px-4 sm:px-6 flex flex-col gap-8">
         
         {/* Minimal Desktop Navigation Breadcrumbs */}
@@ -129,7 +134,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <Link href="/products" className="hover:text-gray-900 transition-colors">Products</Link>
           <span className="text-gray-200">/</span>
           <span className="text-gray-900 font-normal capitalize">
-            {product.name.toLowerCase()}
+            {product.name}
           </span>
         </nav>
 
@@ -141,7 +146,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
           {/* Fluid Inline Options and Text Content (Right side on Desktop) */}
           <div className="w-full md:w-1/2 relative z-20">
-             {/* 🌟 FIXED: Removed hardcoded regularPrice and discountPercentage, we let the inner engine handle it */}
              <ProductInteractiveSection 
                 product={product} 
                 hasStock={hasStock} 

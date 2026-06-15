@@ -60,17 +60,16 @@ export default function FeaturedProductsSection({ products, title }: FeaturedPro
   if (!products || products.length === 0) return null
 
   return (
-    <div className="w-full relative group/slider mb-12 bg-white py-4 px-1 select-none font-sans" suppressHydrationWarning>
+    <div className="w-full relative group/slider mb-4 bg-white py-0 px-1 select-none font-sans" suppressHydrationWarning>
       
       {/* 🚀 FIXED: Clean, Sentence-Cased Header Row matching Google/Studio Aesthetic */}
-      <div className="flex items-baseline justify-between mb-6 px-1" suppressHydrationWarning>
+      <div className="flex items-baseline justify-between mb-4 px-1" suppressHydrationWarning>
         <h2 className="text-2xl sm:text-4xl font-normal text-gray-950 tracking-tight">
           Featured Collections
         </h2>
         <Link 
           href="/products"
-          className="text-[14px] font-normal text-blue-600 hover:text-blue-700 transition-colors tracking-tight"
-        >
+          className="flex items-center gap-1.5 group text-[14px] font-normal text-blue-600 hover:underline decoration-2 underline-offset-4">
           View all
         </Link>
       </div>

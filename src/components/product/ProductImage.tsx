@@ -19,19 +19,17 @@ export default function ProductImage({ imageUrl, productName, priority = false }
     : imageUrl
 
   return (
-    <div className="aspect-square bg-white rounded-2xl overflow-hidden relative group">
+    <div className="aspect-square bg-white rounded-xl overflow-hidden relative group border border-stone-100/60">
       <Image
         src={finalImageUrl}
         alt={productName}
         fill
         priority={priority}
         sizes="(max-width: 768px) 100vw, 50vw"
-        unoptimized={finalImageUrl.includes('token=') || finalImageUrl.includes('supabase')}
-        // 🚨 REMOVED mix-blend-multiply for pristine image clarity
-        className="object-contain p-2 group-hover:scale-105 transition-transform duration-500"
-        onError={() => {
-          setImgError(true)
-        }}
+        // ⚡ REGION PROTECTED: Enabled internal compression paths to optimize image delivery performance
+        unoptimized={finalImageUrl.includes('token=')}
+        className="object-contain p-2 group-hover:scale-102 transition-transform duration-500"
+        onError={() => setImgError(true)}
       />
     </div>
   )

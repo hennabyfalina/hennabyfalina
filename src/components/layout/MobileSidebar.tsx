@@ -95,9 +95,10 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
       label: 'Services & Explore',
       icon: Sparkles,
       links: [
+        { label: 'Henna Portfolio', href: '/collections' },
         { label: 'Bridal Bookings', href: '/services' },
         { label: 'Appointments', href: '/contact-support' },
-        { label: 'Henna Portfolio', href: '/collections' },
+        { label: 'About Artist', href: '/about' },
       ]
     },
     {
@@ -108,6 +109,8 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
         { label: 'Help Center & FAQs', href: '/contact-support' },
         { label: 'Returns & Refunds', href: '/returns-refunds' },
         { label: 'Terms & Conditions', href: '/terms-conditions' },
+        { label: 'Privacy Policy', href: '/privacy-policy' },
+        { label: 'Faq', href: '/faq' },
       ]
     }
   ]

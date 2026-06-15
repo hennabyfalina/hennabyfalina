@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import ProductCard from '@/components/product/ProductCard'
-import { useCartStore } from '@/store/cart.store'
+import { useAuth } from '@/hooks/useAuth'
 import { Product } from '@/types/database.types'
 
 function ProductCardSkeleton() {
@@ -22,11 +22,8 @@ function ProductCardSkeleton() {
   )
 }
 
-interface RecentlyBoughtCarouselProps {
-  userId: string | null;
-}
-
-export default function RecentlyBoughtCarousel({ userId }: RecentlyBoughtCarouselProps) {
+export default function RecentlyBoughtCarousel() {
+  const { user, isLoading: authLoading } = useAuth()
   const [recentlyBought, setRecentlyBought] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   
@@ -36,7 +33,7 @@ export default function RecentlyBoughtCarousel({ userId }: RecentlyBoughtCarouse
 
   useEffect(() => {
     const fetchRecentlyBought = async () => {
-      if (!userId) {
+      if (!user?.id) {
         setLoading(false)
         return
       }
@@ -56,7 +53,7 @@ export default function RecentlyBoughtCarousel({ userId }: RecentlyBoughtCarouse
       }
     }
     fetchRecentlyBought()
-  }, [userId])
+  }, [user?.id])
 
   const checkScroll = () => {
     if (scrollContainerRef.current) {
@@ -82,6 +79,8 @@ export default function RecentlyBoughtCarousel({ userId }: RecentlyBoughtCarouse
       setTimeout(checkScroll, 350)
     }
   }
+
+  if (authLoading || !user) return <div className="h-0 overflow-hidden" />;
 
   if (loading) {
     return (
@@ -110,8 +109,7 @@ export default function RecentlyBoughtCarousel({ userId }: RecentlyBoughtCarouse
         </h2>
         <Link 
           href="/profile/orders"
-          className="text-[15px] font-medium text-blue-600 hover:text-blue-700 transition-colors tracking-tight"
-        >
+          className="flex items-center gap-1.5 group text-[14px] font-normal text-blue-600 hover:underline decoration-2 underline-offset-4">
           View orders
         </Link>
       </div>

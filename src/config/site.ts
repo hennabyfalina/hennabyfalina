@@ -1,6 +1,6 @@
 export const siteConfig = {
-  name: "Henna by Falina",
-  shortName: "Henna by Falina",
+  name: "Henna By Falina",
+  shortName: "Henna By Falina",
   description: "Premium, skin-safe organic henna products crafted in Chennai. Freshly batched and dispatched daily.",
   contact: {
     phone: {

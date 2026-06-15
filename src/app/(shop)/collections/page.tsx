@@ -88,7 +88,7 @@ export default async function CollectionsPage() {
                   <div className="px-1 flex items-start justify-between gap-4 w-full">
                     <div className="space-y-0.5">
                       <h3 className="text-[17px] sm:text-[18px] font-semibold text-gray-950 tracking-tight group-hover:text-stone-600 transition-colors capitalize">
-                        {portfolio.name.toLowerCase()}
+                        {portfolio.name}
                       </h3>
                       <p className="text-[13px] sm:text-[14px] text-gray-400 font-medium capitalize">
                         {portfolio.description || 'Explore master gallery lookbook'}

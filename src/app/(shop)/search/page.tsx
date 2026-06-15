@@ -7,7 +7,7 @@ import ProductsClientView from '@/app/(shop)/products/ProductsClientView'
 import { siteConfig } from '@/config/site'
 
 export const metadata = {
-  title: `Search results | ${siteConfig.name.toLowerCase()}`,
+  title: `Search results | ${siteConfig.name}`,
   description: 'Search our boutique studio catalog for premium organic henna essentials.',
 }
 

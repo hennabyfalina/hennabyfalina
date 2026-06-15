@@ -10,55 +10,39 @@ import WhyChooseUsSection from '@/components/home/WhyChooseUsSection'
 import TestimonialsSection from '@/components/home/TestimonialsSection'
 import ContactSection from '@/components/home/ContactSection'
 import { createClient } from '@/lib/supabase/server'
-import dynamic from 'next/dynamic'
+import RecentlyBoughtCarousel from '@/components/product/RecentlyBoughtCarousel'
+
+// ⚡ HIGH-PERFORMANCE STATIC ENGINE: Cache this layout block at the serverless edge CDN container.
+// This completely unburdens your Supabase pooler from handling repeat storefront page views.
+export const revalidate = 3600 // Revalidate layout once per hour
 
 export const metadata: Metadata = {
-  title: 'Henna by falina | Premium Organic Henna Cones & Essentials',
+  title: 'Henna By Falina | Premium Organic Henna Cones & Essentials',
   description: 'Discover premium, 100% chemical-free organic henna cones, pure essential oils, triple-sifted powder, and custom bridal artist kits.',
   alternates: {
     canonical: 'https://hennabyfalina.com',
   },
 }
 
-const RecentlyBoughtCarousel = dynamic(() => import('@/components/product/RecentlyBoughtCarousel'), {
-  loading: () => <div className="w-full h-[340px] bg-white border border-gray-50 animate-pulse rounded-2xl" />
-})
-
 export default async function HomePage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  const userId = user?.id || null
 
-  const { data: allCategories } = await supabase
-    .from('categories')
-    .select(`
-      id,
-      name,
-      slug,
-      image,
-      type,
-      products (id)
-    `)
-    .order('display_order', { ascending: true })
+  // Fire all three requests at the exact same time
+  const [allCategoriesRes, collectionsRes, featuredRes] = await Promise.all([
+    supabase.from('categories').select('id, name, slug, image, type, products(id)').order('display_order'),
+    supabase.from('collections').select('*').order('display_order'),
+    supabase.from('products').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(8)
+  ])
+
+  const allCategories = allCategoriesRes.data
+  const databaseCollections = collectionsRes.data
+  const featuredProducts = featuredRes.data
 
   const shopCategories = allCategories?.filter(c => c.type === 'shop') || []
-
-  const { data: databaseCollections } = await supabase
-    .from('collections')
-    .select('*')
-    .order('display_order', { ascending: true })
-
   const categoriesWithCount = shopCategories.map(category => ({
     ...category,
     product_count: category.products?.length || 0,
   }))
-
-  const { data: featuredProducts } = await supabase
-    .from('products')
-    .select('*')
-    .eq('is_active', true)
-    .order('created_at', { ascending: false })
-    .limit(8)
 
   return (
     <div className="flex-1 flex flex-col w-full bg-white pb-16 select-none font-sans antialiased text-gray-900" suppressHydrationWarning>
@@ -68,13 +52,17 @@ export default async function HomePage() {
         <HeroSection />
         
         {/* Main Content Layout Block (Clean, un-boxed spacing standard) */}
-        <div className="px-4 sm:px-8 relative z-10 -mt-8 sm:-mt-16 space-y-12 sm:space-y-20 max-w-[1400px] mx-auto w-full">
+        <div className="px-4 sm:px-8 relative z-10 -mt-8 sm:-mt-16 space-y-4 sm:space-y-8 max-w-[1400px] mx-auto w-full">
           
           {/* Block 2: Visual Mini-Navigation Bubbles */}
           <CategorySection categories={categoriesWithCount} />
           
-          {/* Block 3: Returning Shopper Personalization Shelf */}
-          {userId && <RecentlyBoughtCarousel userId={userId} />}
+          {/* Block 3: Returning Shopper Personalization Shelf
+              🚀 NOTE: RecentlyBoughtCarousel handles its own client-side context hooks (`useAuth`)
+              to check for an active profile session invisibly from within the browser window memory. */}
+          <div className="min-h-0">
+            <RecentlyBoughtCarousel />
+          </div>
           
           {/* Block 4: Featured Products Shelf */}
           <FeaturedProductsSection 
@@ -82,10 +70,10 @@ export default async function HomePage() {
             title="Featured collection" 
           />
           
-          {/* 🌟 NEW Block 2.5: Curated Design Portfolios Horizontal Swiper Strip */}
+          {/* 🌟 Block 2.5: Curated Design Portfolios Horizontal Swiper Strip */}
           <DesignCollectionsSection collections={databaseCollections || []} />
 
-          {/* 🌟 NEW Block 2.6: Bespoke Studio Services Section */}
+          {/* 🌟 Block 2.6: Bespoke Studio Services Section */}
           <ServicesSection />
 
           {/* Block 5: Core Value Pillars & Trust Framework */}

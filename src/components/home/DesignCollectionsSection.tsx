@@ -88,8 +88,7 @@ export default function DesignCollectionsSection({ collections }: DesignCollecti
         </h2>
         <Link 
           href="/collections" 
-          className="text-[14px] font-normal text-blue-600 hover:text-blue-700 transition-colors tracking-tight"
-        >
+          className="flex items-center gap-1.5 group text-[14px] font-normal text-blue-600 hover:underline decoration-2 underline-offset-4">
           Explore gallery
         </Link>
       </div>

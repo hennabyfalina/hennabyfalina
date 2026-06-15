@@ -21,7 +21,7 @@ function HighlightMatch({ text, query }: { text: string, query: string }) {
     <span>
       {parts.map((part, i) => 
         part.toLowerCase() === query.toLowerCase() ? (
-          <span key={i} className="bg-yellow-200 text-gray-900 font-bold px-0.5 rounded-sm">{part}</span>
+          <span key={i} className="bg-yellow-100 text-gray-900 font-semibold px-0.5 rounded-sm">{part}</span>
         ) : (
           <span key={i}>{part}</span>
         )
@@ -91,15 +91,11 @@ export default function ProductCard({ product, priority = false, searchQuery = '
     e.stopPropagation()
     const willBeSaved = !isSaved
     
-    // Optimistic toast
     showToast(willBeSaved ? 'Added to Wishlist' : 'Removed from Wishlist', 'success')
     
     try {
       const result = await toggleItem(product.id)
-      
-      // If result is false and we were trying to add (not remove) – unauthorized
       if (result === false && willBeSaved) {
-        // Store the product ID to add after login
         sessionStorage.setItem('pendingWishlist', product.id)
         const currentUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
         router.push(`/login?next=${currentUrl}`)
@@ -113,28 +109,29 @@ export default function ProductCard({ product, priority = false, searchQuery = '
   return (
     <Link 
       href={`/product/${product.slug}`} 
-      className="group flex flex-col bg-white overflow-hidden w-full cursor-pointer relative transition-all duration-300 select-none border-b border-gray-100 sm:border border-gray-100 sm:rounded-2xl pb-4"
+      className="group flex flex-col bg-white overflow-hidden w-full cursor-pointer relative transition-all duration-300 select-none border-b border-stone-100 sm:border sm:border-stone-100 sm:rounded-xl pb-3.5"
     >
-      <div className="relative aspect-square w-full overflow-hidden bg-stone-50/20">
+      <div className="relative aspect-square w-full overflow-hidden bg-stone-50/10">
         {isOutOfStock && (
           <div className="absolute inset-0 z-20 bg-white/60 backdrop-blur-xs flex items-center justify-center">
-            <span className="bg-white/90 text-gray-900 border border-gray-200 text-[11px] font-medium px-3 py-1.5 rounded-full shadow-xs tracking-normal">
+            <span className="bg-white/90 text-gray-900 border border-stone-200 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-none">
               Sold out
             </span>
           </div>
         )}
         
         <button 
+          type="button"
           onClick={handleWishlist}
-          className="absolute top-3 right-3 z-30 flex items-center justify-center p-1 text-gray-400 hover:text-red-500 transition-all cursor-pointer active:scale-125"
+          className="absolute top-2.5 right-3 z-30 flex items-center justify-center p-1 text-stone-400 hover:text-red-500 transition-all cursor-pointer active:scale-110 outline-none"
           aria-label="Wishlist trigger"
         >
-          <Heart className={`w-6 h-6 transition-colors ${isSaved ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} strokeWidth={1.5} />
+          <Heart className={`w-5 h-5 transition-colors ${isSaved ? 'fill-red-500 text-red-500' : 'text-stone-300 group-hover:text-stone-400'}`} strokeWidth={2} />
         </button>
 
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-stone-50/30 z-10">
-            <div className="w-4 h-4 border border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center bg-stone-50/20 z-10">
+            <div className="w-3.5 h-3.5 border border-stone-200 border-t-stone-900 rounded-full animate-spin" />
           </div>
         )}
 
@@ -144,7 +141,7 @@ export default function ProductCard({ product, priority = false, searchQuery = '
           fill 
           priority={priority}
           sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-          className={`object-cover w-full h-full transition-transform duration-500 ease-out group-hover:scale-105 ${
+          className={`object-cover w-full h-full transition-transform duration-500 ease-out group-hover:scale-102 ${
             isLoading ? 'opacity-0' : 'opacity-100'
           }`}
           onLoad={() => setIsLoading(false)}
@@ -152,30 +149,31 @@ export default function ProductCard({ product, priority = false, searchQuery = '
             setImgError(true)
             setIsLoading(false)
           }}
-          unoptimized={imageUrl.startsWith('http') || imageUrl.includes('supabase')}
+          unoptimized={imageUrl.startsWith('http')}
         />
       </div>
 
-      <div className="px-3 pt-3 flex flex-col flex-grow gap-1">
-        <h3 className="text-[16px] font-normal text-gray-700 group-hover:text-gray-900 transition-colors line-clamp-1 truncate capitalize">
+      {/* Streamlined Typography Metadata Layer */}
+      <div className="px-2.5 pt-2.5 flex flex-col flex-grow gap-0.5 text-left">
+        <h3 className="text-[14px] font-semibold text-gray-800 group-hover:text-black transition-colors truncate capitalize tracking-tight leading-tight">
           <HighlightMatch text={product.name.toLowerCase()} query={searchQuery} />
         </h3>
         
-        <div className="flex items-center gap-1.5 mt-0.5 text-[16px] md:text-[17px] whitespace-nowrap overflow-hidden">
+        <div className="flex items-center gap-1 mt-0.5 text-[14px] sm:text-[15px] font-bold whitespace-nowrap overflow-hidden tracking-tight">
           {hasVariants && (
-            <span className="text-[14px] md:text-[15px] font-normal text-gray-400 shrink-0">From</span>
+            <span className="text-[12px] font-semibold text-gray-400 shrink-0 uppercase tracking-wider mr-0.5">From</span>
           )}
-          <span className="font-normal text-gray-950 shrink-0">
+          <span className="text-gray-950 shrink-0 font-extrabold">
             {formatCurrency(displayPrice)}
           </span>
           
           {product.mrp && product.mrp > displayPrice && (
             <>
-              <span className="text-[13px] md:text-[15px] text-gray-400 line-through font-normal shrink-0">
+              <span className="text-[12px] sm:text-[13px] text-gray-400 line-through font-medium shrink-0 ml-0.5">
                 {formatCurrency(product.mrp)}
               </span>
-              <span className="text-[12px] md:text-[14px] font-normal text-emerald-600 shrink-0">
-                {discountPct}% off
+              <span className="text-[11px] font-bold text-emerald-600 shrink-0 ml-0.5 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-100/40">
+                {discountPct}% OFF
               </span>
             </>
           )}

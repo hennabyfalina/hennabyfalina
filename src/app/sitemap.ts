@@ -1,12 +1,17 @@
+// src/app/sitemap.ts
+
 import { MetadataRoute } from 'next'
 import { getProductsWithSignedUrls } from '@/services/product.service'
 import { getCategories } from '@/services/category.service'
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // Replace with your actual production URL
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://hennabyfalina.com';
+// ⚡ SITEMAP EDGE REVALIDATION: Cache sitemap data on the CDN edge for 24 hours
+// This single step prevents index crawlers from thrashed serverless or database calls.
+export const revalidate = 86400
 
-  // Fetch all dynamic data concurrently
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://hennabyfalina.com'
+
+  // Concurrent compilation matrix reads database data packages smoothly
   const [products, categories] = await Promise.all([
     getProductsWithSignedUrls(),
     getCategories()
@@ -29,17 +34,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticUrls: MetadataRoute.Sitemap = [
     '',
     '/products',
-    '/wholesale',
     '/faq',
     '/returns-refunds',
     '/privacy-policy',
     '/terms-conditions',
-    '/contact-support'
+    '/contact-support',
+    '/about',
+    '/services',
+    '/collections',
   ].map((route) => ({
     url: `${baseUrl}${route}`,
     lastModified: new Date(),
     changeFrequency: 'daily',
-    priority: route === '' ? 1 : 0.8,
+    priority: route === '' ? 1.0 : 0.8,
   }))
 
   return [...staticUrls, ...categoryUrls, ...productUrls]

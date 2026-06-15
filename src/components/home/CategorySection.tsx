@@ -67,7 +67,7 @@ export default function CategorySection({ categories }: CategorySectionProps) {
   }
 
   return (
-    <section className="bg-white py-6 px-1 w-full font-sans select-none" suppressHydrationWarning>
+    <section className="bg-white pt-6 pb-2 px-1 w-full font-sans select-none" suppressHydrationWarning>
       {/* 🚀 FIXED: Clean, Sentence-Cased Header Row with Minimalist Weights */}
       <div className="flex items-baseline justify-between mb-8" suppressHydrationWarning>
         <h2 className="text-2xl sm:text-4xl font-normal text-gray-950 tracking-tight">
@@ -75,8 +75,7 @@ export default function CategorySection({ categories }: CategorySectionProps) {
         </h2>
         <Link 
           href="/products" 
-          className="text-[14px] font-normal text-blue-600 hover:text-blue-700 transition-colors tracking-tight"
-        >
+          className="flex items-center gap-1.5 group text-[14px] font-normal text-blue-600 hover:underline decoration-2 underline-offset-4">
           See all
         </Link>
       </div>

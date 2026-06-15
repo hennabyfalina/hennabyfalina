@@ -6,24 +6,24 @@ import { WifiOff } from 'lucide-react'
 
 export default function OfflinePage() {
   return (
-    <div className="min-h-[75vh] flex flex-col items-center justify-center bg-white px-4 text-center select-none animate-in fade-in duration-300">
-      <div className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mb-5">
-        <WifiOff className="w-6 h-6 text-gray-400" strokeWidth={1.5} />
+    <div className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-white px-6 select-none">
+      <div className="flex flex-col items-center text-center max-w-md -mt-20 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
+        <div className="w-16 h-16 bg-stone-50 text-gray-900 rounded-2xl flex items-center justify-center mb-8 shadow-sm">
+          <WifiOff className="w-7 h-7" strokeWidth={1.25} />
+        </div>
+        
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900 mb-3">No internet connection.</h1>
+        <p className="text-gray-500 text-base font-normal mb-10 leading-relaxed max-w-[320px]">
+          Your device is currently offline. Please check your network settings and try again.
+        </p>
+        
+        <button 
+          onClick={() => window.location.reload()}
+          className="w-full sm:w-auto h-12 px-10 bg-gray-900 hover:bg-gray-800 text-white rounded-full text-[15px] font-medium transition-all active:scale-[0.98] cursor-pointer"
+        >
+          Try Again
+        </button>
       </div>
-      
-      {/* 🚀 FIXED: Shifted string layout to clear Capitalized font case */}
-      <h1 className="text-xl sm:text-2xl font-bold tracking-wide text-gray-900 mb-2 capitalize">Connection Lost</h1>
-      <p className="text-gray-400 text-[13px] font-medium max-w-xs mb-8 leading-relaxed capitalize">
-        It looks like your device is currently offline. Please check your network signal parameters and try again.
-      </p>
-      
-      {/* 🚀 FIXED: Replaced bright yellow tags with clean minimal charcoal capsules */}
-      <button 
-        onClick={() => window.location.reload()}
-        className="h-11 px-8 bg-gray-900 hover:bg-black text-white rounded-full text-[12px] font-bold tracking-wide transition-all shadow-md active:scale-[0.99] cursor-pointer capitalize"
-      >
-        Try Again
-      </button>
     </div>
   )
 }

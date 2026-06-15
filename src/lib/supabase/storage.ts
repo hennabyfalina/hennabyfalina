@@ -10,7 +10,6 @@ export function getPublicUrl(imagePath: string, width?: number, height?: number)
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   if (!supabaseUrl) return '/placeholder-product.svg'
 
-  // 🌟 FIXED: Maps directly onto your new single-bucket 'shop-assets' design channel
   const bucketUrl = `${supabaseUrl}/storage/v1/object/public/shop-assets/`
   const cleanPath = imagePath.replace(/^(\.\.\/|\/)+/, '')
 
@@ -18,7 +17,7 @@ export function getPublicUrl(imagePath: string, width?: number, height?: number)
     return `${bucketUrl}${cleanPath}`
   }
 
-  // Ask Supabase storage layers to resize and serve optimized webp assets directly on the edge
+  // Request resized and optimized webp assets directly on the edge network
   return `${bucketUrl}${cleanPath}?width=${width}&height=${height || ''}&resize=contain&format=webp&quality=80`
 }
 
@@ -48,8 +47,7 @@ function validateFile(file: File): void {
 }
 
 /**
- * Administrative asset upload handler pushing files into the clean sub-folders.
- * @param folder supports 'products', 'categories', or 'collections' subpath directories.
+ * Administrative asset upload handler pushing files into clean sub-folders.
  */
 export async function uploadProductImage(
   file: File, 
@@ -61,7 +59,6 @@ export async function uploadProductImage(
   const fileExt = file.name.split('.').pop()
   const cryptoToken = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)
   
-  // 🌟 FIXED: Accommodates our clean new collections folder tree structural layer
   const filePath = `${folder}/${Date.now()}_${cryptoToken}.${fileExt}`
 
   const { error } = await supabase.storage

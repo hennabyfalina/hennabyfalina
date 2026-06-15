@@ -169,7 +169,7 @@ export default function ProductsClientView({ initialProducts, categories }: Prod
                   
                   <div className="absolute bottom-6 left-0 right-0 px-4 text-center flex flex-col items-center">
                     <h2 className="text-xl sm:text-2xl font-medium text-white tracking-wide capitalize">
-                      {category.name.toLowerCase()}
+                      {category.name}
                     </h2>
                     <span className="text-xs sm:text-sm font-medium tracking-wider text-white/90 bg-white/10 backdrop-blur-xs px-3 py-1 rounded-full mt-3 border border-white/10 lowercase">
                       {itemCount} items
@@ -187,7 +187,7 @@ export default function ProductsClientView({ initialProducts, categories }: Prod
   // ====================================================================
   // VIEW RENDER B: FILTERABLE GRID SYSTEM MODE (SELECTED CATEGORIES)
   // ====================================================================
-  const activeCategoryName = (activeCategory?.name || 'Collection').toLowerCase()
+  const activeCategoryName = (activeCategory?.name || 'Collection')
 
   return (
     <>

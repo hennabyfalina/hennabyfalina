@@ -20,14 +20,14 @@ export async function generateMetadata({
 
     if (category) {
       return {
-        title: `${category.meta_title || category.name} | Henna by Falina`,
+        title: `${category.meta_title || category.name} | Henna By Falina`,
         description: category.meta_description || `Explore our premium, 100% chemical-free organic ${category.name} collection.`,
       }
     }
   }
 
   return {
-    title: 'The Organic Collection | Henna by Falina',
+    title: 'The Organic Collection | Henna By Falina',
     description: 'Browse our complete suite of triple-sifted henna powders, fresh bridal cones, pure essential mixing oils, and stencils.',
   }
 }
@@ -37,6 +37,7 @@ export default async function ProductsPage({
 }: {
   searchParams: Promise<{ category?: string }>
 }) {
+  // Parallel intake matrix ensures fast server resolution metrics
   const [products, categories] = await Promise.all([
     getProductsWithSignedUrls(),
     getCategories()
@@ -44,8 +45,8 @@ export default async function ProductsPage({
 
   return (
     <div className="min-h-screen bg-white" suppressHydrationWarning>
-      <div className="py-4 px-4 sm:px-8 max-w-[1600px] mx-auto">
-        <Suspense fallback={<div className="py-20 text-center text-gray-400 font-medium text-sm animate-pulse">Loading Collection...</div>}>
+      <div className="py-2 px-4 sm:px-6 max-w-[1600px] mx-auto">
+        <Suspense fallback={<div className="py-20 text-center text-gray-400 font-medium text-xs animate-pulse">Loading Collection...</div>}>
           <ProductsClientView 
             initialProducts={products as any} 
             categories={categories}

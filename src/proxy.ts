@@ -9,6 +9,21 @@ const PROTECTED_ROUTES = ['/profile', '/checkout', '/wishlist', '/order']
 const ADMIN_ROUTES = ['/admin']
 const GATE_PAGE = '/admin-gate'
 
+// 🛡️ TRAFFIC ESCAPE: Public endpoints that require zero backend compute lookups
+const PUBLIC_STATIC_PATHS = [
+  '/', 
+  '/products', 
+  '/faq', 
+  '/returns-refunds', 
+  '/contact-support', 
+  '/privacy-policy', 
+  '/terms-conditions',
+  '/about',
+  '/services',
+  '/collections',
+  '/about'
+]
+
 export async function proxy(request: NextRequest) {
   const response = NextResponse.next({
     request: {
@@ -28,9 +43,34 @@ export async function proxy(request: NextRequest) {
   
   const isDev = process.env.NODE_ENV !== 'production'
   
-  // ✨ B2B SECURE CSP: Updated to allow Google OneTap, Supabase PDFs, and dynamic Country Flags ✨
+  // ✨ B2B SECURE CSP ✨
   response.headers.set('Content-Security-Policy', `default-src 'self'; script-src 'self' 'unsafe-inline' ${isDev ? "'unsafe-eval'" : ""} https://checkout.razorpay.com https://cdn.razorpay.com https://challenges.cloudflare.com https://www.googletagmanager.com https://va.vercel-scripts.com https://accounts.google.com https://maps.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; img-src 'self' data: blob: https: https://maps.gstatic.com https://maps.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://*.razorpay.com https://graph.facebook.com https://vitals.vercel-insights.com https://www.google-analytics.com https://challenges.cloudflare.com https://accounts.google.com https://maps.googleapis.com; frame-src 'self' https://api.razorpay.com https://*.razorpay.com https://challenges.cloudflare.com https://accounts.google.com https://*.supabase.co https://www.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';`)
   
+  const path = request.nextUrl.pathname
+  
+  // 🚨 WHATSAPP TEMPLATE ROUTING AUTOMATION
+  if (path.startsWith('/profile/orders/') && path.length > '/profile/orders/'.length) {
+    const rawOrderId = path.replace('/profile/orders/', '')
+    const newUrl = new URL(`/order/${encodeURIComponent(rawOrderId)}`, request.url)
+    newUrl.search = request.nextUrl.search
+    return NextResponse.redirect(newUrl)
+  }
+
+  const isAuthRoute = AUTH_ROUTES.some((r) => path.startsWith(r))
+  const isProtectedRoute = PROTECTED_ROUTES.some((r) => path.startsWith(r))
+  const isAdminRoute = ADMIN_ROUTES.some((r) => path.startsWith(r))
+  const isGatePage = path === GATE_PAGE
+
+  // 🚀 EDGE OPTIMIZATION FLUSH LAYER: If it is a standard public window, terminate routing checks instantly.
+  // This step single-handedly eliminates unneeded auth checks and database connection swimming.
+  const isDynamicProductView = path.startsWith('/product/') || path.startsWith('/collections/')
+  const isPublicStorefrontView = PUBLIC_STATIC_PATHS.includes(path) || isDynamicProductView
+
+  if (isPublicStorefrontView && !isAuthRoute && !isProtectedRoute && !isAdminRoute && !isGatePage) {
+    return response
+  }
+
+  // Only initialize the server client context block if hitting security-gated domains
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -53,33 +93,18 @@ export async function proxy(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  const path = request.nextUrl.pathname
-  
-  // 🚨 WHATSAPP TEMPLATE ROUTING FIX 🚨
-  // Meta WhatsApp template uses /profile/orders/{{1}} but the app uses /order/[id]
-  if (path.startsWith('/profile/orders/') && path.length > '/profile/orders/'.length) {
-    const rawOrderId = path.replace('/profile/orders/', '')
-    const newUrl = new URL(`/order/${encodeURIComponent(rawOrderId)}`, request.url)
-    newUrl.search = request.nextUrl.search
-    return NextResponse.redirect(newUrl)
-  }
 
-  const isAuthRoute = AUTH_ROUTES.some((r) => path.startsWith(r))
-  const isProtectedRoute = PROTECTED_ROUTES.some((r) => path.startsWith(r))
-  const isAdminRoute = ADMIN_ROUTES.some((r) => path.startsWith(r))
-  const isGatePage = path === GATE_PAGE
-
-  // 1. Checkout Logic: Prevent direct access if not coming from cart
+  // 1. Checkout Entry Validation Gate
   if (path === '/checkout') {
-    const referer = request.headers.get('referer') || '';
-    const isFromCart = referer.includes('/cart');
+    const referer = request.headers.get('referer') || ''
+    const isFromCart = referer.includes('/cart')
     
     if (!user || !isFromCart) {
-      return NextResponse.redirect(new URL('/', request.url));
+      return NextResponse.redirect(new URL('/', request.url))
     }
   }
 
-  // 2. If no user is logged in, restrict protected and admin areas
+  // 2. Anonymity Enforcement
   if (!user) {
     if ((isProtectedRoute && path !== '/checkout') || isAdminRoute || isGatePage) {
       const redirectUrl = new URL('/login', request.url)
@@ -97,7 +122,7 @@ export async function proxy(request: NextRequest) {
 
   const isAdmin = !error && (profile?.role === 'admin' || profile?.role === 'super_admin')
 
-  // 2. Auth Route Logic: Admins go to Gate, Customers go to Products
+  // 3. Authenticated Navigation Re-routing
   if (isAuthRoute) {
     if (isAdmin) {
       return NextResponse.redirect(new URL('/admin-gate', request.url))
@@ -105,18 +130,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/products', request.url))
   }
 
-  // 3. 🚨 GOD MODE LOGIC 🚨
-  // We removed the redirect that sent Admins from /profile to /admin/dashboard.
-  // Now, the logic only blocks NON-ADMINS from entering Admin territory.
-
-  // 🚨 Block non-super_admin from finance
+  // 4. Admin Guard Controls
   if (path.startsWith('/admin/finance') && user) {
-    const { data: roleData } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-    if (roleData?.role !== 'super_admin') {
+    if (profile?.role !== 'super_admin') {
       return NextResponse.redirect(new URL('/admin/dashboard', request.url))
     }
   }
@@ -129,20 +145,21 @@ export async function proxy(request: NextRequest) {
   if (isAdminRoute) {
     if (!isAdmin) return NextResponse.redirect(new URL('/', request.url))
 
-    // Require the Gate Code session cookie for /admin access
     const gateCookie = request.cookies.get('admin_gate_passed')
     if (!gateCookie || gateCookie.value !== 'true') {
       return NextResponse.redirect(new URL('/admin-gate', request.url))
     }
   }
 
-  // 4. Default fallthrough: Allows Admins to access /profile and Storefront freely
   return response
 }
 
-// Ensure middleware only runs on essential routes to optimize speed
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|api/webhooks|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    /*
+     * 🛡️ PERFORMANCE MATCHING SHIELD
+     * Excludes system paths and asset formats to bypass middleware invocation costs.
+     */
+    '/((?!_next/static|_next/image|favicon.ico|api/webhooks|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mp3|ttf)$).*)',
   ],
 }

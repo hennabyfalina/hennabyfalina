@@ -1,9 +1,11 @@
+// src/app/(shop)/cart/layout.tsx
+
 import { Metadata } from 'next'
-import { siteConfig } from '@/config/site'
 
 export const metadata: Metadata = {
-  title: 'Your Cart',
-  robots: { index: false, follow: false }, // SEO: Don't index the cart state
+  title: 'Your Cart | Henna By Falina',
+  // SEO Safeguard: Private checkout states must never enter global crawler index matrices
+  robots: { index: false, follow: false }, 
 }
 
 export default function CartLayout({ children }: { children: React.ReactNode }) {

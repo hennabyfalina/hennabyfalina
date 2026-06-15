@@ -281,7 +281,7 @@ export default function CartPage() {
                         <div className="flex flex-col flex-1 min-w-0">
                           <Link 
                             href={`/product/${item.slug}`} 
-                            className="text-[18px] sm:text-[22px] font-medium text-gray-900 line-clamp-2 hover:text-blue-600 transition-colors cursor-pointer leading-tight"
+                            className="text-[18px] sm:text-[22px] font-medium text-gray-900 line-clamp-2 hover:text-blue-600 hover:underline decoration-2 underline-offset-4 transition-colors cursor-pointer leading-tight"
                           >
                             {item.name}
                           </Link>
@@ -375,7 +375,7 @@ export default function CartPage() {
                                 showToast('Failed to update wishlist', 'error')
                               }
                             }}
-                            className="flex items-center gap-2 hover:text-gray-900 transition-colors cursor-pointer group py-2 whitespace-nowrap"
+                            className="flex items-center gap-2 hover:text-pink-500 transition-colors cursor-pointer group py-2 whitespace-nowrap"
                           >
                             <Heart className={`w-5 h-5 ${isSaved ? 'fill-red-500 text-red-500' : ''}`} strokeWidth={1.8} />
                             <span>{isSaved ? 'Saved' : 'Save for later'}</span>
@@ -395,7 +395,7 @@ export default function CartPage() {
                           <span className="text-gray-300">|</span>
                           <button
                             onClick={handleProceedToBuy}
-                            className="flex items-center gap-2 text-gray-900 hover:text-black transition-colors whitespace-nowrap py-2 cursor-pointer"
+                            className="flex items-center gap-2 text-gray-900 hover:text-emerald-600 transition-colors whitespace-nowrap py-2 cursor-pointer"
                           >
                             <Zap className="w-5 h-5" strokeWidth={1.8} />
                             <span>Buy this now</span>

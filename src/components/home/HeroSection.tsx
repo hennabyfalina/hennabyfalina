@@ -2,11 +2,40 @@
 
 'use client'
 
+import { useState, useEffect } from 'react'
 import { ArrowRight, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { siteConfig } from '@/config/site'
 
 export default function HeroSection() {
+  const [mounted, setMounted] = useState(false)
+  const [playAnimation, setShouldAnimate] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+
+    const ANIMATION_THROTTLE_MS = 6 * 60 * 60 * 1000 // 6-Hour Time-Lock Window Guard
+    const storageKey = 'hbf_hero_anim_last_played'
+    const lastPlayed = localStorage.getItem(storageKey)
+    const now = Date.now()
+
+    if (!lastPlayed || now - parseInt(lastPlayed, 10) > ANIMATION_THROTTLE_MS) {
+      // New user or throttle window has expired -> trigger clean cinematic animations
+      setShouldAnimate(true)
+      localStorage.setItem(storageKey, now.toString())
+    } else {
+      // Repeat buyer inside active session track -> skip animation layers instantly
+      setShouldAnimate(false)
+    }
+  }, [])
+
+  // Dynamic conditional class assignments to toggle animation styles gracefully
+  const getAnimClass = (delayClass: string, fastClass: string = '') => {
+    if (!mounted) return 'opacity-0' // Prevent layout flash during initial hydration passes
+    if (!playAnimation) return 'opacity-100' // If time-locked, render fully static items instantly
+    return `animate-in fade-in-0 slide-in-from-bottom-4 duration-1000 fill-mode-both ${delayClass}`
+  }
+
   return (
     <section className="relative w-full min-h-[60vh] sm:min-h-[75vh] bg-white text-gray-900 flex items-center justify-center px-4 sm:px-8 py-12 sm:py-20 overflow-hidden" suppressHydrationWarning>
       
@@ -17,31 +46,36 @@ export default function HeroSection() {
       </div>
 
       <div className="relative z-10 max-w-4xl mx-auto w-full flex flex-col items-center text-center">
+        
         {/* Luxury Trust Pillar Accent */}
-        <div className="inline-flex items-center gap-2 py-1 px-3 rounded-full bg-transparent text-gray-400 text-[10px] font-bold uppercase tracking-[0.25em] mb-6 animate-fade-in">
+        <div className={`inline-flex items-center gap-2 py-1 px-3 rounded-full bg-transparent text-gray-400 text-[10px] font-bold uppercase tracking-[0.25em] mb-6 ${getAnimClass('delay-100')}`}>
           <Sparkles className="w-3 h-3 text-amber-500/60" />
           100% Organic & Chemical-Free
         </div>
         
-        {/* Editorial Heading */}
-        <h1 className="text-4xl md:text-6xl font-light tracking-tight leading-[1.1] mb-6 text-gray-900 max-w-3xl normal font-sans">
-          Pure Organic <br className="hidden sm:block" />
-          <span className="font-bold">Henna</span> <br className="hidden sm:block" />
-          <span className="text-gray-400 font-light italic normal-case tracking-normal">
+        {/* Editorial Heading: Apple-inspired Split Line Staggered Entry */}
+        <h1 className="text-4xl md:text-6xl font-light tracking-tight leading-[1.1] mb-6 text-gray-900 max-w-3xl font-sans">
+          <span className={`block ${getAnimClass('delay-300')}`}>
+            Pure Organic
+          </span>
+          <span className={`block font-bold ${getAnimClass('delay-500')}`}>
+            Henna
+          </span>
+          <span className={`block text-gray-400 font-light italic normal-case tracking-normal mt-1 blur-in duration-1000 ${getAnimClass('delay-700')}`}>
             Crafted for Traditions
           </span>
         </h1>
         
-        {/* Clean Subtext description */}
-        <p className="text-[14px] md:text-[16px] text-gray-400 max-w-lg mx-auto mb-10 leading-relaxed tracking-wide font-normal">
+        {/* Clean Subtext Description */}
+        <p className={`text-[14px] md:text-[16px] text-gray-400 max-w-lg mx-auto mb-10 leading-relaxed tracking-wide font-normal ${getAnimClass('delay-1000')}`}>
           Premium triple-sifted powder, fresh bridal cones, and pure essential oils. Freshly batched for flawless consistency.
         </p>
         
         {/* Minimal High-Contrast Conversion Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto">
+        <div className={`flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto ${getAnimClass('delay-[1200ms]')}`}>
           <Link
             href="/products"
-            className="w-full sm:w-auto px-10 py-3.5 bg-gray-900 hover:bg-black text-white text-[12px] font-bold tracking-widest normal rounded-full transition-all duration-300 flex items-center justify-center group active:scale-[0.98] cursor-pointer"
+            className="w-full sm:w-auto px-10 py-3.5 bg-gray-900 hover:bg-black text-white text-[12px] font-bold tracking-widest rounded-full transition-all duration-300 flex items-center justify-center group active:scale-[0.98] cursor-pointer"
           >
             Explore Collection
             <ArrowRight className="ml-2 h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" strokeWidth={2} />
@@ -51,7 +85,7 @@ export default function HeroSection() {
             href={`https://wa.me/${siteConfig.contact.phone.primary.replace(/[^0-9]/g, '')}?text=${encodeURIComponent("Hello! I'd like to inquire about booking a henna artist for an upcoming event.")}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full sm:w-auto px-10 py-3.5 bg-stone-50 hover:bg-stone-100 text-gray-900 text-[12px] font-bold tracking-widest normal rounded-full transition-all duration-300 border border-gray-200/50 flex items-center justify-center active:scale-[0.98] cursor-pointer"
+            className="w-full sm:w-auto px-10 py-3.5 bg-stone-50 hover:bg-stone-100 text-gray-900 text-[12px] font-bold tracking-widest rounded-full transition-all duration-300 border border-gray-200/50 flex items-center justify-center active:scale-[0.98] cursor-pointer"
           >
             Book an Artist
           </a>
