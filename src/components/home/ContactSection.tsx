@@ -21,7 +21,7 @@ export default function ContactSection() {
     <div className="w-full bg-white py-6 px-1 select-none font-sans" suppressHydrationWarning>
       {/* Removed screaming uppercase letters and aggressive tracking bounds */}
       <h2 className="text-2xl sm:text-4xl font-normal text-gray-950 tracking-tight text-left mb-10">
-        Connect With Our Studio
+        Connect With Us
       </h2>
       
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-start" suppressHydrationWarning>

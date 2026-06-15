@@ -8,7 +8,7 @@ const VERSION = 1  // <-- Increment this when you change logo
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Henna By Falina',
-    short_name: 'HB Falina',
+    short_name: 'Henna By Falina',
     description: 'Premium organic henna cones, powders, and accessories for professional artists and enthusiasts.',
     start_url: `/`,
     display: 'standalone',

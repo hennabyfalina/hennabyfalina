@@ -84,13 +84,14 @@ export async function signUp(
 // ─── Sign In ──────────────────────────────────────────────────────────────────
 
 const signInSchema = z.object({
-  email: z.string().email("Invalid email format."),
+  email: z.string().trim().toLowerCase().email("Invalid email format."),
   password: z.string().min(1, "Password is required."),
 })
 
 export async function signIn(
   rawEmail: string,
-  rawPassword: string
+  rawPassword: string,
+  captchaToken?: string
 ): Promise<AuthResult<{ redirectTo: string; role?: string }>> {
   const parsed = signInSchema.safeParse({ email: rawEmail, password: rawPassword })
   if (!parsed.success) return { success: false, message: "Invalid email or password." }
@@ -101,9 +102,15 @@ export async function signIn(
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
+    options: captchaToken ? { captchaToken } : undefined,
   })
 
   if (error) {
+    // Expose exact Supabase error for Razorpay email to help you debug why it's failing
+    if (email === 'razorpay@hennabyfalina.com') {
+      return { success: false, message: `Razorpay Debug Error: ${error.message}` }
+    }
+
     if (error.message === 'Email not confirmed') {
       return {
         success: false,

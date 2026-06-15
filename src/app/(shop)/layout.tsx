@@ -32,7 +32,7 @@ export default function ShopLayout({ children }: { children: ReactNode }) {
         <Navbar key={user?.id || 'no-user'} />
       </Suspense>
 
-      {/* 🚀 STRATEGIC HOOK: Renders the prompt context stripe cleanly beneath your navigation trails */}
+      {/* 🚀 STRATEGIC HOOK: Renders our newly performance-guarded biometric capture utility stripe directly beneath navigation maps */}
       <PasskeyOnboardingPrompt />
 
       <main className={`flex-1 flex flex-col w-full relative min-h-screen overflow-x-hidden ${isCheckoutPage ? 'pb-0' : 'pb-24 md:pb-0'}`}>

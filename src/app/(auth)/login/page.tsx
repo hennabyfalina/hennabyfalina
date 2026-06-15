@@ -6,11 +6,12 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { AlertTriangle, CheckCircle, Key } from 'lucide-react'
+import { AlertTriangle, CheckCircle, Key, Eye, EyeOff } from 'lucide-react'
 import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 import { siteConfig } from '@/config/site'
 import GoogleOneTap from '@/components/auth/GoogleOneTap'
 import Image from 'next/image'
+import { signIn } from '@/services/auth.service'
 
 const carouselImages = [
   { src: '/hero-henna-cone.jpg', alt: 'Henna Cone Application', caption: 'Bridal quality henna' },
@@ -23,12 +24,14 @@ export default function LoginPage() {
   const router = useRouter()
 
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [isPasskeyLoading, setIsPasskeyLoading] = useState(false)
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
-  const [authMode, setAuthMode] = useState<'otp_send' | 'otp_verify'>('otp_send')
+  const [authMode, setAuthMode] = useState<'otp_send' | 'otp_verify' | 'password'>('otp_send')
   const [otpCode, setOtpCode] = useState('')
   const [resendTimer, setResendTimer] = useState(0)
   const [isOtpSent, setIsOtpSent] = useState(false)
@@ -118,9 +121,17 @@ export default function LoginPage() {
   }, [error])
 
   useEffect(() => {
+    if (email.toLowerCase().trim() === 'razorpay@hennabyfalina.com' && authMode === 'otp_send') {
+      setAuthMode('password')
+    } else if (email.toLowerCase().trim() !== 'razorpay@hennabyfalina.com' && authMode === 'password') {
+      setAuthMode('otp_send')
+    }
+  }, [email, authMode])
+
+  useEffect(() => {
     try {
       const storedEmail = sessionStorage.getItem('login_email')
-      const storedMode = sessionStorage.getItem('login_authMode') as 'otp_send' | 'otp_verify' | null
+      const storedMode = sessionStorage.getItem('login_authMode') as 'otp_send' | 'otp_verify' | 'password' | null
       const storedTimer = sessionStorage.getItem('login_resendTimer')
       const storedTimestamp = sessionStorage.getItem('login_timestamp')
 
@@ -286,6 +297,51 @@ export default function LoginPage() {
     }
   }
 
+  const handlePasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setSuccessMessage('')
+    if (!password) {
+      setError('Please enter your password.')
+      return
+    }
+    if (!captchaToken) {
+      setError('Please complete the security check to continue.')
+      return
+    }
+    setLoading(true)
+    
+    const result = await signIn(email, password, captchaToken)
+    
+    setLoading(false)
+    if (!result.success) {
+      setTurnstileKey(Date.now())
+      setCaptchaToken('')
+      setError(result.message)
+    } else {
+      localStorage.setItem('last_login_method', 'email')
+      if (result.data?.role === 'admin') {
+        router.push('/admin-gate')
+        router.refresh()
+        return
+      }
+      try {
+        sessionStorage.removeItem('login_email')
+        sessionStorage.removeItem('login_authMode')
+        sessionStorage.removeItem('login_resendTimer')
+        sessionStorage.removeItem('login_timestamp')
+        sessionStorage.removeItem('oauth_start_time')
+      } catch (e) {}
+      
+      const params = new URLSearchParams(window.location.search)
+      let redirectPath = params.get('next') || params.get('redirect') || '/products'
+      if (!redirectPath.startsWith('/') || redirectPath.startsWith('//')) {
+        redirectPath = '/products'
+      }
+      router.push(redirectPath)
+    }
+  }
+
   const handleClearOtp = () => {
     setOtpCode('')
     setError('')
@@ -399,7 +455,7 @@ export default function LoginPage() {
   }
 
   const isActionLocked = isGoogleLoading || isPasskeyLoading || loading
-  const currentSubmitHandler = authMode === 'otp_send' ? handleSendOtp : handleVerifyOtp
+  const currentSubmitHandler = authMode === 'otp_send' ? handleSendOtp : authMode === 'password' ? handlePasswordLogin : handleVerifyOtp
 
   return (
     <>
@@ -429,12 +485,12 @@ export default function LoginPage() {
             
             {/* Weightless Editorial Branding Text Overlays */}
             <div className="absolute inset-0 bg-black/15 flex flex-col justify-between p-10 z-10">
-              <Link href="/" className="flex items-center gap-3 text-3xl font-light tracking-tight text-white drop-shadow-xs w-fit outline-none">
+              <Link href="/" className="flex items-center gap-3 text-xl font-light tracking-tight text-white drop-shadow-xs w-fit outline-none">
                 <Image
                   src="/logo.png"
                   alt="Logo"
-                  width={40}
-                  height={40}
+                  width={30}
+                  height={30}
                 />
                 Henna By Falina
               </Link>
@@ -466,17 +522,18 @@ export default function LoginPage() {
         <div className="w-full md:w-[32%] lg:w-[30%] shrink-0 bg-white flex items-center justify-center px-6 sm:px-8 py-10 overflow-y-auto">
           <div className="w-full max-w-[320px] mx-auto space-y-6">
             
-            {/* Mobile Title View Wrapper */}
-            <div className="md:hidden flex flex-col items-center gap-3 text-center mb-8">
-              <Link href="/" className="flex flex-row items-center gap-3 text-2xl font-normal tracking-tight text-gray-950 outline-none">
+            {/* Mobile Title View Wrapper - Left Aligned */}
+            <div className="md:hidden flex flex-col items-start gap-3 text-left mb-8">
+              <Link href="/" className="flex flex-row items-center gap-2 text-xl font-normal tracking-tight text-gray-950 outline-none">
                 <Image
                   src="/logo.png"
                   alt="Logo"
-                  width={48}
-                  height={48}
+                  width={32}
+                  height={32}
                 />
                 {siteConfig.name}
               </Link>
+              <div className="w-full border-t border-stone-100 mt-2"></div>
             </div>
 
             {/* Left-Aligned Clean Heading Descriptor Block */}
@@ -500,7 +557,7 @@ export default function LoginPage() {
             )}
 
             {/* Google OAuth & Passkey Gateway Integrations */}
-            {authMode === 'otp_send' && (
+            {(authMode === 'otp_send' || authMode === 'password') && (
               <div className="space-y-2.5 pt-1">
                 <button
                   type="button"
@@ -551,7 +608,7 @@ export default function LoginPage() {
             )}
 
             <form onSubmit={currentSubmitHandler} className="space-y-4 text-left">
-              {authMode === 'otp_send' && (
+              {(authMode === 'otp_send' || authMode === 'password') && (
                 <div className="space-y-1.5">
                   <label htmlFor="login-email-address" className="block text-[13px] font-semibold text-gray-400 uppercase tracking-wider">
                     Email Address
@@ -567,6 +624,29 @@ export default function LoginPage() {
                     placeholder="you@example.com"
                     className="w-full px-0 py-2 border-b border-stone-300 focus:border-gray-950 outline-none transition-colors text-[14px] text-gray-900 bg-transparent disabled:opacity-50 placeholder:text-gray-300"
                   />
+                </div>
+              )}
+
+              {authMode === 'password' && (
+                <div className="space-y-1.5 animate-fade-in mt-4">
+                  <label htmlFor="login-password" className="block text-[13px] font-semibold text-gray-400 uppercase tracking-wider">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="login-password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      disabled={isActionLocked}
+                      placeholder="Enter your password"
+                      className="w-full px-0 py-2 border-b border-stone-300 focus:border-gray-950 outline-none transition-colors text-[14px] text-gray-900 bg-transparent disabled:opacity-50 placeholder:text-gray-300 pr-8"
+                    />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 flex items-center px-2 text-gray-400 hover:text-gray-600" aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -662,7 +742,7 @@ export default function LoginPage() {
               )}
 
               {/* Cloudflare Turnstile Verification Space */}
-              {(authMode === 'otp_send' || !isOtpSent) && (
+              {(authMode === 'otp_send' || authMode === 'password' || !isOtpSent) && (
                 <div className="flex justify-center pt-1 w-full overflow-hidden">
                   <Turnstile
                     key={turnstileKey}
@@ -682,14 +762,17 @@ export default function LoginPage() {
                 disabled={
                   isActionLocked ||
                   (authMode === 'otp_send' && (!email.trim() || !captchaToken || resendTimer > 0)) ||
+                  (authMode === 'password' && (!password.trim() || !captchaToken)) ||
                   (authMode === 'otp_verify' && otpCode.length !== 6)
                 }
                 className="w-full h-11 bg-black hover:bg-stone-900 text-white rounded-full text-[13px] font-semibold transition-all disabled:opacity-40 cursor-pointer outline-none active:scale-[0.99] capitalize"
               >
                 {loading ? (
-                  authMode === 'otp_send' ? 'Sending code...' : 'Verifying...'
+                  authMode === 'otp_send' ? 'Sending code...' : authMode === 'password' ? 'Signing in...' : 'Verifying...'
                 ) : authMode === 'otp_send' ? (
                   resendTimer > 0 ? `Wait ${resendTimer}s` : 'Continue'
+                ) : authMode === 'password' ? (
+                  'Continue'
                 ) : (
                   'Verify secure code'
                 )}

@@ -11,10 +11,15 @@ export default function NameModal({ userId, email, onComplete }: { userId: strin
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    if (email.toLowerCase().trim() === 'razorpay@hennabyfalina.com') {
+      onComplete()
+    } else {
+      setMounted(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email])
 
-  if (!mounted) return null
+  if (!mounted || email.toLowerCase().trim() === 'razorpay@hennabyfalina.com') return null
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -32,9 +32,9 @@ export default function ServicesSection() {
         </h2>
         <Link 
           href="/services" 
-          className="text-[15px] font-medium text-blue-600 hover:text-blue-700 transition-colors tracking-tight"
+          className="text-[14px] font-normal text-blue-600 hover:text-blue-700 transition-colors tracking-tight"
         >
-          View all services
+          All services
         </Link>
       </div>
 

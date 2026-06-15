@@ -154,8 +154,8 @@ export default function CartPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <h2 className="text-4xl sm:text-4xl font-normal tracking-tight text-gray-900">
-                {paymentFailed ? 'Payment Not Completed' : 'Your Shopping Bag Is Empty'}
+              <h2 className="text-3xl sm:text-4xl font-normal tracking-tight text-gray-900">
+                {paymentFailed ? 'Payment Not Completed' : 'Your shopping bag is empty'}
               </h2>
               <p className="text-[15px] text-gray-500 font-normal max-w-md mx-auto leading-relaxed">
                 {paymentFailed 

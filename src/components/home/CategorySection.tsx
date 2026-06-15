@@ -75,7 +75,7 @@ export default function CategorySection({ categories }: CategorySectionProps) {
         </h2>
         <Link 
           href="/products" 
-          className="text-[15px] font-medium text-blue-600 hover:text-blue-700 transition-colors tracking-tight"
+          className="text-[14px] font-normal text-blue-600 hover:text-blue-700 transition-colors tracking-tight"
         >
           See all
         </Link>
