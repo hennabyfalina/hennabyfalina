@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   title: 'Henna by falina | Premium Organic Henna Cones & Essentials',
   description: 'Discover premium, 100% chemical-free organic henna cones, pure essential oils, triple-sifted powder, and custom bridal artist kits.',
   alternates: {
-    canonical: 'https://www.hennabyfalina.com',
+    canonical: 'https://hennabyfalina.com',
   },
 }
 

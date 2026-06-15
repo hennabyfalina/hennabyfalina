@@ -76,6 +76,19 @@ export default function CheckoutPage() {
   // 3. Razorpay Payment Processing Orchestrator
   const { processPayment, isProcessingCheckout, checkoutError } = useRazorpayCheckout()
 
+  // 🚀 ACCESS CONTROL: Prevent manual navigation to checkout
+  useEffect(() => {
+    if (!isInitializing) {
+      if (!user) {
+        router.replace('/')
+        return
+      }
+      if (items.length === 0) {
+        router.replace('/cart')
+      }
+    }
+  }, [user, items.length, isInitializing, router])
+
   const [checkoutSessionId] = useState(() => {
     if (typeof window !== 'undefined') {
       const stored = sessionStorage.getItem('checkout_session_id')

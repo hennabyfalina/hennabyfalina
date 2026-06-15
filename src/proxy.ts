@@ -69,9 +69,19 @@ export async function proxy(request: NextRequest) {
   const isAdminRoute = ADMIN_ROUTES.some((r) => path.startsWith(r))
   const isGatePage = path === GATE_PAGE
 
-  // 1. If no user is logged in, restrict protected and admin areas
+  // 1. Checkout Logic: Prevent direct access if not coming from cart
+  if (path === '/checkout') {
+    const referer = request.headers.get('referer') || '';
+    const isFromCart = referer.includes('/cart');
+    
+    if (!user || !isFromCart) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  }
+
+  // 2. If no user is logged in, restrict protected and admin areas
   if (!user) {
-    if (isProtectedRoute || isAdminRoute || isGatePage) {
+    if ((isProtectedRoute && path !== '/checkout') || isAdminRoute || isGatePage) {
       const redirectUrl = new URL('/login', request.url)
       redirectUrl.searchParams.set('next', path + request.nextUrl.search)
       return NextResponse.redirect(redirectUrl)
