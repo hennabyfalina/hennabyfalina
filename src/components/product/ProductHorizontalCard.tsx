@@ -10,6 +10,7 @@ import { getPublicUrl } from '@/lib/supabase/storage'
 import { formatCurrency } from '@/lib/utils'
 import { useWishlistStore } from '@/store/wishlist.store'
 import { showToast } from '@/components/ui/Toast'
+import type { Product } from '@/types/database.types'
 
 function HighlightMatch({ text, query }: { text: string, query: string }) {
   if (!query) return <span>{text}</span>;
@@ -29,23 +30,7 @@ function HighlightMatch({ text, query }: { text: string, query: string }) {
 }
 
 interface ProductHorizontalCardProps {
-  product: {
-    id: string
-    name: string
-    slug: string
-    images: string[]
-    stock: number
-    rating?: number | null
-    review_count?: number | null
-    sku?: string | null
-    category_id?: string | null
-    is_active: boolean
-    is_deleted: boolean
-    retail_price: number
-    wholesale_price: number
-    wholesale_min_qty: number
-    mrp?: number
-  }
+  product: Product // ⚡ FIXED: imported master Product type directly to align null fields perfectly
   priority?: boolean
   searchQuery?: string
   productList?: any[]
@@ -119,8 +104,9 @@ export default function ProductHorizontalCard({
       {/* HORIZONTAL RIGHT TEXT SUMMARY PANEL */}
       <div className="flex flex-col flex-grow justify-between min-w-0 pr-6 self-stretch pt-0.5">
         <button 
+          type="button"
           onClick={handleWishlist}
-          className="absolute top-4 right-4 z-30 flex items-center justify-center w-7 h-7 rounded-full bg-white border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)] text-gray-300 hover:text-red-500 transition-all cursor-pointer active:scale-90"
+          className="absolute top-4 right-4 z-30 flex items-center justify-center w-7 h-7 rounded-full bg-white border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)] text-gray-300 hover:text-red-500 transition-all cursor-pointer active:scale-90 outline-none"
           title="Wishlist"
         >
           <Heart className={`w-3.5 h-3.5 ${isSaved ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} strokeWidth={1.5} />

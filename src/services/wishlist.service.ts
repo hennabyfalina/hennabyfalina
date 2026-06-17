@@ -3,11 +3,11 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { getProductImageUrl } from './product.service'
+import { getPublicUrl } from './product.service'
 import { z } from 'zod'
 
 const toggleWishlistSchema = z.object({
-  productId: z.string().min(1, "Product ID is required")
+  productId: z.string().uuid("Invalid product unique tracking key format")
 })
 
 export async function toggleWishlistItem(productId: string) {
@@ -16,10 +16,9 @@ export async function toggleWishlistItem(productId: string) {
     if (!parsed.success) return { success: false, error: 'Invalid product ID' }
 
     const supabase = await createClient()
-    
     const { data: { user } } = await supabase.auth.getUser()
+    
     if (!user) {
-      // 🚨 SAFE RETURN instead of crashing the server action
       return { success: false, error: 'unauthorized' }
     }
 
@@ -28,7 +27,8 @@ export async function toggleWishlistItem(productId: string) {
       .select('id')
       .eq('user_id', user.id)
       .eq('product_id', parsed.data.productId)
-      .single()
+      .limit(1)
+      .maybeSingle()
 
     if (existing) {
       const { error } = await supabase.from('wishlists').delete().eq('id', existing.id)
@@ -70,13 +70,32 @@ export async function getFullWishlist() {
   
   if (!user) return []
 
+  // 🏛️ ZERO-TRUST PARITY JOIN: Pull all multi-mode flags and metadata arrays to fulfill ProductCard schemas
   const { data, error } = await supabase
     .from('wishlists')
     .select(`
       id,
       product_id,
       products (
-        id, name, slug, retail_price, wholesale_price, images, stock, rating, review_count
+        id, 
+        name, 
+        slug, 
+        sku,
+        description,
+        retail_price, 
+        wholesale_price, 
+        wholesale_min_qty,
+        mrp,
+        stock, 
+        images,
+        rating, 
+        review_count,
+        variants,
+        is_active,
+        is_deleted,
+        is_retail_enabled,
+        is_wholesale_enabled,
+        is_variants_enabled
       )
     `)
     .eq('user_id', user.id)
@@ -87,20 +106,22 @@ export async function getFullWishlist() {
     return []
   }
 
-  const formattedWishlist = await Promise.all(
-    (data || []).map(async (item: any) => {
+  // Optimize execution by performing direct synchronous string lookups inside the loop array map
+  const formattedWishlist = (data || [])
+    .filter((item: any) => item.products !== null && !item.products.is_deleted && item.products.is_active)
+    .map((item: any) => {
       const product = item.products
-      const imageUrl = product.images?.[0] ? await getProductImageUrl(product.images[0]) : null
+      const rawImage = product.images?.[0]
+      const imageUrl = rawImage ? getPublicUrl(rawImage) : '/placeholder-product.svg'
       
       return {
         wishlist_id: item.id,
         product: {
           ...product,
-          image: imageUrl || '/placeholder-product.svg'
+          images: product.images?.map((path: string) => getPublicUrl(path)) || []
         }
       }
     })
-  )
 
   return formattedWishlist
 }

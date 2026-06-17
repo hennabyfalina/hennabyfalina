@@ -32,7 +32,7 @@ export default function QuantitySelector({
 
   useEffect(() => {
     setInputValue((quantity ?? min).toString())
-  }, [quantity])
+  }, [quantity, min])
 
   useEffect(() => {
     if (showModal) {
@@ -138,7 +138,6 @@ export default function QuantitySelector({
         )}
       </div>
 
-      {/* Manual portal context view */}
       {showModal && mounted && createPortal(
         <div 
           className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/15 backdrop-blur-xs animate-fade-in" 
@@ -149,7 +148,6 @@ export default function QuantitySelector({
             onClick={(e) => e.stopPropagation()}
           >
             <div>
-              {/* 🌟 FIXED: Sentence-cased, normal weights, no uppercase shouting */}
               <h3 className="text-[15px] font-medium text-gray-950">Adjust batch count</h3>
               <p className="text-[12px] text-gray-400 font-normal mt-0.5">
                 Available stock limit: {max}
@@ -187,7 +185,7 @@ export default function QuantitySelector({
               <button 
                 type="button" 
                 onClick={handleModalClose} 
-                className="flex-1 h-10 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl text-[13px] font-medium transition-colors cursor-pointer"
+                className="flex-1 h-10 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl text-[13px] font-medium transition-colors cursor-pointer border-none outline-none"
               >
                 Cancel
               </button>
@@ -195,7 +193,7 @@ export default function QuantitySelector({
                 type="button" 
                 onClick={handleModalSubmit} 
                 disabled={isInvalid}
-                className="flex-1 h-10 bg-gray-950 hover:bg-black text-white rounded-xl text-[13px] font-medium transition-colors disabled:opacity-30 cursor-pointer"
+                className="flex-1 h-10 bg-gray-950 hover:bg-black text-white rounded-xl text-[13px] font-medium transition-colors disabled:opacity-30 cursor-pointer border-none outline-none"
               >
                 Apply
               </button>

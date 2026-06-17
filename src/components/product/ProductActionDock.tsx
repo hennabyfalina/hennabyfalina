@@ -9,7 +9,7 @@ import { getPublicUrl } from '@/lib/supabase/storage'
 import AddToCartButton from './AddToCartButton'
 import QuantitySelector from './QuantitySelector'
 import { useVariantStore, type Variant } from '@/store/variant.store'
-import { getComputedProductPrices, getEffectivePrice, isWholesaleActive } from '@/lib/pricing'
+import { getComputedProductPrices, getEffectivePrice, isWholesaleActive, parseVariants } from '@/lib/pricing'
 
 interface ProductActionDockProps {
   product: any
@@ -24,18 +24,28 @@ export default function ProductActionDock({ product, sellingPrice, hasStock }: P
 
   const { variants, selectedVariant, setVariants, setSelectedVariant } = useVariantStore()
 
-  // Parse variants
+  // Parse variants into layout stores safely using schema utilities
   useEffect(() => {
-    let productVariants: Variant[] = []
-    if (product.variants && typeof product.variants === 'string') {
-      try { productVariants = JSON.parse(product.variants) } catch { productVariants = [] }
-    } else if (Array.isArray(product.variants)) {
-      productVariants = product.variants
+    if (product.is_variants_enabled) {
+      const productVariants = parseVariants(product.variants)
+      setVariants(productVariants)
+    } else {
+      setVariants([])
     }
-    setVariants(productVariants)
-  }, [product.id, product.variants, setVariants])
+  }, [product.id, product.variants, product.is_variants_enabled, setVariants])
 
-  // Current effective price (real-time)
+  // 🛡️ DYNAMIC MIN QUANTITY GATEKEEPER: Forces minimum wholesale bounds if retail option is disabled
+  const minQuantity = (!product.is_retail_enabled && product.is_wholesale_enabled)
+    ? (selectedVariant?.wholesale_min_qty ?? product.wholesale_min_qty ?? 1)
+    : 1
+
+  useEffect(() => {
+    if (quantity < minQuantity) {
+      setQuantity(minQuantity)
+    }
+  }, [minQuantity, quantity])
+
+  // Current effective price (real-time) via central resolver engine
   const effectivePrice = getEffectivePrice(product, quantity, selectedVariant)
 
   // Get MRP and Discount data
@@ -90,14 +100,25 @@ export default function ProductActionDock({ product, sellingPrice, hasStock }: P
     ? (product.images[0].startsWith('http') ? product.images[0] : getPublicUrl(product.images[0]))
     : '/placeholder-product.svg'
 
-  // Build product with the dynamic effective price (includes wholesale if applied)
+  // Build product with full multi-mode feature flag snapshots to keep state caching flawless
   const getProductWithVariant = () => {
     return {
       ...product,
-      retail_price: effectivePrice,  // ✅ dynamic price (retail or wholesale)
-      name: selectedVariant ? `${product.name} (${selectedVariant.name})` : product.name,
-      variant_name: selectedVariant?.name,
-    };
+      retail_price: product.retail_price,
+      wholesale_price: product.wholesale_price,
+      wholesale_min_qty: product.wholesale_min_qty,
+      is_retail_enabled: product.is_retail_enabled,
+      is_wholesale_enabled: product.is_wholesale_enabled,
+      is_variants_enabled: product.is_variants_enabled,
+      name: product.name,
+      variant_string: selectedVariant?.name || null,
+      variants: product.variants,
+      id: product.id,
+      slug: product.slug,
+      images: product.images,
+      stock: product.stock,
+      mrp: product.mrp,
+    }
   }
 
   return (
@@ -112,9 +133,9 @@ export default function ProductActionDock({ product, sellingPrice, hasStock }: P
         {/* Desktop layout (horizontal) */}
         <div className="hidden md:flex items-center justify-between gap-8 py-1">
           {/* Left: thumbnail + name + price + wholesale badge */}
-          <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="flex items-center gap-3 min-w-0 flex-1 text-left">
             <div className="w-14 h-14 relative shrink-0 bg-stone-50 rounded-full border border-gray-100 overflow-hidden shadow-sm">
-              <Image src={imageUrl} alt={product.name} fill className="object-cover" unoptimized />
+              <img src={imageUrl} alt={product.name} className="w-full h-full object-cover" />
             </div>
             <div className="flex flex-col min-w-0">
               <h4 className="text-lg font-medium text-gray-900 truncate capitalize leading-tight">
@@ -148,7 +169,7 @@ export default function ProductActionDock({ product, sellingPrice, hasStock }: P
 
           {/* Right: variant dropdown (with wholesale hints) + quantity + add to cart */}
           <div className="flex items-center gap-6 shrink-0">
-            {variants.length > 0 && (
+            {product.is_variants_enabled && variants.length > 0 && (
               <select
                 value={selectedVariant?.name || ''}
                 aria-label="Select product variant"
@@ -161,33 +182,33 @@ export default function ProductActionDock({ product, sellingPrice, hasStock }: P
                 {variants.map(v => (
                   <option key={v.name} value={v.name}>
                     {v.name} – {formatCurrency(v.price)}
-                    {v.wholesale_price && v.wholesale_min_qty && ` (${v.wholesale_min_qty}+ → ${formatCurrency(v.wholesale_price)})`}
+                    {product.is_wholesale_enabled && v.wholesale_price && v.wholesale_min_qty && ` (${v.wholesale_min_qty}+ → ${formatCurrency(v.wholesale_price)})`}
                   </option>
                 ))}
               </select>
             )}
             <div className="[&_button]:h-10 [&_button]:w-10 [&_div]:min-w-[40px] [&_div]:text-base">
-              <QuantitySelector quantity={quantity} onQuantityChange={setQuantity} min={1} max={product.stock} />
+              <QuantitySelector quantity={quantity} onQuantityChange={setQuantity} min={minQuantity} max={product.stock} />
             </div>
             <AddToCartButton
               product={getProductWithVariant()}
               quantity={quantity}
               showQuantitySelector={false}
               showPriceInButton={true}
-              className="h-12 px-8 bg-gray-950 hover:bg-black text-white rounded-full text-[15px] font-bold tracking-wide whitespace-nowrap transition-all cursor-pointer shadow-md active:scale-[0.98]"
+              className="h-12 px-8 bg-gray-950 hover:bg-black text-white rounded-full text-[15px] font-bold tracking-wide whitespace-nowrap transition-all cursor-pointer shadow-none border-none outline-none active:scale-[0.98]"
             />
           </div>
         </div>
 
         {/* Mobile layout (vertical) */}
-        <div className="flex md:hidden flex-col gap-3">
+        <div className="flex md:hidden flex-col gap-3 text-left">
           {/* Mobile wholesale badge (if active) */}
           {isWholesaleApplied && (
             <div className="text-[12px] font-medium text-emerald-700 bg-emerald-50/80 px-3 py-1 rounded-full self-start">
               Bulk rate: {formatCurrency(effectivePrice)}/unit
             </div>
           )}
-          {variants.length > 0 && (
+          {product.is_variants_enabled && variants.length > 0 && (
             <select
               value={selectedVariant?.name || ''}
               aria-label="Select product variant"
@@ -195,19 +216,19 @@ export default function ProductActionDock({ product, sellingPrice, hasStock }: P
                 const variant = variants.find(v => v.name === e.target.value)
                 if (variant) setSelectedVariant(variant)
               }}
-              className="w-full h-10 px-4 border border-gray-200 rounded-xl text-sm font-normal bg-white"
+              className="w-full h-10 px-4 border border-gray-200 rounded-xl text-sm font-normal bg-white outline-none focus:border-gray-950"
             >
               {variants.map(v => (
                 <option key={v.name} value={v.name}>
                   {v.name} – {formatCurrency(v.price)}
-                  {v.wholesale_price && v.wholesale_min_qty && ` (${v.wholesale_min_qty}+ → ${formatCurrency(v.wholesale_price)})`}
+                  {product.is_wholesale_enabled && v.wholesale_price && v.wholesale_min_qty && ` (${v.wholesale_min_qty}+ → ${formatCurrency(v.wholesale_price)})`}
                 </option>
               ))}
             </select>
           )}
           <div className="flex items-center gap-3">
             <div className="shrink-0">
-              <QuantitySelector quantity={quantity} onQuantityChange={setQuantity} min={1} max={product.stock} />
+              <QuantitySelector quantity={quantity} onQuantityChange={setQuantity} min={minQuantity} max={product.stock} />
             </div>
             <div className="flex-1">
               <AddToCartButton
@@ -215,7 +236,7 @@ export default function ProductActionDock({ product, sellingPrice, hasStock }: P
                 quantity={quantity}
                 showQuantitySelector={false}
                 showPriceInButton={true}
-                className="w-full h-11 bg-gray-950 text-white rounded-xl text-sm font-normal transition-all active:scale-[0.98] cursor-pointer"
+                className="w-full h-11 bg-gray-950 hover:bg-black text-white rounded-xl text-sm font-bold tracking-wider capitalise transition-all active:scale-[0.98] cursor-pointer outline-none border-none flex items-center justify-center disabled:bg-gray-950 disabled:opacity-80 [&_div]:border-white"
               />
             </div>
           </div>

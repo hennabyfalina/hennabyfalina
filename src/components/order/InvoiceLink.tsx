@@ -4,6 +4,7 @@
 
 import { Download } from 'lucide-react'
 import { useState } from 'react'
+import { FileText } from 'lucide-react'
 import { showToast } from '@/components/ui/Toast'
 
 interface InvoiceLinkProps {
@@ -49,15 +50,15 @@ export default function InvoiceLink({ orderId, orderNumber, className, invoiceTy
     <button
       onClick={handleDownloadInvoice}
       disabled={isDownloading}
-      className={className || 'text-[#007185] hover:text-[#C7511F] hover:underline disabled:opacity-50 cursor-pointer transition-colors duration-200 active:scale-[0.98] text-sm font-medium flex items-center gap-1'}
+      className={className || 'text-blue-600 hover:underline decoration-2 underline-offset-4 disabled:opacity-50 cursor-pointer transition-all duration-200 active:scale-[0.98] text-[15px] font-medium flex items-center gap-1.5 bg-transparent border-none outline-none p-0'}
     >
       {isDownloading ? (
         <>
-          <div className="w-3.5 h-3.5 border-2 border-[#007185] border-t-transparent rounded-full animate-spin" />
-          <span>Generating...</span>
+          <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <span className="text-gray-400">Generating...</span>
         </>
       ) : (
-        <span>{textLabel || 'Invoice'}</span>
+        <span className="flex items-center gap-1">{textLabel || 'Invoice'}</span>
       )}
     </button>
   )

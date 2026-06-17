@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 // src/app/admin/products/page.tsx
 
 'use client'
@@ -366,7 +365,7 @@ if (isLoading && products.length === 0) {
                             <div className="text-sm font-medium admin-text-primary">
                               {formatCurrency(displayPrice)}
                             </div>
-                            {product.mrp > displayPrice && (
+                            {product.mrp && product.mrp > displayPrice && (
                               <div className="text-[11px] admin-text-muted line-through mt-0.5">
                                 {formatCurrency(product.mrp)}
                               </div>

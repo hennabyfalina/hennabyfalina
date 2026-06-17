@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { showToast } from '@/components/ui/Toast'
 import { siteConfig } from '@/config/site'
 import SecureLoadingOverlay from '@/components/checkout/SecureLoadingOverlay'
+import { recordPaymentFailure } from '@/services/payment.service'
 import { generateIdempotencyKey } from '@/lib/idempotency'
 
 interface RetryPaymentButtonProps {
@@ -28,7 +29,6 @@ export default function RetryPaymentButton({ orderId, orderNumber, amount }: Ret
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
-      // Dynamically load the Razorpay SDK
       const isScriptLoaded = await new Promise((resolve) => {
         if ((window as any).Razorpay) return resolve(true)
         const script = document.createElement('script')
@@ -58,13 +58,10 @@ export default function RetryPaymentButton({ orderId, orderNumber, amount }: Ret
       const razorpayData = await response.json()
       if (razorpayData.error) throw new Error(razorpayData.error)
 
-      // 🔒 GATEWAY VALIDATION: Ensure the backend correctly provided the keys before mounting
       if (!razorpayData.orderId || !razorpayData.keyId) {
-        console.error('[Retry] Invalid gateway payload:', razorpayData)
         throw new Error('invalid payment gateway response. please contact support.')
       }
 
-      // Open Razorpay Modal directly
       const options = {
         key: razorpayData.keyId,
         amount: razorpayData.amount,
@@ -78,13 +75,13 @@ export default function RetryPaymentButton({ orderId, orderNumber, amount }: Ret
         },
         notes: {
           order_number: orderNumber,
-          order_id: orderId,
+          internal_order_id: orderId,
         },
         theme: { color: '#000000' },
         handler: async function (response: any) {
-          // ⚡ OPTIMIZATION: Eagerly verify to ensure the DB reflects "paid" instantly
+          setIsLoading(true)
           try {
-            await fetch('/api/razorpay/verify', {
+            const res = await fetch('/api/razorpay/verify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -92,29 +89,40 @@ export default function RetryPaymentButton({ orderId, orderNumber, amount }: Ret
                 internal_order_id: orderId
               })
             })
-          } catch (e) {
-            console.warn('[Retry] Eager verification bypassed, falling back to webhook.')
-          }
+            
+            // 🔒 FIXED: Force the retry controller to stop if the server rejects signature checks
+            if (!res.ok) {
+              const errorPayload = await res.json()
+              throw new Error(errorPayload.error || 'Server payment verification failed.')
+            }
 
-          router.replace(`/order/${orderId}?new_order=true`)
+            router.replace(`/order/${orderId}?new_order=true`)
+          } catch (e: any) {
+            console.warn('[Retry Fallback Engine Triggered]:', e)
+            showToast(e.message || 'Payment verification taking longer than usual.', 'warning')
+            router.replace(`/profile/orders?filter=verifying`)
+          }
         },
         modal: {
-          ondismiss: function() {
+          ondismiss: async function() {
             setIsLoading(false)
+            await recordPaymentFailure(orderId, 'Transaction was cancelled by user.')
           }
         }
       }
 
       const rzp = new (window as any).Razorpay(options)
-      rzp.on('payment.failed', function (response: any) {
-        console.error('[Retry] Payment failed:', response.error)
-        showToast(response.error?.description || 'Payment failed. Please try another method.', 'error')
+      rzp.on('payment.failed', async function (response: any) {
+        const errorMsg = response.error?.description || 'Payment failed. Please try another method.'
+        console.error('[Retry] Payment failed:', errorMsg)
+        showToast(errorMsg, 'error')
         setIsLoading(false)
+        await recordPaymentFailure(orderId, errorMsg)
       })
       rzp.open()
 
     } catch (error: any) {
-      showToast(error.message || 'Failed to initialize payment')
+      showToast(error.message || 'Failed to initialize payment', 'error')
       setIsLoading(false)
     }
   }
@@ -122,17 +130,18 @@ export default function RetryPaymentButton({ orderId, orderNumber, amount }: Ret
   return (
     <>
       <SecureLoadingOverlay isProcessing={isLoading} />
-    <button
-      onClick={handleRetry}
-      disabled={isLoading}
-      className="h-10 px-4 bg-black hover:bg-stone-900 text-white font-semibold rounded-full text-[13px] transition-colors flex items-center justify-center capitalize w-full shadow-none text-center cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
-    >
-      {isLoading ? (
-        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-      ) : (
-        'Complete Payment'
-      )}
-    </button>
+      <button
+        type="button"
+        onClick={handleRetry}
+        disabled={isLoading}
+        className="h-10 px-4 bg-black hover:bg-stone-900 text-white font-semibold rounded-full text-[13px] transition-colors flex items-center justify-center capitalize w-full shadow-none text-center cursor-pointer disabled:cursor-not-allowed disabled:opacity-70 border-none outline-none"
+      >
+        {isLoading ? (
+          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+        ) : (
+          'Complete Payment'
+        )}
+      </button>
     </>
   )
 }

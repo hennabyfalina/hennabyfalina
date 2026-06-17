@@ -11,12 +11,14 @@ import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { getIdempotencyRecord, storeIdempotencyRecord } from '@/lib/idempotency'
 import { verifyReservations, reserveStock } from '@/services/inventory.service'
+import { parseVariants, getEffectivePrice } from '@/lib/pricing'
 
 export interface CreateOrderInput {
   items: Array<{
     product_id: string
     quantity: number
     price: number
+    variant_string?: string | null 
   }>
   totalAmount: number
   paymentMethod: string
@@ -51,21 +53,15 @@ export interface AddressPayload {
   is_temp?: boolean
 }
 
-// Upstash rate limiting engine configuration
 const ratelimit = new Ratelimit({
   redis: Redis.fromEnv(),
   limiter: Ratelimit.slidingWindow(3, '1 m'),
 })
 
-/**
- * 🚀 SECURE: Zero-Trust Order Creation Pipeline
- * Orchestrates checkout processing using admin credentials to prevent RLS blockage
- */
 export async function createOrder(input: CreateOrderInput) {
   const requestHeaders = await headers();
   const supabaseAdmin = createAdminClient()
 
-  // 🔒 VERCEL NATIVE FIREWALL SHIELD
   const botScoreHeader = requestHeaders.get('x-vercel-bot-score');
   if (botScoreHeader !== null && parseInt(botScoreHeader, 10) < 20) {
     const botScore = parseInt(botScoreHeader, 10);
@@ -82,7 +78,6 @@ export async function createOrder(input: CreateOrderInput) {
   
   if (addressData) {
     if (addressData.shippingMethod === 'delivery' && addressData.addressId) {
-      // Fetch address via admin client to cleanly read temporary checkout records
       const { data: addr } = await supabaseAdmin
         .from('addresses')
         .select('name, phone')
@@ -109,14 +104,12 @@ export async function createOrder(input: CreateOrderInput) {
     customerEmail = user.email || ''
 
     if (orderInput.totalAmount <= 0) {
-      console.error(`[OrderService ${requestId}] Invalid total amount context: ${orderInput.totalAmount}`)
       throw new Error('Invalid order amount parameters. Please try again.')
     }
 
     if (idempotencyKey) {
       const existingRecord = await getIdempotencyRecord(idempotencyKey)
       if (existingRecord) {
-        console.log(`[OrderService ${requestId}] Returning cached transactional context for: ${idempotencyKey}`)
         return existingRecord.response
       }
     }
@@ -132,10 +125,9 @@ export async function createOrder(input: CreateOrderInput) {
 
     const productIds = items.map(i => i.product_id)
     
-    // Fetch product specs securely via administrative layer parameters
     const { data: products, error: productsError } = await supabaseAdmin
       .from('products')
-      .select('id, name, retail_price, wholesale_price, wholesale_min_qty, mrp, stock, is_deleted, is_active')
+      .select('id, name, retail_price, wholesale_price, wholesale_min_qty, mrp, stock, is_deleted, is_active, is_retail_enabled, is_wholesale_enabled, is_variants_enabled, variants')
       .in('id', productIds)
 
     if (productsError || !products) throw new Error('Failed to compute secure product validation checks.')
@@ -152,17 +144,37 @@ export async function createOrder(input: CreateOrderInput) {
         throw new Error(`The item "${product.name}" has been deselected from our catalog. Remove it from your cart to proceed.`)
       }
 
-      // 🎯 DYNAMIC BULK RATE DETERMINATION (Checks B2B Wholesale Pricing Tiers)
-      // If client buys equal or more than the wholesale minimum qty, apply volume price tokens!
-      const productPrice = product.retail_price ?? 0
-      const appliedUnitPrice = (product.wholesale_price && product.wholesale_price > 0 && item.quantity >= product.wholesale_min_qty) 
-        ? product.wholesale_price 
-        : productPrice;
+      const parsedVariants = parseVariants(product.variants)
+      const matchedVariant = product.is_variants_enabled && item.variant_string
+        ? parsedVariants.find(v => v.name === item.variant_string) || null
+        : null
 
-      // 🔒 ITEM PRICE MISMATCH SHIELD
+      const appliedUnitPrice = getEffectivePrice(product as any, item.quantity, matchedVariant)
+
       if (Math.abs(appliedUnitPrice - item.price) > 0.01) {
-        console.error(`[OrderService ${requestId}] Dynamic catalog drift detected for ${product.name}. Client: ₹${item.price}, Server: ₹${appliedUnitPrice}`)
-        throw new Error(`The catalog configuration matrices for ${product.name} changed. Please refresh your checkout session.`)
+        throw new Error(`The pricing configurations for ${product.name} were updated. Please return to your cart page to refresh your total order amount.`)
+      }
+
+      // ⚡ CALCULATE SECURE CHANNELS RETRIEVAL POOLS
+      let computedPurchaseStrategy = 'retail'
+      if (product.is_variants_enabled) {
+        if (matchedVariant) {
+          const variantMinQty = matchedVariant.wholesale_min_qty ?? product.wholesale_min_qty
+          const variantWholesalePrice = matchedVariant.wholesale_price ?? product.wholesale_price
+          if (product.is_wholesale_enabled && variantMinQty && variantWholesalePrice && item.quantity >= variantMinQty) {
+            computedPurchaseStrategy = 'variant_wholesale'
+          } else {
+            computedPurchaseStrategy = 'variant_retail'
+          }
+        } else {
+          computedPurchaseStrategy = 'variant_retail'
+        }
+      } else {
+        if (product.is_wholesale_enabled && product.wholesale_price && product.wholesale_min_qty && item.quantity >= product.wholesale_min_qty) {
+          computedPurchaseStrategy = 'wholesale'
+        } else {
+          computedPurchaseStrategy = 'retail'
+        }
       }
 
       calculatedSubtotal += appliedUnitPrice * item.quantity
@@ -171,11 +183,12 @@ export async function createOrder(input: CreateOrderInput) {
         product_id: item.product_id,
         quantity: item.quantity,
         secure_price: appliedUnitPrice,
-        secure_original_price: product.mrp || productPrice
+        secure_original_price: matchedVariant?.variant_mrp || product.mrp || product.retail_price,
+        variant_string: item.variant_string || null,
+        purchase_type: computedPurchaseStrategy
       })
     }
 
-    // Secure stock inventory reservation checks
     if (sessionId) {
       const groupedItems = Object.values(items.reduce((acc, item) => {
         if (!acc[item.product_id]) {
@@ -188,7 +201,6 @@ export async function createOrder(input: CreateOrderInput) {
       let { valid, errors } = await verifyReservations(sessionId, groupedItems)
       
       if (!valid) {
-        console.warn(`[OrderService ${requestId}] Stale structural reservation context. Attempting recovery: ${errors?.join(', ')}`)
         const reReserve = await reserveStock(sessionId, groupedItems, user.id)
         if (reReserve.success) {
           const reVerify = await verifyReservations(sessionId, groupedItems)
@@ -202,16 +214,13 @@ export async function createOrder(input: CreateOrderInput) {
       }
     }
 
-    // 🔒 ZERO-TRUST SHIPPING CHARGES VERIFICATION
     const expectedShipping = shippingMethod === 'pickup' ? 0 : (calculatedSubtotal > SHIPPING_THRESHOLD ? 0 : SHIPPING_COST)
     if (Math.abs(expectedShipping - shippingCost) > 0.01) {
-      console.error(`[OrderService ${requestId}] Shipping parameters mismatch. Client: ₹${shippingCost}, Server: ₹${expectedShipping}`)
       throw new Error('Logistics terminal freight rates updated. Please recalculate totals.')
     }
 
     const expectedTotal = calculatedSubtotal + expectedShipping
     if (Math.abs(expectedTotal - totalAmount) > 0.01) {
-      console.error(`[OrderService ${requestId}] Absolute total verification breach. Client: ₹${totalAmount}, Server: ₹${expectedTotal}`)
       throw new Error('Catalog prices have been updated. Refresh your cart page to sync parameters.')
     }
 
@@ -231,7 +240,6 @@ export async function createOrder(input: CreateOrderInput) {
       }
     }
 
-    // Construct transactional payload records mapping to the strict relational schema
     const orderInsertPayload: any = {
       order_number: orderNumber,
       user_id: user.id,
@@ -253,7 +261,6 @@ export async function createOrder(input: CreateOrderInput) {
       orderInsertPayload.pickup_contact = pickupContactData
     }
 
-    // Execute insertion using admin privileges to bypass RLS restrictions completely
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .insert(orderInsertPayload)
@@ -262,16 +269,18 @@ export async function createOrder(input: CreateOrderInput) {
       .maybeSingle()
 
     if (orderError || !order) {
-      console.error(`[OrderService ${requestId}] Core order master allocation trace drop:`, orderError)
       throw new Error(orderError?.message || 'Failed to initialize system transaction rows.')
     }
 
+    // ⚡ SNAPSHOT FIXED: Safely commits variant descriptors and strategy rules permanently into the row database logs
     const orderItemsPayload = secureOrderItems.map(item => ({
       order_id: order.id,
       product_id: item.product_id,
       quantity: item.quantity,
       price: item.secure_price,
-      original_price: item.secure_original_price
+      original_price: item.secure_original_price,
+      variant_string: item.variant_string,
+      purchase_type: item.purchase_type
     }))
 
     const { error: itemsError } = await supabaseAdmin
@@ -279,13 +288,10 @@ export async function createOrder(input: CreateOrderInput) {
       .insert(orderItemsPayload)
 
     if (itemsError) {
-      console.error(`[OrderService ${requestId}] Relational lines binding error:`, itemsError)
-      // Rollback master order shell on failure to prevent stale orphaned parameters
       await supabaseAdmin.from('orders').delete().eq('id', order.id)
       throw new Error('Relational item configurations matching this transaction failed to compile securely.')
     }
 
-    // Purge cart rows clean upon successful processing
     await supabaseAdmin.from('cart_items').delete().eq('user_id', user.id)
 
     if (idempotencyKey) {
@@ -345,10 +351,6 @@ export async function getOrderDetails(orderId: string) {
   return data
 }
 
-/**
- * 🚀 SECURE: Draft Address Persistence Engine
- * Saves data via admin client to bypass user RLS blockages safely mid-checkout
- */
 export async function saveAddress(addressData: AddressPayload) {
   const supabase = await createClient()
   const supabaseAdmin = createAdminClient()
@@ -370,7 +372,6 @@ export async function saveAddress(addressData: AddressPayload) {
     is_temp: addressData.is_temp ?? false,
   }
 
-  // Enforce address bounds ceiling ONLY on permanent choices (B2B address limit rule)
   if (!dbAddressData.is_temp && dbAddressData.delivery_method === 'delivery') {
     const { count, error: countError } = await supabaseAdmin
       .from('addresses')
@@ -464,9 +465,6 @@ export async function getSavedAddresses(method?: 'delivery' | 'pickup') {
   return data || []
 }
 
-/**
- * 🚀 SECURE: Fetches checkout session history, including temporary drafts
- */
 export async function getCheckoutSessionAddresses(): Promise<any[]> {
   const supabaseAdmin = createAdminClient()
   const supabase = await createClient()
@@ -483,9 +481,6 @@ export async function getCheckoutSessionAddresses(): Promise<any[]> {
   return data || []
 }
 
-/**
- * 🚀 SECURE: Finalizes and promotes a temporary draft address upon successful checkout completion
- */
 export async function finalizeOrderAddress(orderId: string) {
   const supabase = await createClient()
   const supabaseAdmin = createAdminClient()
@@ -503,13 +498,11 @@ export async function finalizeOrderAddress(orderId: string) {
   if (orderError || !order) throw new Error('The target transactional order shell is missing.')
 
   if (order.shipping_method === 'delivery' && order.address_id) {
-    // Elevate address row to a permanent validated choice
     await supabaseAdmin
       .from('addresses')
       .update({ is_temp: false, is_default: true })
       .eq('id', order.address_id)
 
-    // Revoke default status from legacy profile entries
     await supabaseAdmin
       .from('addresses')
       .update({ is_default: false })
@@ -517,7 +510,6 @@ export async function finalizeOrderAddress(orderId: string) {
       .neq('id', order.address_id)
       .eq('delivery_method', 'delivery')
 
-    // Clean out records exceeding profile constraints ceiling parameters safely
     const { data: permanentAddresses } = await supabaseAdmin
       .from('addresses')
       .select('id, is_default, created_at')

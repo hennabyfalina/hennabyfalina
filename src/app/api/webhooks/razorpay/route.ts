@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
 
       const { data: existingOrder, error: fetchError } = await supabase
         .from('orders')
-        .select('id, payment_status, razorpay_payment_id, payment_attempts, total_amount, session_id')
+        .select('id, payment_status, razorpay_payment_id, payment_attempts, total_amount, session_id, payment_method_detail')
         .eq('id', internalOrderId)
         .single()
 
@@ -142,6 +142,10 @@ export async function POST(request: NextRequest) {
       }
 
       if (existingOrder.payment_status === 'paid' || existingOrder.razorpay_payment_id) {
+        // 🚀 SYNC: Append the precise payment method detail if the eager route beat this webhook
+        if (method && !existingOrder.payment_method_detail) {
+          await supabase.from('orders').update({ payment_method_detail: method }).eq('id', internalOrderId)
+        }
         return NextResponse.json({ received: true, alreadyProcessed: true })
       }
 

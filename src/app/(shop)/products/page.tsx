@@ -46,7 +46,7 @@ export default async function ProductsPage({
   return (
     <div className="min-h-screen bg-white" suppressHydrationWarning>
       <div className="py-2 px-4 sm:px-6 max-w-[1600px] mx-auto">
-        <Suspense fallback={<div className="py-20 text-center text-gray-400 font-medium text-xs animate-pulse">Loading Collection...</div>}>
+        <Suspense fallback={<div className="py-20 text-center text-gray-400 font-medium text-xs animate-pulse"></div>}>
           <ProductsClientView 
             initialProducts={products as any} 
             categories={categories}

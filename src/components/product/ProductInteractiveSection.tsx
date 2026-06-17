@@ -15,7 +15,7 @@ import QuantitySelector from './QuantitySelector'
 import { useCartStore } from '@/store/cart.store'
 import { ClientOnly } from '@/components/ui/ClientOnly'
 import { useVariantStore, type Variant } from '@/store/variant.store'
-import { getEffectivePrice, isWholesaleActive } from '@/lib/pricing'
+import { getEffectivePrice, isWholesaleActive, parseVariants } from '@/lib/pricing'
 
 interface ProductInteractiveSectionProps {
   product: any
@@ -32,22 +32,17 @@ export default function ProductInteractiveSection({ product, hasStock }: Product
   const { variants, selectedVariant, setVariants, setSelectedVariant } = useVariantStore()
   const [quantity, setQuantity] = useState(1)
   const [activeTab, setActiveTab] = useState<string | null>('experience')
-  
-  // 🚀 NEW: Isolated local state to track custom variant selector open/close framework
   const [isVariantDropdownOpen, setIsVariantDropdownOpen] = useState(false)
 
-  // Parse variants into store safely
   useEffect(() => {
-    let productVariants: Variant[] = []
-    if (product.variants && typeof product.variants === 'string') {
-      try { productVariants = JSON.parse(product.variants) } catch { productVariants = [] }
-    } else if (Array.isArray(product.variants)) {
-      productVariants = product.variants
+    if (product.is_variants_enabled) {
+      const productVariants = parseVariants(product.variants)
+      setVariants(productVariants)
+    } else {
+      setVariants([])
     }
-    setVariants(productVariants)
-  }, [product.id, product.variants, setVariants])
+  }, [product.id, product.variants, product.is_variants_enabled, setVariants])
 
-  // 🚀 NEW: Dismiss dropdown gracefully if a client taps anywhere outside the selection boundary
   useEffect(() => {
     function handleClickOutside(event: MouseEvent | TouchEvent) {
       const target = event.target as HTMLElement
@@ -63,13 +58,22 @@ export default function ProductInteractiveSection({ product, hasStock }: Product
     }
   }, [])
 
-  // Get the selected variant's effective price (real-time)
+  // 🛡️ DYNAMIC MIN QUANTITY GATEKEEPER: Fallback handler for nested matrices
+  const minQuantity = (!product.is_retail_enabled && product.is_wholesale_enabled)
+    ? (selectedVariant?.wholesale_min_qty ?? product.wholesale_min_qty ?? 1)
+    : 1
+
+  useEffect(() => {
+    if (quantity < minQuantity) {
+      setQuantity(minQuantity)
+    }
+  }, [minQuantity, quantity])
+
   const effectiveUnitPrice = getEffectivePrice(product, quantity, selectedVariant)
   const wholesaleActive = isWholesaleActive(product, quantity, selectedVariant)
   const totalPrice = effectiveUnitPrice * quantity
 
-  // For discount percentage (using MRP)
-  const baseMrp = selectedVariant?.variant_mrp ?? product.mrp
+  const baseMrp = product.is_variants_enabled ? (selectedVariant?.variant_mrp ?? product.mrp) : product.mrp
   const discountPct = baseMrp && baseMrp > effectiveUnitPrice
     ? Math.round(((baseMrp - effectiveUnitPrice) / baseMrp) * 100)
     : 0
@@ -86,26 +90,35 @@ export default function ProductInteractiveSection({ product, hasStock }: Product
   const getProductWithVariant = () => {
     return {
       ...product,
-      retail_price: effectiveUnitPrice,   // Pass the dynamically calculated price (retail or wholesale)
-      name: selectedVariant ? `${product.name} (${selectedVariant.name})` : product.name,
-      variant_name: selectedVariant?.name || null,
+      retail_price: product.retail_price,
+      wholesale_price: product.wholesale_price,
+      wholesale_min_qty: product.wholesale_min_qty,
+      is_retail_enabled: product.is_retail_enabled,
+      is_wholesale_enabled: product.is_wholesale_enabled,
+      is_variants_enabled: product.is_variants_enabled,
+      name: product.name,
+      variant_string: selectedVariant?.name || null,
+      variants: product.variants,
       id: product.id,
       slug: product.slug,
       images: product.images,
+      stock: product.stock,
+      mrp: product.mrp,
     }
   }
 
   const hasWholesale = (variant: Variant | null) => {
     if (!variant) return false
-    return !!(variant.wholesale_price && variant.wholesale_price > 0 && variant.wholesale_min_qty && variant.wholesale_min_qty > 1)
+    return !!(variant.wholesale_price || product.wholesale_price)
   }
+
+  // ⚡ FIXED: Strategic fallbacks prevent text label formatting failures on variation profiles
+  const resolvedWholesaleMinQty = selectedVariant?.wholesale_min_qty || product.wholesale_min_qty || 1
+  const resolvedWholesalePrice = selectedVariant?.wholesale_price || product.wholesale_price || 0
 
   return (
     <div data-product-interactive className="w-full flex flex-col font-sans select-none animate-fade-in text-left">
       
-      {/* ========================================================================= */}
-      {/* 1. TITLE & PRIMARY METRICS                                               */}
-      {/* ========================================================================= */}
       <div className="flex flex-col mb-5">
         <h1 className="text-3xl sm:text-4xl font-normal text-gray-950 tracking-tight leading-tight capitalize">
           {product.name.toLowerCase()}
@@ -115,9 +128,6 @@ export default function ProductInteractiveSection({ product, hasStock }: Product
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 2. DYNAMIC PRICING ENGINE                                                */}
-      {/* ========================================================================= */}
       <div className="flex items-center justify-between border-b border-gray-100 pb-5">
         <div className="flex items-baseline gap-3 flex-wrap">
           {baseMrp && baseMrp > effectiveUnitPrice && (
@@ -147,17 +157,13 @@ export default function ProductInteractiveSection({ product, hasStock }: Product
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 3. FIXED: APPLE STUDIO SELECT DROPDOWN TRACK                              */}
-      {/* ========================================================================= */}
-      {variants.length > 0 && (
+      {product.is_variants_enabled && variants.length > 0 && (
         <div className="py-5 border-b border-gray-100 space-y-2 relative" data-variant-select-container>
           <span className="text-[13px] font-semibold text-gray-400 tracking-tight capitalize block">
             Select Size / Pack
           </span>
           
           <div className="relative w-fit">
-            {/* Dropdown Toggle Capsule */}
             <button
               type="button"
               onClick={() => setIsVariantDropdownOpen(!isVariantDropdownOpen)}
@@ -167,7 +173,6 @@ export default function ProductInteractiveSection({ product, hasStock }: Product
               <ChevronDown className={`w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200 ${isVariantDropdownOpen ? 'rotate-180' : ''}`} strokeWidth={2} />
             </button>
 
-            {/* Absolute Overlay Options Dropdown Sheet */}
             {isVariantDropdownOpen && (
               <div className="absolute left-0 top-full mt-1.5 w-max min-w-full bg-white border border-gray-200 rounded-xl py-1 shadow-xl z-50 flex flex-col animate-in fade-in slide-in-from-top-1 duration-150">
                 {variants.map((v) => {
@@ -180,7 +185,7 @@ export default function ProductInteractiveSection({ product, hasStock }: Product
                         setSelectedVariant(v)
                         setIsVariantDropdownOpen(false)
                       }}
-                      className={`w-full text-left px-4 py-2 text-[13px] transition-colors flex items-center justify-between gap-4 cursor-pointer outline-none ${
+                      className={`w-full text-left px-4 py-2 text-[13px] transition-colors flex items-center justify-between gap-4 cursor-pointer outline-none border-none ${
                         isOptionSelected 
                           ? 'bg-stone-50/80 text-gray-950 font-semibold' 
                           : 'text-gray-600 hover:bg-gray-50'
@@ -195,27 +200,22 @@ export default function ProductInteractiveSection({ product, hasStock }: Product
             )}
           </div>
 
-          {/* 🎯 CONVERSION HOOK: Dynamically displays volume pricing parameters directly beneath the dropdown */}
-          {selectedVariant && hasWholesale(selectedVariant) && (
+          {selectedVariant && product.is_wholesale_enabled && hasWholesale(selectedVariant) && (
             <div className="pt-1.5 flex items-center gap-1.5 text-[13px] text-emerald-600 font-semibold tracking-tight animate-fade-in">
               <Package className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2} />
-              <span>Buy {selectedVariant.wholesale_min_qty}+ units to unlock {formatCurrency(selectedVariant.wholesale_price!)}/each bulk rate</span>
+              <span>Buy {resolvedWholesaleMinQty}+ units to unlock {formatCurrency(resolvedWholesalePrice)}/each bulk rate</span>
             </div>
           )}
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* 4. PURCHASE ACTION CORE                                                  */}
-      {/* ========================================================================= */}
       <div className="pt-1 pb-8 flex flex-col gap-4 border-b border-gray-100">
-        
         <div className="flex items-center gap-2">
           {hasStock ? (
             <>
               {product.stock <= 20 && (
                 <span className="text-[16px] font-normal text-amber-700 flex items-center gap-1.5 lowercase">
-                  <use className="w-3 h-3" strokeWidth={1.5} /> only {product.stock} Units left
+                  <Package className="w-3.5 h-3.5" strokeWidth={1.5} /> only {product.stock} Units left
                 </span>
               )}
             </>
@@ -224,8 +224,8 @@ export default function ProductInteractiveSection({ product, hasStock }: Product
           )}
         </div>
 
-        {/* Wholesale fallback information context parameters (For items missing distinct variant options) */}
-        {!selectedVariant && product.wholesale_price && product.wholesale_min_qty && product.wholesale_min_qty > 1 && (
+        {/* Wholesale fallback banner checks */}
+        {!product.is_variants_enabled && product.is_wholesale_enabled && product.wholesale_price && product.wholesale_min_qty && (
           <div className="inline-flex items-center gap-2 bg-emerald-50/50 border border-emerald-100/50 rounded-full px-4 py-2 w-fit">
             <Package className="w-3.5 h-3.5 text-emerald-700" strokeWidth={2} />
             <span className="text-[13px] font-normal text-emerald-900">
@@ -237,17 +237,15 @@ export default function ProductInteractiveSection({ product, hasStock }: Product
 
         {hasStock && (
           <div className="flex flex-col gap-4">
-            
-            {/* Quantity & Subtotal */}
             <div className="flex justify-between items-start">
               <div className="flex flex-col gap-1.5">
                 <span className="text-[15px] font-medium text-gray-900 tracking-tight capitalize">Quantity</span>
                 <div className="w-32 [&_button]:h-11 [&_div]:min-w-[40px] [&_div]:text-[15px]">
-                  <QuantitySelector quantity={quantity} onQuantityChange={setQuantity} min={1} max={product.stock} />
+                  <QuantitySelector quantity={quantity} onQuantityChange={setQuantity} min={minQuantity} max={product.stock} />
                 </div>
               </div>
               <div className="flex flex-col items-end gap-0.5">
-                <span className="text-[12px] font-normal text-gray-400 lowercase mb-0.5">subtotal</span>
+                <span className="text-[12px] font-normal text-gray-400 normal mb-0.5">Subtotal</span>
                 <span className="text-2xl font-medium text-gray-950 tracking-tight">
                   {formatCurrency(totalPrice)}
                 </span>
@@ -259,7 +257,6 @@ export default function ProductInteractiveSection({ product, hasStock }: Product
               </div>
             </div>
 
-            {/* Action Buttons Frame Layout Capsule Tracks */}
             <ClientOnly fallback={<div className="h-11 bg-stone-50 animate-pulse rounded-xl" />}>
               <div className="flex flex-row gap-3 mt-2 w-full">
                 <div className="flex-1 relative [&_button]:h-12 [&_button]:rounded-full [&_button]:text-[13px] [&_button]:font-medium [&_button]:transition-all [&_button]:border-gray-200 [&_button]:hover:border-gray-400 [&_button]:shadow-none [&_button]:flex [&_button]:items-center [&_button]:justify-center">
@@ -279,9 +276,6 @@ export default function ProductInteractiveSection({ product, hasStock }: Product
         )}
       </div>
 
-      {/* ========================================================================= */}
-      {/* 5. LOGISTICS TRUST BADGES                                                */}
-      {/* ========================================================================= */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 py-6 border-b border-gray-100">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-8 h-8 rounded-full bg-stone-50/60 flex items-center justify-center shrink-0 border border-gray-50">
@@ -312,12 +306,9 @@ export default function ProductInteractiveSection({ product, hasStock }: Product
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 6. EDITORIAL DESCRIPTION ACCORDIONS                                      */}
-      {/* ========================================================================= */}
       <div className="pt-2 space-y-0.5 pb-2">
         <div className="border-b border-gray-100 pb-3">
-          <button onClick={() => toggleTab('experience')} className="w-full flex justify-between py-2 items-center text-left cursor-pointer group">
+          <button type="button" onClick={() => toggleTab('experience')} className="w-full flex justify-between py-2 items-center text-left cursor-pointer group outline-none border-none bg-transparent">
             <span className="text-[16px] font-medium text-gray-950 transition-colors group-hover:text-black">Description</span>
             <span className="text-gray-400 shrink-0">{activeTab === 'experience' ? <Minus className="w-3.5 h-3.5" strokeWidth={1.5} /> : <Plus className="w-3.5 h-3.5" strokeWidth={1.5} />}</span>
           </button>

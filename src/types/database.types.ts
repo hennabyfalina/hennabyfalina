@@ -11,14 +11,12 @@ export type User = {
 }
 
 export type Product = {
-  variants: any
-  price: number
   id: string
+  category_id: string | null
   name: string
   slug: string
   sku: string | null
   description: string | null
-  category_id: string | null
   stock: number
   images: string[]
   is_active: boolean
@@ -30,56 +28,48 @@ export type Product = {
   created_at: string
   updated_at: string
 
-  // 🎯 NEW HYBRID B2B PRICING CORE (Replaces legacy packaging tiers)
-  retail_price: number       // Standard retail unit price
-  wholesale_price: number    // Small wholesale group/dealer price
-  wholesale_min_qty: number  // The threshold count where wholesale price triggers
-  mrp: number                // Maximum Retail Price
+  // 🏛️ BIG-TECH STRATEGIC MODES FEATURE FLAGS
+  is_retail_enabled: boolean       
+  is_wholesale_enabled: boolean    
+  is_variants_enabled: boolean    
+
+  // 🎯 HYBRID B2B PRICING CORE 
+  retail_price: number       
+  wholesale_price: number | null    
+  wholesale_min_qty: number | null  
+  mrp: number | null            
   weight: number | null
   weight_unit: string | null
   gsm: number | null
   dimensions: { length: number; width: number; height: number } | null
   meta_title: string | null
   meta_description: string | null
+  variants: any              
 }
 
 export type Category = {
   id: string
-  category_id: string | null
   parent_id: string | null
   name: string
   slug: string
-  sku: string | null
   description: string | null
   image: string | null
-  retail_price: number
-  wholesale_price: number
-  wholesale_min_qty: number
-  stock: number
-  images: string[]
-  is_deleted: boolean
-  is_featured: boolean
-  rating: number
-  review_count: number
-  frequently_bought_together: string[] | null
-  mrp: number
-  weight: number | null
-  weight_unit: string | null
-  gsm: number | null
-  dimensions: any | null
-  low_stock_threshold: number
-  display_order: number
-  is_active: boolean
+  is_active: boolean | null
+  is_deleted: boolean | null
+  is_featured: boolean | null
+  low_stock_threshold: number | null
+  display_order: number | null
   meta_title: string | null
   meta_description: string | null
   created_at: string
   updated_at: string | null
+  type: string | null
 }
 
 export type Address = {
   id: string
   user_id: string
-  name: string              // Aligned directly with column 'name' from public.addresses
+  name: string              
   phone: string
   address_line1: string | null
   address_line2: string | null
@@ -90,20 +80,23 @@ export type Address = {
   country: string
   delivery_instructions: string | null
   is_default: boolean
-  delivery_method: string    // 'delivery' or 'pickup'
-  is_temp: boolean           // Pure database source of truth state constraint
+  delivery_method: string    
+  is_temp: boolean           
   created_at: string
 }
 
-// Order and Order Item Types (Cleaned of artwork and printing overhead)
 export type OrderItem = {
   id: string
   order_id: string
   product_id: string
   quantity: number
-  price: number              // Locked capture invoice price (Retail or Wholesale)
-  original_price: number     // Original base list price
+  price: number             
+  original_price: number    
   created_at: string
+  
+  // ⚡ FIXED: Synced types schema rules to track snapshotted parameters forever
+  variant_string: string | null
+  purchase_type: 'retail' | 'wholesale' | 'variant_retail' | 'variant_wholesale'
 }
 
 export type Order = {
@@ -114,8 +107,8 @@ export type Order = {
   total_amount: number
   shipping_cost: number
   shipping_method: 'delivery' | 'pickup'
-  payment_status: 'pending' | 'paid' | 'failed'
-  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled'
+  payment_status: 'pending' | 'paid' | 'failed' | 'refunded'
+  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled' | 'returned' | 'cancel_requested' | 'return_requested'
   payment_method: string
   payment_method_detail: string | null
   razorpay_order_id: string | null

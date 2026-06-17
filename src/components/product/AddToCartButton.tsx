@@ -9,6 +9,7 @@ import { showToast } from '@/components/ui/Toast'
 import QuantitySelector from '@/components/product/QuantitySelector'
 import { ClientOnly } from '@/components/ui/ClientOnly'
 import { formatCurrency } from '@/lib/utils'
+import { parseVariants, getEffectivePrice } from '@/lib/pricing'
 
 interface AddToCartButtonProps {
   product: {
@@ -16,9 +17,9 @@ interface AddToCartButtonProps {
     name: string
     slug: string
     retail_price: number
-    wholesale_price: number
-    wholesale_min_qty: number
-    mrp?: number
+    wholesale_price: number | null
+    wholesale_min_qty: number | null
+    mrp?: number | null
     stock: number
     images: string[]
     category_id?: string | null
@@ -26,6 +27,11 @@ interface AddToCartButtonProps {
     rating?: number | null
     review_count?: number | null
     variant_name?: string   // optional
+    variant_string?: string | null
+    variants?: any
+    is_retail_enabled: boolean
+    is_wholesale_enabled: boolean
+    is_variants_enabled: boolean
   }
   quantity?: number
   showQuantitySelector?: boolean
@@ -51,7 +57,13 @@ export default function AddToCartButton({
   const updateItem = useCartStore((state) => state.updateItem)
 
   const finalQuantity = showQuantitySelector ? localQuantity : quantity
-  const totalPrice = product.retail_price * finalQuantity
+  
+  const activeVariantName = product.variant_name || product.variant_string || null
+  const parsedVariants = parseVariants(product.variants)
+  const selectedVariant = parsedVariants.find(v => v.name === activeVariantName) || null
+  
+  const effectiveUnitPrice = getEffectivePrice(product as any, finalQuantity, selectedVariant)
+  const totalPrice = effectiveUnitPrice * finalQuantity
 
   const handleAddToCart = async (e?: React.MouseEvent) => {
     if (e) { e.preventDefault(); e.stopPropagation() }
@@ -59,32 +71,47 @@ export default function AddToCartButton({
     setIsAdding(true)
     try {
       if (editItemId) {
+        // Strip out brackets if editing to recalculate state cleanly
+        const rawProductName = product.name.split(' (')[0]
         await updateItem(editItemId, {
+          name: activeVariantName ? `${rawProductName} (${activeVariantName})` : rawProductName,
           quantity: finalQuantity,
           retail_price: product.retail_price,
           wholesale_price: product.wholesale_price,
           wholesale_min_qty: product.wholesale_min_qty,
+          variants: product.variants,
+          is_retail_enabled: product.is_retail_enabled,
+          is_wholesale_enabled: product.is_wholesale_enabled,
+          is_variants_enabled: product.is_variants_enabled,
+          variant_string: activeVariantName,
         })
         showToast('Shopping Bag updated', 'success')
         router.push('/cart')
       } else {
+        // ⚡ FIXED: Dynamic Name Assembly ensures structural brackets render instantly
+        const computedName = activeVariantName ? `${product.name} (${activeVariantName})` : product.name
+
         await addItem({
           product_id: product.id,
-          name: product.name,
+          name: computedName,
           slug: product.slug,
           quantity: finalQuantity,
           image: product.images?.[0] || '',
           stock: product.stock,
           category_id: product.category_id || null,
           description: product.description || null,
+          is_retail_enabled: product.is_retail_enabled,
+          is_wholesale_enabled: product.is_wholesale_enabled,
+          is_variants_enabled: product.is_variants_enabled,
           retail_price: product.retail_price,
           wholesale_price: product.wholesale_price,
           wholesale_min_qty: product.wholesale_min_qty,
           rating: product.rating || null,
           review_count: product.review_count || null,
-          mrp: product.mrp || 0,
-          variant_string: product.variant_name || null,
-          bundle_title: null, // Can be extended if bundle logic is added
+          mrp: product.mrp || product.retail_price,
+          variant_string: activeVariantName,
+          variants: product.variants, 
+          bundle_title: null,
         })
         showToast('Added to Shopping Bag', 'success')
       }
@@ -96,7 +123,7 @@ export default function AddToCartButton({
   }
 
   const isOutOfStock = (product.stock ?? 0) <= 0
-  const defaultClasses = "w-full h-12 text-[12px] font-bold capitalise tracking-widest bg-stone-100 hover:bg-stone-200 text-gray-900 rounded-full cursor-pointer transition-all duration-300 shadow-sm active:scale-[0.99]"
+  const defaultClasses = "w-full h-12 text-[12px] font-bold uppercase tracking-widest bg-stone-100 hover:bg-stone-200 text-gray-900 rounded-full cursor-pointer transition-all duration-300 shadow-sm active:scale-[0.99] border-none outline-none flex items-center justify-center"
   const buttonClasses = className || defaultClasses
 
   let buttonText = 'Add to Cart'
@@ -105,21 +132,25 @@ export default function AddToCartButton({
   else if (showPriceInButton) buttonText = `Add to Cart – ${formatCurrency(totalPrice)}`
   else buttonText = 'Add to Cart'
 
+  const minQuantityGate = (!product.is_retail_enabled && product.is_wholesale_enabled)
+    ? (product.wholesale_min_qty || 1)
+    : 1
+
   return (
     <div className={`w-full flex flex-col gap-3.5 ${showQuantitySelector ? 'mt-2' : ''}`} onClick={(e) => e.stopPropagation()}>
       {showQuantitySelector && !isOutOfStock && (
         <ClientOnly fallback={
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[12px] font-bold text-gray-400 capitalise tracking-wider">Quantity</span>
+            <span className="text-[12px] font-bold text-gray-400 capitalize tracking-wider">Quantity</span>
             <div className="w-24 h-8 bg-stone-50 animate-pulse rounded-full" />
           </div>
         }>
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[12px] font-bold text-gray-700 capitalise tracking-wider">Quantity</span>
+            <span className="text-[12px] font-bold text-gray-700 capitalize tracking-wider">Quantity</span>
             <QuantitySelector
-              quantity={localQuantity}
+              quantity={localQuantity < minQuantityGate ? minQuantityGate : localQuantity}
               onQuantityChange={setLocalQuantity}
-              min={1}
+              min={minQuantityGate}
               max={product.stock > 0 ? product.stock : 99999}
             />
           </div>
@@ -131,10 +162,10 @@ export default function AddToCartButton({
           type="button"
           onClick={handleAddToCart}
           disabled={isAdding || isOutOfStock}
-          className={`${buttonClasses} cursor-pointer disabled:opacity-40 disabled:bg-stone-100 disabled:border-transparent disabled:text-gray-400 disabled:cursor-not-allowed`}
+          className={`${buttonClasses} cursor-pointer disabled:opacity-40 disabled:border-transparent disabled:cursor-not-allowed`}
         >
           {isAdding ? (
-            <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin cursor-pointer" />
+            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mx-auto" />
           ) : (
             <ClientOnly fallback={<span>Add to Cart</span>}>
               <span>{buttonText}</span>

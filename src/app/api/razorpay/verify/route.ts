@@ -2,6 +2,7 @@
 
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
+import Razorpay from 'razorpay'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { updatePaymentStatus } from '@/services/payment.service'
 
@@ -52,8 +53,19 @@ export async function POST(req: Request) {
     if (order && (order.payment_status === 'pending' || order.payment_status === 'failed')) {
       console.log(`[Razorpay Verify] Eagerly verifying order: ${order.id}`)
       
+      let paymentMethodDetail = undefined;
+      try {
+        const rzp = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID!, key_secret: secret })
+        const payment = await rzp.payments.fetch(razorpay_payment_id)
+        if (payment && payment.method) {
+          paymentMethodDetail = payment.method
+        }
+      } catch (e) {
+        console.warn('[Razorpay Verify] Failed to fetch payment method details eagerly:', e)
+      }
+
       await supabase.from('orders').update({ razorpay_order_id }).eq('id', order.id)
-      await updatePaymentStatus(order.id, razorpay_payment_id, 'paid', undefined, order.session_id)
+      await updatePaymentStatus(order.id, razorpay_payment_id, 'paid', undefined, order.session_id, paymentMethodDetail)
     }
 
     return NextResponse.json({ success: true })

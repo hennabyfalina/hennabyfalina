@@ -9,34 +9,38 @@ import { getPublicUrl, deleteProductImage } from '@/lib/supabase/storage'
 import { verifyAdmin } from '@/lib/admin-auth'
 import { z } from 'zod'
 
-// 🧼 Removed the entire pricingTierSchema!
-
 const productMutationSchema = z.object({
   name: z.string().min(1),
   slug: z.string().min(1),
+  sku: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
+  stock: z.number().int().nonnegative(),
+  category_id: z.string().uuid().nullable().optional(),
+  images: z.array(z.string()).optional(),
+  
+  // 🏛️ STRATEGIC PRODUCT MODES FLAGS
+  is_retail_enabled: z.boolean().optional().default(true),
+  is_wholesale_enabled: z.boolean().optional().default(false),
+  is_variants_enabled: z.boolean().optional().default(false),
 
-  // 🎯 NEW HYBRID PRICING VALIDATION
-  retail_price: z.number().nonnegative(),
-  wholesale_price: z.number().nonnegative(),
-  wholesale_min_qty: z.number().int().positive().default(10),
-  mrp: z.number().nonnegative().optional().default(0),
+  // 🎯 UNIFIED PRICE CORE
+  retail_price: z.number().nonnegative().default(0),
+  wholesale_price: z.number().nonnegative().nullable().optional(),
+  wholesale_min_qty: z.number().int().nonnegative().nullable().optional(),
+  mrp: z.number().nonnegative().nullable().optional().default(0),
+  variants: z.any().nullable().optional(), // Visual matrix array serialized text mapping
+  
   weight: z.number().nullable().optional(),
-  weight_unit: z.string().nullable().optional(),
+  weight_unit: z.string().nullable().optional().default('kg'),
   gsm: z.number().nullable().optional(),
   dimensions: z.any().nullable().optional(),
   meta_title: z.string().nullable().optional(),
   meta_description: z.string().nullable().optional(),
-
-  stock: z.number().int().nonnegative(),
-  category_id: z.string().nullable().optional(),
-  images: z.array(z.string()).optional(),
-  is_active: z.boolean().optional(),
-  sku: z.string().nullable().optional(),
-  rating: z.number().min(0).max(5).nullable().optional(),
-  review_count: z.number().int().nonnegative().nullable().optional(),
-  frequently_bought_together: z.array(z.string().uuid()).optional(),
-  is_featured: z.boolean().optional(),
+  is_active: z.boolean().optional().default(true),
+  rating: z.number().min(0).max(5).nullable().optional().default(4.5),
+  review_count: z.number().int().nonnegative().nullable().optional().default(0),
+  frequently_bought_together: z.array(z.string().uuid()).optional().default([]),
+  is_featured: z.boolean().optional().default(false),
 })
 
 let productsCache: Product[] | null = null
@@ -67,8 +71,6 @@ export const getProducts = cache(async (useCache: boolean = true): Promise<Produ
   if (useCache && productsCache && isCacheValid()) return productsCache
   
   const supabase = await createServerClient()
-  
-  // 🧼 Clean select: No more joins to product_pricing_tiers!
   const { data, error } = await supabase
     .from('products')
     .select('*')
@@ -100,14 +102,13 @@ export async function getRecentlyBoughtProductsForUser(userId: string, limit: nu
   return await getProductsByIdsWithSignedUrls(uniqueProductIds.slice(0, limit))
 }
 
-// 🚨 UPGRADED BULLETPROOF SLUG LOOKUP
 export const getProductBySlug = cache(async (slug: string): Promise<Product | null> => {
   const supabase = await createServerClient()
   const decodedSlug = decodeURIComponent(slug)
 
   const { data, error } = await supabase
     .from('products')
-    .select('*') // 🧼 Clean select
+    .select('*') 
     .eq('slug', decodedSlug)
     .eq('is_deleted', false)
     .limit(1)
@@ -117,10 +118,7 @@ export const getProductBySlug = cache(async (slug: string): Promise<Product | nu
     return null
   }
 
-  if (!data || data.length === 0) {
-    console.warn(`⚠️ PRODUCT NOT FOUND IN DB FOR SLUG: [${decodedSlug}]`)
-    return null
-  }
+  if (!data || data.length === 0) return null
   
   return data[0] as Product
 })
@@ -140,13 +138,12 @@ export async function getProductsByIdsWithSignedUrls(productIds: string[]): Prom
   return addPublicUrls(data as Product[] || [])
 }
 
-// 🚨 UPGRADED BULLETPROOF ID LOOKUP
 export const getProductById = cache(async (id: string): Promise<Product | null> => {
   const supabase = await createServerClient()
   
   const { data, error } = await supabase
     .from('products')
-    .select('*') // 🧼 Clean select
+    .select('*') 
     .eq('id', id)
     .eq('is_deleted', false)
     .limit(1)
@@ -173,7 +170,6 @@ export async function createProduct(productData: any): Promise<Product> {
   const { data: existing } = await supabase.from('products').select('id').eq('slug', rest.slug).limit(1).maybeSingle()
   if (existing) throw new Error(`Product with slug "${rest.slug}" already exists`)
   
-  // 🧼 No more tier loops! Just a straight insertion.
   const { data, error } = await supabase
     .from('products')
     .insert({ ...rest, images: images || [] } as any)
@@ -210,7 +206,6 @@ export async function updateProduct(id: string, updates: any): Promise<Product> 
     }
   }
   
-  // 🧼 Massive code reduction: No more tier deletion/upsert arrays!
   const { data, error } = await supabase
     .from('products')
     .update({ ...rest, images: newImages || [], updated_at: new Date().toISOString() } as any)
@@ -376,7 +371,7 @@ export const searchProducts = cache(async (query: string, limit: number = 100): 
   const supabase = await createServerClient()
   const { data, error } = await supabase
     .from('products')
-    .select('*') // 🧼 Clean select
+    .select('*') 
     .eq('is_active', true)
     .eq('is_deleted', false)
     .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
@@ -392,3 +387,5 @@ export const searchProductsWithSignedUrls = cache(async (query: string, limit: n
   const products = await searchProducts(query, limit)
   return addPublicUrls(products)
 })
+
+export { getPublicUrl }

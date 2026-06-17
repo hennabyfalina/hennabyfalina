@@ -3,6 +3,7 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { releaseStockReservation, deductOrderStock } from '@/services/inventory.service'
 
 export async function updatePaymentStatus(
@@ -10,7 +11,8 @@ export async function updatePaymentStatus(
   paymentId: string,
   status: 'paid' | 'failed',
   idempotencyKey?: string,
-  sessionId?: string
+  sessionId?: string,
+  paymentMethodDetail?: string
 ) {
   const supabase = createAdminClient()
   
@@ -48,6 +50,9 @@ export async function updatePaymentStatus(
   if (status === 'paid') {
     updateData.razorpay_payment_id = paymentId
     updateData.paid_at = new Date().toISOString() // 🌟 NOW WORKS PERFECTLY
+    if (paymentMethodDetail) {
+      updateData.payment_method_detail = paymentMethodDetail
+    }
   } else {
     updateData.last_payment_error = 'Transaction run update failed'
   }
@@ -73,4 +78,35 @@ export async function updatePaymentStatus(
   }
 
   return { alreadyProcessed: false }
+}
+
+export async function recordPaymentFailure(orderId: string, reason: string) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const adminSupabase = createAdminClient()
+    const { data: order } = await adminSupabase
+      .from('orders')
+      .select('payment_attempts, payment_status')
+      .eq('id', orderId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (order && (order.payment_status === 'pending' || order.payment_status === 'failed')) {
+      await adminSupabase
+        .from('orders')
+        .update({
+          payment_attempts: (order.payment_attempts || 0) + 1,
+          last_payment_error: reason,
+          payment_failed_reason: reason,
+          payment_status: 'failed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId)
+    }
+  } catch (e) {
+    console.error('[Payment Service] Failed to record payment failure:', e)
+  }
 }

@@ -4,22 +4,21 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import Link from 'next/link'
-import { Plus, ShoppingBag, Check, BadgePercent, Tag } from 'lucide-react'
 import { useCartStore } from '@/store/cart.store'
 import { showToast } from '@/components/ui/Toast'
 import { formatCurrency } from '@/lib/utils'
 import { getPublicUrl } from '@/lib/supabase/storage'
 import QuantitySelector from '@/components/product/QuantitySelector'
-import { getEffectivePrice, isWholesaleActive } from '@/lib/pricing'
+import { getEffectivePrice, isWholesaleActive, parseVariants } from '@/lib/pricing'
+import { Check, BadgePercent, Tag, ShoppingBag } from 'lucide-react'
 import type { Product as DBProduct } from '@/types/database.types'
 
 interface Variant {
   name: string
   price: number
-  variant_mrp?: number
-  wholesale_price?: number
-  wholesale_min_qty?: number
+  variant_mrp?: number | null
+  wholesale_price?: number | null
+  wholesale_min_qty?: number | null
 }
 
 interface Product {
@@ -34,9 +33,12 @@ interface Product {
   rating?: number | null
   review_count?: number | null
   retail_price: number
-  wholesale_price: number
-  wholesale_min_qty: number
-  variants?: string | Variant[]
+  wholesale_price: number | null
+  wholesale_min_qty: number | null
+  variants?: string | Variant[] | any
+  is_retail_enabled: boolean
+  is_wholesale_enabled: boolean
+  is_variants_enabled: boolean
 }
 
 interface SelectedItem {
@@ -44,8 +46,11 @@ interface SelectedItem {
   variantName?: string
   price: number
   variantMrp?: number
-  wholesalePrice?: number
-  wholesaleMinQty?: number
+  wholesalePrice?: number | null
+  wholesaleMinQty?: number | null
+  is_retail_enabled: boolean
+  is_wholesale_enabled: boolean
+  is_variants_enabled: boolean
 }
 
 interface FrequentlyBoughtTogetherProps {
@@ -60,39 +65,39 @@ export default function FrequentlyBoughtTogether({ mainProduct, bundleProducts }
 
   const allProducts = [mainProduct, ...bundleProducts]
 
-  // Helper: parse variants from product (handles string or array)
-  const getVariants = (product: Product): Variant[] => {
-    if (!product.variants) return []
-    try {
-      if (typeof product.variants === 'string') return JSON.parse(product.variants)
-      if (Array.isArray(product.variants)) return product.variants
-    } catch (e) {}
-    return []
-  }
-
-  // Initialize selected items with first variant (if any)
+  // Initialize selected items factoring in strategic operational product mode parameters
   useEffect(() => {
     const initial: Record<string, SelectedItem> = {}
     allProducts.forEach(p => {
       if (p.stock > 0) {
-        const variants = getVariants(p)
-        if (variants.length > 0) {
+        const variants = p.is_variants_enabled ? parseVariants(p.variants) : []
+        const isBulkOnly = !p.is_retail_enabled && p.is_wholesale_enabled
+        const baseMinQty = isBulkOnly ? (p.wholesale_min_qty || 1) : 1
+
+        if (p.is_variants_enabled && variants.length > 0) {
           const first = variants[0]
+          const initQty = isBulkOnly ? (first.wholesale_min_qty ?? p.wholesale_min_qty ?? 1) : 1
           initial[p.id] = {
-            quantity: 1,
+            quantity: initQty,
             variantName: first.name,
-            price: first.price,
+            price: getEffectivePrice(p as any, initQty, first),
             variantMrp: first.variant_mrp ?? p.mrp,
-            wholesalePrice: first.wholesale_price,
-            wholesaleMinQty: first.wholesale_min_qty,
+            wholesalePrice: first.wholesale_price ?? p.wholesale_price,
+            wholesaleMinQty: first.wholesale_min_qty ?? p.wholesale_min_qty,
+            is_retail_enabled: p.is_retail_enabled,
+            is_wholesale_enabled: p.is_wholesale_enabled,
+            is_variants_enabled: p.is_variants_enabled,
           }
         } else {
           initial[p.id] = {
-            quantity: 1,
-            price: p.retail_price,
-            variantMrp: p.mrp,
+            quantity: baseMinQty,
+            price: getEffectivePrice(p as any, baseMinQty, null),
+            variantMrp: p.mrp || p.retail_price,
             wholesalePrice: p.wholesale_price,
             wholesaleMinQty: p.wholesale_min_qty,
+            is_retail_enabled: p.is_retail_enabled,
+            is_wholesale_enabled: p.is_wholesale_enabled,
+            is_variants_enabled: p.is_variants_enabled,
           }
         }
       }
@@ -110,24 +115,34 @@ export default function FrequentlyBoughtTogether({ mainProduct, bundleProducts }
       else {
         const p = allProducts.find(x => x.id === id)
         if (p) {
-          const variants = getVariants(p)
-          if (variants.length > 0) {
+          const variants = p.is_variants_enabled ? parseVariants(p.variants) : []
+          const isBulkOnly = !p.is_retail_enabled && p.is_wholesale_enabled
+          const baseMinQty = isBulkOnly ? (p.wholesale_min_qty || 1) : 1
+
+          if (p.is_variants_enabled && variants.length > 0) {
             const first = variants[0]
+            const initQty = isBulkOnly ? (first.wholesale_min_qty ?? p.wholesale_min_qty ?? 1) : 1
             next[id] = {
-              quantity: 1,
+              quantity: initQty,
               variantName: first.name,
-              price: first.price,
+              price: getEffectivePrice(p as any, initQty, first),
               variantMrp: first.variant_mrp ?? p.mrp,
-              wholesalePrice: first.wholesale_price,
-              wholesaleMinQty: first.wholesale_min_qty,
+              wholesalePrice: first.wholesale_price ?? p.wholesale_price,
+              wholesaleMinQty: first.wholesale_min_qty ?? p.wholesale_min_qty,
+              is_retail_enabled: p.is_retail_enabled,
+              is_wholesale_enabled: p.is_wholesale_enabled,
+              is_variants_enabled: p.is_variants_enabled,
             }
           } else {
             next[id] = {
-              quantity: 1,
-              price: p.retail_price,
-              variantMrp: p.mrp,
+              quantity: baseMinQty,
+              price: getEffectivePrice(p as any, baseMinQty, null),
+              variantMrp: p.mrp || p.retail_price,
               wholesalePrice: p.wholesale_price,
               wholesaleMinQty: p.wholesale_min_qty,
+              is_retail_enabled: p.is_retail_enabled,
+              is_wholesale_enabled: p.is_wholesale_enabled,
+              is_variants_enabled: p.is_variants_enabled,
             }
           }
         }
@@ -141,13 +156,12 @@ export default function FrequentlyBoughtTogether({ mainProduct, bundleProducts }
       const item = prev[id]
       if (!item) return prev
       
-      // Recalculate effective price based on new quantity
       const p = allProducts.find(x => x.id === id)
       if (!p) return prev
       
-      const variants = getVariants(p)
+      const variants = p.is_variants_enabled ? parseVariants(p.variants) : []
       const variant = variants.find(v => v.name === item.variantName)
-      const effectivePrice = getEffectivePrice(p as unknown as DBProduct, qty, variant as any)
+      const effectivePrice = getEffectivePrice(p as unknown as DBProduct, qty, variant || null)
       
       return {
         ...prev,
@@ -165,16 +179,20 @@ export default function FrequentlyBoughtTogether({ mainProduct, bundleProducts }
       const item = prev[id]
       if (!item) return prev
       
-      // Calculate effective price with current quantity
       const p = allProducts.find(x => x.id === id)
       if (!p) return prev
 
-      const effectivePrice = getEffectivePrice(p as unknown as DBProduct, item.quantity, variant as any)
+      const isBulkOnly = !p.is_retail_enabled && p.is_wholesale_enabled
+      const targetMinQty = isBulkOnly ? (variant.wholesale_min_qty ?? p.wholesale_min_qty ?? 1) : item.quantity
+      const finalQty = Math.max(item.quantity, targetMinQty)
+
+      const effectivePrice = getEffectivePrice(p as unknown as DBProduct, finalQty, variant || null)
       
       return {
         ...prev,
         [id]: {
           ...item,
+          quantity: finalQty,
           variantName: variant.name,
           price: effectivePrice,
           variantMrp: variant.variant_mrp ?? item.variantMrp,
@@ -185,19 +203,17 @@ export default function FrequentlyBoughtTogether({ mainProduct, bundleProducts }
     })
   }
 
-  // Build list of selected products with enriched pricing data
   const selectedProducts = allProducts.filter(p => !!selectedItems[p.id]).map(p => {
     const sel = selectedItems[p.id]
-    const variants = getVariants(p)
-    const variant = variants.find(v => v.name === sel.variantName)
+    const variants = p.is_variants_enabled ? parseVariants(p.variants) : []
+    const variant = variants.find(v => v.name === sel.variantName) || null
     
-    // Check if wholesale is currently applied
-    const isWholesaleApplied = isWholesaleActive(p as unknown as DBProduct, sel.quantity, variant as any)
+    const isWholesaleApplied = isWholesaleActive(p as unknown as DBProduct, sel.quantity, variant)
     
     return {
       ...p,
       effectivePrice: sel.price,
-      effectiveMrp: sel.variantMrp ?? p.mrp,
+      effectiveMrp: sel.variantMrp ?? p.mrp ?? p.retail_price,
       quantity: sel.quantity,
       variantName: sel.variantName,
       isWholesaleApplied,
@@ -225,13 +241,17 @@ export default function FrequentlyBoughtTogether({ mainProduct, bundleProducts }
           stock: p.stock,
           category_id: p.category_id || null,
           description: p.description || null,
-          retail_price: p.effectivePrice,
+          is_retail_enabled: p.is_retail_enabled,
+          is_wholesale_enabled: p.is_wholesale_enabled,
+          is_variants_enabled: p.is_variants_enabled,
+          retail_price: p.retail_price,
           wholesale_price: p.wholesale_price,
           wholesale_min_qty: p.wholesale_min_qty,
           rating: p.rating || null,
           review_count: p.review_count || null,
           mrp: p.effectiveMrp,
-          variant_string: p.variantName
+          variant_string: p.variantName || null,
+          variants: p.variants
         })
       }))
       showToast(`Added ${selectedProducts.length} curated items to your bag`, 'success')
@@ -255,7 +275,6 @@ export default function FrequentlyBoughtTogether({ mainProduct, bundleProducts }
       </div>
 
       <div className="max-w-[750px] mx-auto w-full flex flex-col gap-5">
-        
         <div className="flex flex-col w-full">
           {allProducts.map((p) => {
             const sel = selectedItems[p.id]
@@ -263,11 +282,15 @@ export default function FrequentlyBoughtTogether({ mainProduct, bundleProducts }
             const isOutOfStock = p.stock <= 0
             const isMain = p.id === mainProduct.id
 
-            const variants = getVariants(p)
-            const currentVariant = variants.find(v => v.name === sel?.variantName)
+            const variants = p.is_variants_enabled ? parseVariants(p.variants) : []
             const displayPrice = sel?.price ?? p.retail_price
-            const displayMrp = sel?.variantMrp ?? p.mrp
-            const isWholesaleApplied = sel?.wholesalePrice && sel?.wholesaleMinQty && sel.quantity >= sel.wholesaleMinQty
+            const displayMrp = sel?.variantMrp ?? p.mrp ?? p.retail_price
+            
+            const isBulkOnly = !p.is_retail_enabled && p.is_wholesale_enabled
+            const minQuantityGate = isBulkOnly ? (sel?.wholesaleMinQty ?? p.wholesale_min_qty ?? 1) : 1
+
+            const currentVariant = variants.find(v => v.name === sel?.variantName) || null
+            const wholesaleActive = isWholesaleActive(p as unknown as DBProduct, sel?.quantity || 1, currentVariant)
 
             let imgUrl = '/placeholder-product.svg'
             if (p.images?.[0]) {
@@ -321,7 +344,7 @@ export default function FrequentlyBoughtTogether({ mainProduct, bundleProducts }
                           this item
                         </span>
                       )}
-                      {isSelected && isWholesaleApplied && (
+                      {isSelected && wholesaleActive && (
                         <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-700 bg-emerald-50/60 px-1.5 py-0.5 rounded-full">
                           <Tag className="w-2.5 h-2.5" strokeWidth={2} />
                           bulk rate
@@ -330,7 +353,7 @@ export default function FrequentlyBoughtTogether({ mainProduct, bundleProducts }
                     </div>
                   </div>
 
-                  {isSelected && !isOutOfStock && variants.length > 0 && (
+                  {isSelected && !isOutOfStock && p.is_variants_enabled && variants.length > 0 && (
                     <div className="shrink-0 md:min-w-[120px]">
                       <select
                         value={sel?.variantName || ''}
@@ -344,7 +367,7 @@ export default function FrequentlyBoughtTogether({ mainProduct, bundleProducts }
                         {variants.map(v => (
                           <option key={v.name} value={v.name}>
                             {v.name}
-                            {v.wholesale_min_qty && v.wholesale_price && ` (${v.wholesale_min_qty}+ → ${formatCurrency(v.wholesale_price)})`}
+                            {p.is_wholesale_enabled && v.wholesale_min_qty && v.wholesale_price && ` (${v.wholesale_min_qty}+ → ${formatCurrency(v.wholesale_price)})`}
                           </option>
                         ))}
                       </select>
@@ -356,6 +379,7 @@ export default function FrequentlyBoughtTogether({ mainProduct, bundleProducts }
                       <QuantitySelector 
                         quantity={sel.quantity} 
                         onQuantityChange={(q) => handleQuantityChange(p.id, q)}
+                        min={minQuantityGate}
                         max={p.stock}
                       />
                     </div>
@@ -363,14 +387,14 @@ export default function FrequentlyBoughtTogether({ mainProduct, bundleProducts }
                   
                   <div className="flex flex-col items-end shrink-0 ml-auto min-w-[90px] md:mt-0 -mt-10">
                     <span className="font-normal text-gray-950 text-[17px]">
-                      {formatCurrency(displayPrice)}
+                      {formatCurrency(displayPrice * (sel?.quantity || 1))}
                     </span>
                     {displayMrp && displayMrp > displayPrice && (
                       <span className="text-gray-300 line-through font-normal text-[13px] sm:text-[15px] -mt-1">
-                        {formatCurrency(displayMrp)}
+                        {formatCurrency(displayMrp * (sel?.quantity || 1))}
                       </span>
                     )}
-                    {isSelected && isWholesaleApplied && (
+                    {isSelected && wholesaleActive && (
                       <span className="text-[10px] text-emerald-600 font-medium mt-0.5">
                         {formatCurrency(sel.price)}/unit
                       </span>
@@ -408,9 +432,10 @@ export default function FrequentlyBoughtTogether({ mainProduct, bundleProducts }
           </div>
           
           <button 
+            type="button"
             onClick={handleAddAllToCart}
             disabled={isAdding || selectedProducts.length === 0}
-            className="w-full sm:w-auto h-14 bg-gray-950 hover:bg-black text-white font-bold text-[15px] px-10 rounded-full transition-all duration-200 disabled:opacity-30 cursor-pointer flex items-center justify-center gap-3 shadow-md active:scale-[0.98] shrink-0"
+            className="w-full sm:w-auto h-14 bg-gray-950 hover:bg-black text-white font-bold text-[15px] px-10 rounded-full transition-all duration-200 disabled:opacity-30 cursor-pointer flex items-center justify-center gap-3 shadow-none border-none outline-none active:scale-[0.98] shrink-0"
           >
             {isAdding ? (
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

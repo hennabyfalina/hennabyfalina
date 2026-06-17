@@ -13,7 +13,7 @@ import OrderStatusBadge from '@/components/ui/OrderStatusBadge'
 import ProductWishlistButton from '@/components/product/ProductWishlistButton'
 import StarRating from '@/components/product/StarRating'
 import { siteConfig } from '@/config/site'
-import { X, ChevronRight, ArrowUpRight, ShoppingBag } from 'lucide-react'
+import { X, ChevronRight, ArrowUpRight, ShoppingBag, Tag } from 'lucide-react'
 
 export const metadata = {
   title: `Your Orders | ${siteConfig.name} Studio`
@@ -60,14 +60,12 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     <div className="min-h-screen bg-white py-8 md:py-16 font-sans antialiased select-none text-left">
       <Container className="max-w-[1100px] px-4 sm:px-8">
         
-        {/* Breadcrumb Navigation - Left-Aligned Minimalist Monochrome Strings */}
         <div className="text-[15px] font-semibold text-gray-400 hover:text-gray-900 mb-4 transition-colors flex items-center gap-1 w-fit">
           <Link href="/profile">Profile</Link> 
           <ChevronRight className="w-3.5 h-3.5 text-gray-300" /> 
           <span className="text-gray-900">Your Orders</span>
         </div>
         
-        {/* Left-Aligned Premium Header Section */}
         <div className="mb-10">
           <h1 className="text-3xl md:text-4xl font-normal text-gray-900 tracking-tight capitalize">Your Orders</h1>
           <p className="text-[14px] text-gray-400 font-normal mt-1.5 normal max-w-xl">
@@ -113,10 +111,8 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
             </p>
           </div>
         ) : (
-          /* AUTHENTIC APPLE LEVEL BORDERLESS TIMELINE TRACK */
           <div className="space-y-16">
             {orders.map((order) => {
-
               const isStorePickup = order.shipping_method === 'pickup' || 
                                     order.delivery_method === 'pickup' || 
                                     order.addresses?.delivery_method === 'pickup' || 
@@ -136,7 +132,6 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
               return (
                 <div key={order.id} className="group border-b border-stone-100 pb-12 last:border-0 last:pb-0 flex flex-col w-full text-left">
                   
-                  {/* Top Typographic Strip - Replaces the old Box Header bar completely */}
                   <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
                     <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-[13px] text-gray-400 font-medium">
                       <div>
@@ -152,7 +147,6 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                         <span className="text-gray-900 font-semibold tracking-wide">#{order.order_number}</span>
                       </div>
                       
-                      {/* Premium Dynamic Popover for Address Details */}
                       <div className="relative group/addr cursor-pointer">
                         <span className="text-gray-400 mr-1.5 font-normal capitalize">Ship to:</span>
                         <span className="text-gray-900 font-bold underline underline-offset-4 decoration-stone-200 group-hover/addr:text-stone-600 transition-colors inline-flex items-center gap-0.5">
@@ -181,7 +175,6 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                       </div>
                     </div>
 
-                    {/* Quick Access Details Navigation Anchor */}
                     <div className="flex items-center gap-4 text-[13px] font-semibold text-gray-900 shrink-0">
                       {order.payment_status === 'paid' && (
                         <Link href={`/order/${order.id}`} className="hover:text-gray-500 transition-colors inline-flex items-center gap-0.5 capitalize">
@@ -198,7 +191,6 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                     </div>
                   </div>
 
-                  {/* Delivery Status Timeline Alert Layer */}
                   <div className="flex items-center gap-3 mb-6 flex-wrap bg-stone-50/40 border border-stone-100/40 rounded-2xl px-4 py-3">
                     <h3 className="text-[14px] sm:text-[15px] font-normal text-gray-950 tracking-tight capitalize">
                       {order.status === 'delivered' ? (
@@ -224,14 +216,12 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                     </div>
                   </div>
 
-                  {/* Operational Failure Log Alerts */}
                   {order.payment_status === 'failed' && (
                     <div className="mb-6 p-4 bg-stone-50 border border-stone-100 rounded-2xl text-[13px] text-red-700 font-medium capitalize">
                       <span className="font-bold mr-1 text-red-900">Failure log summary:</span> {order.payment_failed_reason || 'Transaction declined by issuer network routing filters.'}
                     </div>
                   )}
                   
-                  {/* Clean Item Matrix Stream */}
                   <div className="space-y-6 w-full">
                     {order.order_items.map((item: any, itemIndex: number) => {
                       let imageUrl = '/placeholder-product.svg'
@@ -242,28 +232,40 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                           : getPublicUrl(rawImage)
                       }
 
+                      // ⚡ SNAPSHOT ENHANCEMENT: Formats the item name correctly with its options prefix instantly
+                      const cleanCoreName = item.products?.name || 'Product'
+                      const snapshotItemTitle = item.variant_string && !cleanCoreName.includes(`(${item.variant_string})`)
+                        ? `${cleanCoreName} (${item.variant_string})`
+                        : cleanCoreName
+
+                      const isWholesaleApplied = item.purchase_type === 'wholesale' || item.purchase_type === 'variant_wholesale'
+
                       return (
                         <div key={item.id} className="flex flex-col md:flex-row gap-6 items-start justify-between w-full">
-                          
-                          {/* Image box and contextual summary grid text attributes */}
                           <div className="flex gap-5 flex-1 min-w-0 w-full text-left">
                             <Link href={`/product/${item.products?.slug}`} className="w-20 h-20 sm:w-24 sm:h-24 relative bg-stone-50 border border-stone-100 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center p-2 transition-transform duration-300 active:scale-98">
-                              <Image src={imageUrl} fill sizes="(max-width: 640px) 80px, 96px" priority={itemIndex === 0} unoptimized={imageUrl.includes('token=')} className="object-contain mix-blend-multiply p-1" alt={item.products?.name || 'Product Image'} />
+                              <Image src={imageUrl} fill sizes="(max-width: 640px) 80px, 96px" priority={itemIndex === 0} unoptimized={imageUrl.includes('token=')} className="object-contain mix-blend-multiply p-1" alt={snapshotItemTitle} />
                             </Link>
                             
                             <div className="flex-1 min-w-0 pt-0.5">
                               <div className="flex items-center gap-3">
                                 <Link href={`/product/${item.products?.slug}`} className="text-[15px] sm:text-[16px] font-bold text-gray-900 hover:text-stone-500 transition-colors line-clamp-2 capitalize tracking-tight leading-snug shrink-0">
-                                  {item.products?.name}
+                                  {snapshotItemTitle.toLowerCase()}
                                 </Link>
                                 <ProductWishlistButton productId={item.products?.id} showText={false} />
                               </div>
+
+                              {/* WHOLESALE STRATEGY BADGE FOR HISTORICAL ACCOUNTS */}
+                              {isWholesaleApplied && (
+                                <div className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md w-fit lowercase">
+                                  <Tag className="w-3 h-3" /> bulk wholesale rate applied
+                                </div>
+                              )}
 
                               <div className="mt-1.5 flex items-center">
                                 <StarRating rating={item.products?.rating ?? 4.5} reviewCount={item.products?.review_count ?? 128} size="sm" />
                               </div>
                               
-                              {/* Pricing Metrics Structure */}
                               <div className="flex items-baseline gap-2.5 mt-2.5">
                                 <span className="text-[14px] sm:text-[15px] font-bold text-gray-950">{formatCurrency(item.price)}</span>
                                 {item.original_price && item.original_price > item.price && (
@@ -279,44 +281,23 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                             </div>
                           </div>
 
-                          {/* 🚀 FIXED: Upgraded core action cluster container grid. 
-                              On mobile viewports it splits beautifully into a balanced 2-column track layout side-by-side. 
-                              On desktop viewports it instantly snaps back into a highly disciplined vertical sidebar. */}
                           <div className="grid grid-cols-2 md:flex md:flex-col gap-2.5 w-full md:w-48 shrink-0 pt-0.5 items-center md:items-end justify-start">
-                            
-                            {/* Primary Target Button Action Triggers (Track Package) */}
                             {order.payment_status === 'paid' && (
                               <Link href={`/order/${order.id}`} className="h-10 px-4 bg-black hover:bg-stone-900 text-white font-semibold rounded-full text-[13px] transition-colors flex items-center justify-center capitalize w-full shadow-none text-center">
                                 Track Package
                               </Link>
                             )}
 
-                            {/* Payment State Failovers (Upgraded from Amazon Yellow to Curved Black Pill) */}
                             {['failed', 'pending'].includes(order.payment_status) && (
                               <div className="w-full">
                                 <RetryPaymentButton orderId={order.id} orderNumber={order.order_number} amount={order.total_amount} />
                               </div>
                             )}
 
-                            {/* Secondary Cancellations and Return Handles */}
-                            {['pending', 'confirmed', 'processing'].includes((order.status || '').toLowerCase()) && order.payment_status === 'paid' && (
-                              <Link href={`/profile/orders?filter=${filter}&msg=cancel_soon`} className="h-10 px-4 bg-white border border-stone-200 hover:border-gray-900 text-gray-600 font-semibold rounded-full text-[13px] transition-colors flex items-center justify-center capitalize w-full text-center">
-                                Cancel Item
-                              </Link>
-                            )}
-
-                            {(order.status || '').toLowerCase() === 'delivered' && (
-                              <Link href={`/profile/orders?filter=${filter}&msg=return_soon`} className="h-10 px-4 bg-white border border-stone-200 hover:border-gray-900 text-gray-600 font-semibold rounded-full text-[13px] transition-colors flex items-center justify-center capitalize w-full text-center">
-                                Return Item
-                              </Link>
-                            )}
-
-                            {/* Secondary Reorder Trigger Pill */}
                             <Link href={`/product/${item.products?.slug}`} className="h-10 px-4 bg-stone-50 border border-transparent hover:border-stone-200 text-gray-900 font-semibold rounded-full text-[13px] transition-colors flex items-center justify-center capitalize w-full text-center">
                               Buy It Again
                             </Link>
                           </div>
-
                         </div>
                       )
                     })}

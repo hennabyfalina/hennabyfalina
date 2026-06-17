@@ -9,40 +9,26 @@ import { verifyAdmin } from '@/lib/admin-auth'
 import { revalidateTag } from 'next/cache'
 
 export interface Category {
-  meta_title: string
-  meta_description: string
   id: string
-  category_id?: string | null
   parent_id?: string | null
   name: string
   slug: string
-  sku?: string | null
   description?: string | null
   image?: string | null
-  retail_price: number
-  wholesale_price: number
-  wholesale_min_qty: number
-  stock: number
-  images?: string[]
+  is_active: boolean
   is_deleted: boolean
   is_featured: boolean
-  rating: number
-  review_count: number
-  frequently_bought_together?: string[]
-  mrp: number
-  weight?: number | null
-  weight_unit?: string | null
-  gsm?: number | null
-  dimensions?: any | null
-  low_stock_threshold: number
+  low_stock_threshold?: number | null
   display_order: number
-  is_active: boolean
+  meta_title?: string | null
+  meta_description?: string | null
+  type?: string | null
   product_count?: number
   created_at: string
   updated_at: string
 }
 
-// ⚡ HIGH-PERFORMANCE EDGE CACHING FETCH ENGINE
+// HIGH-PERFORMANCE EDGE CACHING FETCH ENGINE
 async function fetchFromEdge(queryString: string, cacheTag: string): Promise<any[]> {
   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -63,8 +49,8 @@ async function fetchFromEdge(queryString: string, cacheTag: string): Promise<any
           'Content-Type': 'application/json',
         },
         next: {
-          revalidate: 3600, // ⚡ Store publicly on Vercel's global CDN nodes for 1 hour
-          tags: [cacheTag]  // Cache tag pointer for instant, on-demand purges
+          revalidate: 3600, // Store publicly on Vercel's global CDN nodes for 1 hour
+          tags: [cacheTag]  
         }
       }
     )
@@ -81,7 +67,6 @@ async function fetchFromEdge(queryString: string, cacheTag: string): Promise<any
   }
 }
 
-// Helper to convert category image path to public URL
 function addPublicUrlToCategory<T extends Category>(category: T): T {
   if (!category.image) return category
   return {
@@ -103,9 +88,7 @@ const categorySchema = z.object({
   is_active: z.boolean().optional(),
 })
 
-// Fetch all categories with product counts
 export async function getCategoriesWithCounts(useCache: boolean = true): Promise<Category[]> {
-  // Pull structured datasets through our new edge caching engine
   const queryString = 'select=*,products:products(count)&order=display_order.asc'
   const categories = await fetchFromEdge(queryString, 'categories-with-counts')
 
@@ -117,14 +100,12 @@ export async function getCategoriesWithCounts(useCache: boolean = true): Promise
   return addPublicUrlsToCategories(result)
 }
 
-// Fetch all categories (without counts)
 export async function getCategories(useCache: boolean = true): Promise<Category[]> {
   const queryString = 'select=*&order=display_order.asc'
   const data = await fetchFromEdge(queryString, 'categories-list')
   return addPublicUrlsToCategories(data || [])
 }
 
-// Get a single category by ID
 export async function getCategoryById(id: string): Promise<Category | null> {
   const supabase = await createServerClient()
   
@@ -142,7 +123,6 @@ export async function getCategoryById(id: string): Promise<Category | null> {
   return data ? addPublicUrlToCategory(data) : null
 }
 
-// Get a single category by slug
 export async function getCategoryBySlug(slug: string): Promise<Category | null> {
   const supabase = await createServerClient()
   
@@ -160,20 +140,16 @@ export async function getCategoryBySlug(slug: string): Promise<Category | null> 
   return data ? addPublicUrlToCategory(data) : null
 }
 
-// Get category tree (hierarchy)
 export async function getCategoryTree(): Promise<Category[]> {
   const categories = await getCategories()
   
-  // Build tree
   const categoryMap = new Map<string, Category & { children?: Category[] }>()
   const roots: (Category & { children?: Category[] })[] = []
   
-  // First pass: create map
   categories.forEach(cat => {
     categoryMap.set(cat.id, { ...cat, children: [] })
   })
   
-  // Second pass: build hierarchy
   categories.forEach(cat => {
     const node = categoryMap.get(cat.id)
     if (cat.parent_id && categoryMap.has(cat.parent_id)) {
@@ -187,7 +163,6 @@ export async function getCategoryTree(): Promise<Category[]> {
   return roots
 }
 
-// Create category
 export async function createCategory(data: {
   name: string
   slug: string
@@ -200,10 +175,8 @@ export async function createCategory(data: {
   if (!authorized) throw new Error('Unauthorized')
 
   const parsed = categorySchema.parse(data)
-
   const supabase = await createServerClient()
   
-  // Check if slug already exists
   const { data: existing } = await supabase
     .from('categories')
     .select('id')
@@ -214,7 +187,6 @@ export async function createCategory(data: {
     throw new Error(`Category with slug "${parsed.slug}" already exists`)
   }
   
-  // Get max display_order for new category
   const { data: maxOrder } = await supabase
     .from('categories')
     .select('display_order')
@@ -240,7 +212,6 @@ export async function createCategory(data: {
   
   if (error) throw error
   
-  // ⚡ FLASH CDN REFRESH: Purges cache across global data hubs instantly on admin update
   revalidateTag('categories-list', 'default')
   revalidateTag('categories-with-counts', 'default')
   
@@ -256,18 +227,13 @@ const categoryUpdateSchema = z.object({
   is_active: z.boolean().optional(),
 })
 
-// Update category
-export async function updateCategory(
-  id: string,
-  updates: Partial<Category>
-): Promise<Category> {
+export async function updateCategory(id: string, updates: Partial<Category>): Promise<Category> {
   const { authorized } = await verifyAdmin(['admin', 'super_admin'])
   if (!authorized) throw new Error('Unauthorized')
 
   const parsed = categoryUpdateSchema.parse(updates)
   const supabase = await createServerClient()
   
-  // If updating slug, check uniqueness
   if (parsed.slug) {
     const { data: existing } = await supabase
       .from('categories')
@@ -293,21 +259,18 @@ export async function updateCategory(
   
   if (error) throw error
   
-  // ⚡ FIXED FOR NEXT.JS 16: Clear the edge layout cache globally
   revalidateTag('categories-list', 'default')
   revalidateTag('categories-with-counts', 'default')
   
   return addPublicUrlToCategory(data)
 }
 
-// Delete category
 export async function deleteCategory(id: string): Promise<void> {
   const { authorized } = await verifyAdmin(['super_admin'])
   if (!authorized) throw new Error('Forbidden. Super Admin access required.')
 
   const supabase = await createServerClient()
   
-  // Check if category has products
   const { count } = await supabase
     .from('products')
     .select('*', { count: 'exact', head: true })
@@ -317,7 +280,6 @@ export async function deleteCategory(id: string): Promise<void> {
     throw new Error(`Cannot delete category with ${count} products. Move or reassign products first.`)
   }
   
-  // Check if category has subcategories
   const { count: subCount } = await supabase
     .from('categories')
     .select('*', { count: 'exact', head: true })
@@ -327,7 +289,6 @@ export async function deleteCategory(id: string): Promise<void> {
     throw new Error(`Cannot delete category with ${subCount} subcategories. Move or delete subcategories first.`)
   }
   
-  // Delete category image if exists
   const { data: category } = await supabase
     .from('categories')
     .select('image')
@@ -339,7 +300,6 @@ export async function deleteCategory(id: string): Promise<void> {
       await deleteProductImage(category.image)
     } catch (err) {
       console.error('Failed to delete category image:', err)
-      // Don't throw, continue with deletion
     }
   }
   
@@ -350,12 +310,10 @@ export async function deleteCategory(id: string): Promise<void> {
   
   if (error) throw error
   
-  // ⚡ FIXED FOR NEXT.JS 16: Force clear categories from CDN memory paths
   revalidateTag('categories-list', 'default')
   revalidateTag('categories-with-counts', 'default')
 }
 
-// Update display order (drag & drop)
 export async function updateCategoryOrder(orderedIds: string[]): Promise<void> {
   const supabase = await createServerClient()
   
@@ -368,17 +326,14 @@ export async function updateCategoryOrder(orderedIds: string[]): Promise<void> {
     if (error) throw error
   }
   
-  // ⚡ FIXED FOR NEXT.JS 16: Ensure menu sorting updates clear immediately
   revalidateTag('categories-list', 'default')
   revalidateTag('categories-with-counts', 'default')
 }
 
-// Toggle category active status
 export async function toggleCategoryStatus(id: string, isActive: boolean): Promise<Category> {
   return updateCategory(id, { is_active: isActive })
 }
 
-// Get category count
 export async function getCategoryCount(): Promise<number> {
   const supabase = await createServerClient()
   
@@ -394,7 +349,6 @@ export async function getCategoryCount(): Promise<number> {
   return count || 0
 }
 
-// Bulk update category order (for batch operations)
 export async function bulkUpdateCategoryOrder(updates: Array<{ id: string; display_order: number }>): Promise<void> {
   const supabase = await createServerClient()
   
@@ -407,12 +361,10 @@ export async function bulkUpdateCategoryOrder(updates: Array<{ id: string; displ
     if (error) throw error
   }
   
-  // ⚡ FIXED FOR NEXT.JS 16: Ensure menu sorting updates clear immediately
   revalidateTag('categories-list', 'default')
   revalidateTag('categories-with-counts', 'default')
 }
 
-// Get categories for dropdown (simplified)
 export async function getCategoriesForSelect(): Promise<Array<{ id: string; name: string; parent_id: string | null }>> {
   const supabase = await createServerClient()
   
@@ -429,7 +381,6 @@ export async function getCategoriesForSelect(): Promise<Array<{ id: string; name
   return data || []
 }
 
-// Get category with product count by slug
 export async function getCategoryWithCountBySlug(slug: string): Promise<(Category & { product_count: number }) | null> {
   const supabase = await createServerClient()
   

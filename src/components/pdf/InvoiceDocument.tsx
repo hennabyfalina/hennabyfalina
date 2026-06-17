@@ -1,11 +1,10 @@
 // src/components/pdf/InvoiceDocument.tsx
 
 import React from 'react'
-import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
+import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 import { siteConfig } from '@/config/site'
 import { numberToIndianWords } from '@/lib/utils'
 
-// Define the styles for the PDF
 const styles = StyleSheet.create({
   page: {
     flexDirection: 'column',
@@ -227,47 +226,27 @@ const formatPhoneNumber = (phone: string) => {
   const cleaned = phone.replace(/\D/g, '')
   if (cleaned.length === 10) {
     return `+91 ${cleaned.slice(0, 5)} ${cleaned.slice(5)}`
-  } else if (cleaned.length === 12 && cleaned.startsWith('91')) {
-    return `+91 ${cleaned.slice(2, 7)} ${cleaned.slice(7)}`
   }
   return phone
 }
 
-const getFileCount = (item: any) => {
-  const parseUrls = (data: any): string[] => {
-    if (!data) return [];
-    if (Array.isArray(data)) return data;
-    if (typeof data === 'string') {
-      try { const parsed = JSON.parse(data); if (Array.isArray(parsed)) return parsed; } catch { if (data.trim().length > 0) return [data]; }
-    }
-    return [];
-  };
-  const urls = parseUrls(item.artwork_urls).length > 0 ? parseUrls(item.artwork_urls) : parseUrls(item.customization_details?.artwork_urls);
-  return urls.length;
-};
-
-const getNotes = (item: any) => {
-  return item.printing_instructions || item.customization_details?.printing_instructions || '';
-};
-
+// 🛡️ ACCURATE ADDRESS FALLBACK LOOKUP MATCHERS
 const getAddressField = (order: any, field: string, isStorePickup: boolean) => {
   if (order.addresses && order.addresses[field]) return order.addresses[field]
   if (order.pending_address && order.pending_address[field]) return order.pending_address[field]
+  if (order.shipping_address && order.shipping_address[field]) return order.shipping_address[field]
+  if (field === 'address_line1' && order.address) return order.address
   if (isStorePickup && order.pickup_contact && order.pickup_contact[field]) return order.pickup_contact[field]
+  if (order[field]) return order[field]
   return ''
 }
 
 export default function InvoiceDocument({ order, invoiceType = 'customer' }: { order: any, invoiceType?: 'customer' | 'merchant' }) {
-  const shippingCost = order.shipping_cost ?? (order.total_amount > 1000 ? 0 : 50)
+  const shippingCost = order.shipping_cost ?? 0
   const subtotal = order.total_amount - shippingCost
 
-  const isStorePickup = order.delivery_method === 'pickup' || 
-                        order.addresses?.delivery_method === 'pickup' ||
-                        order.addresses?.address_line1?.toLowerCase().includes('pickup') || 
-                        order.addresses?.address?.toLowerCase().includes('pickup') ||
-                        (order.pickup_contact && Object.keys(order.pickup_contact).length > 0)
+  const isStorePickup = order.shipping_method === 'pickup' || order.delivery_method === 'pickup'
   const deliveryMethodLabel = isStorePickup ? 'Store Pickup' : 'Standard Delivery'
-
   const capitalize = (str: string) => str ? str.charAt(0).toUpperCase() + str.slice(1) : ''
 
   let watermarkText = 'PENDING'
@@ -276,15 +255,20 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
   if (order.status?.toLowerCase().includes('cancel')) {
     watermarkText = 'CANCELLED'
     watermarkColor = '#dc2626' 
-  } else if (order.payment_status?.toLowerCase() === 'paid' || order.payment_status?.toLowerCase() === 'captured' || order.payment_status?.toLowerCase() === 'success') {
+  } else if (order.payment_status?.toLowerCase() === 'paid') {
     watermarkText = 'PAID'
     watermarkColor = '#15803d' 
   }
 
   const line1 = getAddressField(order, 'address_line1', isStorePickup)
   const line2 = getAddressField(order, 'address_line2', isStorePickup)
-  const cityPin = `${getAddressField(order, 'city', isStorePickup)} - ${getAddressField(order, 'pincode', isStorePickup)}`
-  const stateCountry = `${getAddressField(order, 'state', isStorePickup)}, ${getAddressField(order, 'country', isStorePickup) || 'India'}`
+  const city = getAddressField(order, 'city', isStorePickup)
+  const pincode = getAddressField(order, 'pincode', isStorePickup)
+  const state = getAddressField(order, 'state', isStorePickup)
+  const country = getAddressField(order, 'country', isStorePickup) || 'India'
+
+  const cityPin = city ? `${city} - ${pincode}` : pincode
+  const stateCountry = state ? `${state}, ${country}` : country
 
   return (
     <Document>
@@ -292,18 +276,16 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <View style={styles.brandContainer}>
-              <Image src={`${process.env.NEXT_PUBLIC_SITE_URL || ''}/logo.png`} style={styles.logo} />
               <Text style={styles.title}>{siteConfig.name}</Text>
             </View>
             <Text style={styles.text}>{siteConfig.address.line1}</Text>
             <Text style={styles.text}>{siteConfig.address.line2}</Text>
             <Text style={styles.text}>{siteConfig.address.city} - {siteConfig.address.pincode}, {siteConfig.address.state}, {siteConfig.address.country}</Text>
-            <Text style={styles.text}>Phone: {siteConfig.contact.phone.primary} | {siteConfig.contact.phone.secondary}</Text>
+            <Text style={styles.text}>Phone: {siteConfig.contact.phone.primary}</Text>
             <Text style={styles.text}>Email: {siteConfig.contact.email.orders}</Text>
-            <Text style={styles.text}>GSTIN: {siteConfig.business.gstin}</Text>
           </View>
           <View style={styles.headerRight}>
-            <Text style={styles.invoiceTitle}>{invoiceType === 'merchant' ? "Owner Tax Invoice" : "Tax Invoice"}</Text>
+            <Text style={styles.invoiceTitle}>{invoiceType === 'merchant' ? "Owner Invoice" : "Invoice"}</Text>
             
             <View style={styles.headerRow}>
               <Text style={styles.headerLabel}>Order #:</Text>
@@ -347,8 +329,8 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
             <Text style={styles.addressValue}>{formatPhoneNumber(getAddressField(order, 'phone', isStorePickup))}</Text>
           </View>
           
-          {!isStorePickup ? (
-            <View style={styles.addressRow}>
+          {line1 ? (
+            <View style={[styles.addressRow]}>
               <Text style={styles.addressLabel}>Address:</Text>
               <Text style={styles.addressValue}>
                 {[line1, line2].filter(Boolean).join(', ')}
@@ -359,23 +341,9 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
               </Text>
             </View>
           ) : (
-            <View style={styles.addressRow}>
+            <View style={[styles.addressRow]}>
               <Text style={styles.addressLabel}>Pincode:</Text>
-              <Text style={styles.addressValue}>{getAddressField(order, 'pincode', isStorePickup)}</Text>
-            </View>
-          )}
-          
-          {getAddressField(order, 'landmark', isStorePickup) && (
-            <View style={styles.addressRow}>
-              <Text style={styles.addressLabel}>Landmark:</Text>
-              <Text style={styles.addressValue}>{getAddressField(order, 'landmark', isStorePickup)}</Text>
-            </View>
-          )}
-          
-          {getAddressField(order, 'delivery_instructions', isStorePickup) && (
-            <View style={styles.addressRow}>
-              <Text style={styles.addressLabel}>Instructions:</Text>
-              <Text style={styles.addressValue}>{getAddressField(order, 'delivery_instructions', isStorePickup)}</Text>
+              <Text style={styles.addressValue}>{pincode}</Text>
             </View>
           )}
         </View>
@@ -383,44 +351,47 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
         <View style={styles.section}>
           <View style={styles.tableHeader}>
             <Text style={[styles.tableHeaderLabel, styles.col1]}>#</Text>
-            <Text style={[styles.tableHeaderLabel, styles.col2]}>Item & Customization</Text>
+            <Text style={[styles.tableHeaderLabel, styles.col2]}>Item Details</Text>
             <Text style={[styles.tableHeaderLabel, styles.col3]}>Qty</Text>
             <Text style={[styles.tableHeaderLabel, styles.col4]}>Unit Price</Text>
             <Text style={[styles.tableHeaderLabel, styles.col5]}>Total</Text>
           </View>
           
-          {order.order_items?.map((item: any, index: number) => (
-            <View key={item.id} style={[styles.tableRow, index % 2 === 1 ? styles.tableRowAlt : {}]}>
-              <Text style={[styles.text, styles.col1]}>{index + 1}</Text>
-              
-              <View style={styles.col2}>
-                <Text style={[styles.text, { fontFamily: 'Helvetica-Bold' }]}>{item.products?.name}</Text>
+          {order.order_items?.map((item: any, index: number) => {
+            // ⚡ FIXED: Resolves dynamic core names matching snapshotted database options keys
+            const cleanName = item.products?.name || 'Product';
+            const productTitle = item.variant_string && !cleanName.includes(`(${item.variant_string})`)
+              ? `${cleanName} (${item.variant_string})`
+              : cleanName;
+
+            const isWholesaleMode = item.purchase_type === 'wholesale' || item.purchase_type === 'variant_wholesale';
+
+            return (
+              <View key={item.id} style={[styles.tableRow, index % 2 === 1 ? styles.tableRowAlt : {}]}>
+                <Text style={[styles.text, styles.col1]}>{index + 1}</Text>
                 
-                {item.printing_type && item.printing_type !== 'None' && (
-                  <Text style={{ fontSize: 8, color: '#4b5563', marginTop: 2 }}>
-                    Type: {item.printing_type} {getFileCount(item) > 0 ? `[${getFileCount(item)} File(s) Attached]` : ''}
-                  </Text>
-                )}
+                <View style={styles.col2}>
+                  <Text style={[styles.text, { fontFamily: 'Helvetica-Bold' }]}>{productTitle}</Text>
+                  {isWholesaleMode && (
+                    <Text style={{ fontSize: 7, color: '#16803d', fontFamily: 'Helvetica-Bold', marginTop: 2, letterSpacing: 0.5 }}>
+                      [WHOLESALE PRICING APPLIED]
+                    </Text>
+                  )}
+                </View>
 
-                {getNotes(item) && (
-                  <Text style={{ fontSize: 8, color: '#6b7280', fontStyle: 'italic', marginTop: 1 }}>
-                    Note: {getNotes(item)}
-                  </Text>
-                )}
+                <Text style={[styles.text, styles.col3]}>{item.quantity}</Text>
+                <View style={styles.col4}>
+                  <Text style={styles.text}>Rs. {formatJustNumber(item.price)}</Text>
+                  {item.original_price && item.original_price > item.price && (
+                    <Text style={{ fontSize: 8, color: '#6b7280', textDecoration: 'line-through', marginTop: 1 }}>Rs. {formatJustNumber(item.original_price)}</Text>
+                  )}
+                </View>
+                <Text style={[styles.text, styles.col5, { fontFamily: 'Helvetica-Bold' }]}>
+                  Rs. {formatJustNumber(item.price * item.quantity)}
+                </Text>
               </View>
-
-              <Text style={[styles.text, styles.col3]}>{item.quantity}</Text>
-              <View style={styles.col4}>
-                <Text style={styles.text}>Rs. {formatJustNumber(item.price)}</Text>
-                {item.original_price && item.original_price > item.price && (
-                  <Text style={{ fontSize: 8, color: '#6b7280', textDecoration: 'line-through', marginTop: 1 }}>Rs. {formatJustNumber(item.original_price)}</Text>
-                )}
-              </View>
-              <Text style={[styles.text, styles.col5, { fontFamily: 'Helvetica-Bold' }]}>
-                Rs. {formatJustNumber(item.price * item.quantity)}
-              </Text>
-            </View>
-          ))}
+            )
+          })}
         </View>
 
         <View style={styles.totalsContainer}>
@@ -430,7 +401,7 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
 
           <View style={styles.totalsBox}>
             <View style={styles.totalRow}>
-              <Text style={[styles.text, { fontFamily: 'Helvetica-Bold' }]}>Taxable Value (Base):</Text>
+              <Text style={[styles.text, { fontFamily: 'Helvetica-Bold' }]}>Subtotal:</Text>
               <View style={styles.amountContainer}>
                 <Text style={styles.amountSymbol}>Rs.</Text>
                 <Text style={styles.amountNumber}>{formatJustNumber(subtotal)}</Text>
@@ -441,7 +412,6 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
               <Text style={[styles.text, { fontFamily: 'Helvetica-Bold' }]}>Shipping & Handling:</Text>
               {shippingCost === 0 ? (
                 <View style={styles.amountContainer}>
-                  <Text style={styles.amountSymbol}></Text>
                   <Text style={styles.amountNumber}>Free</Text>
                 </View>
               ) : (
@@ -462,8 +432,8 @@ export default function InvoiceDocument({ order, invoiceType = 'customer' }: { o
             
             {order.total_amount > 0 && (
               <View style={{ marginTop: 6, paddingTop: 4, borderTopWidth: 1, borderTopColor: '#f3f4f6' }}>
-                <Text style={{ fontSize: 11, color: '#4b5563', fontStyle: 'italic', textAlign: 'right' }}>
-                  Amount in words: {numberToIndianWords(order.total_amount)}
+                <Text style={{ fontSize: 10, color: '#4b5563', fontStyle: 'italic', textAlign: 'right' }}>
+                  Amount in words: {numberToIndianWords(order.total_amount)} rupees only
                 </Text>
               </View>
             )}

@@ -36,6 +36,12 @@ export function useCheckoutTimer(onExpire: () => void) {
     setIsActive(true)
   }, [])
 
+  const stopTimer = useCallback(() => {
+    setIsActive(false)
+    sessionStorage.removeItem('checkout_timer_end')
+    sessionStorage.removeItem('checkout_timer_sig')
+  }, [])
+
   useEffect(() => {
     if (!isActive) return
 
@@ -69,5 +75,5 @@ export function useCheckoutTimer(onExpire: () => void) {
   const m = Math.floor(timeLeft / 60).toString().padStart(2, '0')
   const s = (timeLeft % 60).toString().padStart(2, '0')
 
-  return { formattedTime: `${m}:${s}`, isExpired: timeLeft <= 0 && !isActive, startTimer }
+  return { formattedTime: `${m}:${s}`, isExpired: timeLeft <= 0 && !isActive, startTimer, stopTimer }
 }

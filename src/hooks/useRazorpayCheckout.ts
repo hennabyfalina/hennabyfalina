@@ -6,6 +6,7 @@ import { useState, useCallback, useRef } from 'react'
 import { createOrder } from '@/services/order.service'
 import { useCartStore } from '@/store/cart.store'
 import { siteConfig } from '@/config/site'
+import { recordPaymentFailure } from '@/services/payment.service'
 import { generateIdempotencyKey } from '@/lib/idempotency'
 
 interface CheckoutPayload {
@@ -17,18 +18,19 @@ interface CheckoutPayload {
   selectedAddressId: string | null
   checkoutSessionId: string
   formData: any
+  onFinalize: (status: 'success' | 'failed', orderId?: string, errorMsg?: string, orderNumber?: string, orderAmount?: number) => void
 }
 
 export function useRazorpayCheckout() {
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
-  const clearCart = useCartStore((state) => state.clearCart)
+  const clearCart = useCartStore((state) => state.persistCartClear || state.clearCart)
   
   const isProcessingRef = useRef(false)
   const currentIdempotencyKeyRef = useRef<string | null>(null)
 
   const processPayment = useCallback(async (payload: CheckoutPayload) => {
-    const { user, items, finalTotal, shippingMethod, shippingCost, selectedAddressId, formData, checkoutSessionId } = payload
+    const { user, items, finalTotal, shippingMethod, shippingCost, selectedAddressId, formData, checkoutSessionId, onFinalize } = payload
     
     if (isProcessingRef.current) return
     
@@ -69,10 +71,12 @@ export function useRazorpayCheckout() {
       }
 
       const orderData = {
+        // 🔒 TRANSMIT SECURE IDENTITIES: Passes variant metadata straight to order.service fields
         items: items.map(item => ({
           product_id: item.product_id,
           quantity: item.quantity,
           price: item.price,
+          variant_string: item.variant_string || null
         })),
         totalAmount: finalTotal,
         shippingCost: shippingCost,
@@ -84,7 +88,6 @@ export function useRazorpayCheckout() {
       }
 
       const order = await createOrder(orderData)
-      await clearCart()
 
       const response = await fetch('/api/razorpay', {
         method: 'POST',
@@ -120,12 +123,12 @@ export function useRazorpayCheckout() {
         },
         notes: {
           order_number: order.order_number,
-          order_id: order.id,
+          internal_order_id: order.id,
           shipping_method: shippingMethod
         },
         theme: { color: '#000000' },
         handler: async function (response: any) {
-          setIsProcessingCheckout(true) // Maintain loader visual during secure validation loops
+          setIsProcessingCheckout(true) 
           try {
             const res = await fetch('/api/razorpay/verify', {
               method: 'POST',
@@ -137,26 +140,39 @@ export function useRazorpayCheckout() {
             })
             if (!res.ok) throw new Error('Payment token tracking validation signature check rejected.')
             
-            window.location.href = `/order/${order.id}?new_order=true`
-          } catch (e) {
+            onFinalize('success', order.id, undefined, order.order_number, finalTotal)
+          } catch (e: any) {
             console.warn('[Checkout Fallback Switch]:', e)
-            window.location.href = `/profile/orders?filter=verifying`
+            onFinalize('success', order.id, e.message || 'Payment verification taking longer than usual.', order.order_number, finalTotal)
+          } finally {
+            setIsProcessingCheckout(false)
+            isProcessingRef.current = false
           }
         },
         modal: {
-          ondismiss: function() {
-            setIsProcessingCheckout(false)
-            isProcessingRef.current = false
-            window.location.href = `/profile/orders?filter=failed`
+          ondismiss: async function() {
+            try {
+              await recordPaymentFailure(order.id, 'Transaction was cancelled.')
+              onFinalize('failed', order.id, 'Transaction was cancelled.', order.order_number, finalTotal)
+            } finally {
+              setIsProcessingCheckout(false)
+              isProcessingRef.current = false
+            }
           }
         }
       }
       
       const rzp = new (window as any).Razorpay(options)
-      rzp.on('payment.failed', function () {
-        setIsProcessingCheckout(false)
-        isProcessingRef.current = false
-        window.location.href = `/profile/orders?filter=failed`
+      rzp.on('payment.failed', async function (response: any) {
+        const errorMsg = response.error?.description || 'Transaction declined by bank.'
+        console.error('[Checkout] Transaction declined or failed by bank limits:', errorMsg)
+        try {
+          await recordPaymentFailure(order.id, errorMsg)
+          onFinalize('failed', order.id, errorMsg, order.order_number, finalTotal)
+        } finally {
+          setIsProcessingCheckout(false)
+          isProcessingRef.current = false
+        }
       })
       rzp.open()
 
@@ -165,7 +181,7 @@ export function useRazorpayCheckout() {
       setIsProcessingCheckout(false)
       isProcessingRef.current = false
     }
-  }, [clearCart])
+  }, [])
 
   return { processPayment, isProcessingCheckout, checkoutError }
 }

@@ -12,9 +12,9 @@ export function useCartSignature() {
   const initialSignatureRef = useRef<string>('')
 
   const getCartSignature = useCallback(() => {
-    // 🧼 Cleaned Signature: Hashing strictly on product_id + quantity matrix
+    // 🧼 FIXED: Included variant_string token inside hash matrix mapping rails
     return useCartStore.getState().items
-      .map(item => `${item.product_id}|${item.quantity}`)
+      .map(item => `${item.product_id}|${item.quantity}|${item.variant_string || ''}`)
       .sort()
       .join(',')
   }, [])

@@ -12,6 +12,7 @@ import { getPublicUrl } from '@/lib/supabase/storage'
 import { useWishlistStore } from '@/store/wishlist.store'
 import { showToast } from '@/components/ui/Toast'
 import { getComputedProductPrices } from '@/lib/pricing'
+import type { Product } from '@/types/database.types'
 
 function HighlightMatch({ text, query }: { text: string, query: string }) {
   if (!query) return <span>{text}</span>;
@@ -30,39 +31,6 @@ function HighlightMatch({ text, query }: { text: string, query: string }) {
   );
 }
 
-interface ProductVariant {
-  name: string
-  price: number
-}
-
-interface Product {
-  id: string
-  name: string
-  slug: string
-  sku?: string | null
-  description?: string | null
-  images: string[]
-  stock: number
-  rating?: number | null
-  review_count?: number | null
-  category_id?: string | null
-  is_active: boolean
-  is_deleted: boolean
-  retail_price: number
-  wholesale_price: number
-  wholesale_min_qty: number
-  mrp?: number | null
-  variants?: ProductVariant[] | string | any 
-  is_featured?: boolean
-  frequently_bought_together?: string[] | null
-  weight?: number | null
-  weight_unit?: string | null
-  gsm?: number | null
-  dimensions?: any | null
-  meta_title?: string | null
-  meta_description?: string | null
-}
-
 interface ProductCardProps {
   product: Product
   priority?: boolean
@@ -77,8 +45,9 @@ export default function ProductCard({ product, priority = false, searchQuery = '
 
   const isSaved = savedProductIds.includes(product.id)
   
+  // ⚡ STRATEGIC RE-CALIBRATION: Dynamically processes display baseline rates based on mode switches
   const { hasVariants, displayPrice, discountPct, isOutOfStock } = useMemo(() => {
-    return getComputedProductPrices(product as any, null)
+    return getComputedProductPrices(product, null)
   }, [product])
 
   const rawImage = product.images?.[0]
@@ -172,7 +141,7 @@ export default function ProductCard({ product, priority = false, searchQuery = '
               <span className="text-[12px] sm:text-[13px] text-gray-400 line-through font-medium shrink-0 ml-0.5">
                 {formatCurrency(product.mrp)}
               </span>
-              <span className="text-[11px] font-bold text-emerald-600 shrink-0 ml-0.5 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-100/40">
+              <span className="text-[11px] font-bold text-emerald-600 shrink-0 ml-0.5 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100/40 uppercase tracking-wide">
                 {discountPct}% OFF
               </span>
             </>

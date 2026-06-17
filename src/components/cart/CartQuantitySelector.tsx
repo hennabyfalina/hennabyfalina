@@ -24,7 +24,6 @@ export default function CartQuantitySelector({
   const [customValue, setCustomValue] = useState(quantity.toString())
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Close dropdown on outside click interaction paths
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -52,17 +51,20 @@ export default function CartQuantitySelector({
       onQuantityChange(parsed)
       setShowModal(false)
     } else {
-      // Revert if out of bounds safely
       setCustomValue(quantity.toString())
       setShowModal(false)
     }
   }
 
+  // ⚡ DYNAMIC OPTIONS RAILS: Compute drop points from the baseline minimum value bound
+  const quickOptions = [min, min + 1, min + 2]
+
   return (
     <div className="relative inline-block text-left font-sans antialiased" ref={containerRef}>
       
-      {/* 🚀 Dropdown Toggle Button Capsule */}
+      {/* Dropdown Toggle Button Capsule */}
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="h-9 px-3.5 border border-gray-200 hover:border-gray-300 bg-white rounded-lg text-[14px] font-medium text-gray-900 flex items-center gap-2 transition-colors cursor-pointer outline-none shadow-none"
       >
@@ -70,32 +72,37 @@ export default function CartQuantitySelector({
         <ChevronDown className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} strokeWidth={2} />
       </button>
 
-      {/* 🚀 Options Dropdown Overlay Menu List */}
+      {/* Options Dropdown Overlay Menu List */}
       {isOpen && (
         <div className="absolute left-0 bottom-full mb-1 min-w-[80px] bg-white border border-gray-200 rounded-lg py-1.5 shadow-xl z-50 flex flex-col animate-in fade-in slide-in-from-bottom-1 duration-150">
-          {[1, 2, 3].map((num) => (
-            <button
-              key={num}
-              onClick={() => handleSelectOption(num)}
-              className={`w-full text-center px-4 py-2 text-[14px] transition-colors cursor-pointer outline-none ${
-                quantity === num 
-                  ? 'bg-stone-50 text-blue-600 font-semibold' 
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              {num}
-            </button>
-          ))}
+          {quickOptions.map((num) => {
+            if (num > max) return null
+            return (
+              <button
+                key={num}
+                type="button"
+                onClick={() => handleSelectOption(num)}
+                className={`w-full text-center px-4 py-2 text-[14px] transition-colors cursor-pointer outline-none border-none ${
+                  quantity === num 
+                    ? 'bg-stone-50 text-blue-600 font-semibold' 
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {num}
+              </button>
+            )
+          })}
           <button
+            type="button"
             onClick={() => handleSelectOption('more')}
-            className="w-full text-center px-4 py-2 text-[14px] text-gray-500 hover:bg-gray-50 font-medium border-t border-gray-50 mt-0.5 cursor-pointer outline-none"
+            className="w-full text-center px-4 py-2 text-[14px] text-gray-500 hover:bg-gray-50 font-medium border-t border-gray-50 mt-0.5 cursor-pointer outline-none border-none"
           >
             more
           </button>
         </div>
       )}
 
-      {/* 🚀 Bulk Numeric Enter Input Modal Overlay Portal */}
+      {/* Bulk Numeric Enter Input Modal Overlay Portal */}
       {showModal && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[1000000] flex items-center justify-center p-4 bg-black/10 backdrop-blur-xs animate-fade-in">
           <div className="absolute inset-0 cursor-pointer" onClick={() => setShowModal(false)} />
@@ -104,12 +111,10 @@ export default function CartQuantitySelector({
             onSubmit={handleModalSubmit}
             className="relative bg-white rounded-xl shadow-xl border border-gray-100 w-full max-w-sm overflow-hidden animate-zoom-in flex flex-col text-left"
           >
-            {/* Header */}
             <div className="px-5 pt-5 pb-3">
               <h3 className="text-[18px] font-normal text-gray-950">Enter Quantity</h3>
             </div>
 
-            {/* Input Body Content Field */}
             <div className="px-5 py-2">
               <input
                 type="number"
@@ -131,18 +136,17 @@ export default function CartQuantitySelector({
               </p>
             </div>
 
-            {/* Action Dialog Confirm Base Buttons */}
             <div className="flex border-t border-gray-100 mt-6 h-12 w-full text-[15px] font-medium tracking-wide shrink-0">
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="flex-1 h-full border-r border-gray-100 text-gray-500 hover:bg-gray-50 transition-colors capitalise cursor-pointer outline-none"
+                className="flex-1 h-full border-r border-gray-100 text-gray-500 hover:bg-gray-50 transition-colors capitalise cursor-pointer outline-none bg-transparent"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="flex-1 h-full text-blue-600 hover:bg-gray-50 transition-colors capitalise font-semibold cursor-pointer outline-none"
+                className="flex-1 h-full text-blue-600 hover:bg-gray-50 transition-colors capitalise font-semibold cursor-pointer outline-none border-none bg-transparent"
               >
                 Apply
               </button>

@@ -72,10 +72,11 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
       icon: ShoppingBag,
       links: [
         { label: 'All Products', href: '/products' },
-        { label: 'Bridal Henna Cones', href: '/search?category=Bridal' },
-        { label: 'Organic Essential Oils', href: '/search?category=Oils' },
-        { label: 'Practice Templates', href: '/search?category=Templates' },
-        { label: 'Curated Bundles', href: '/search?category=Bundles' },
+        { label: 'Henna Cones', href: '/products?category=henna-cones' },
+        { label: 'Combos', href: '/products?category=combo-packs' },
+        { label: 'Stencils', href: '/products?category=stencils' },
+        { label: 'Kits', href: '/products?category=kits' },
+        { label: 'Essentials', href: '/products?category=raw-materials-essentials' },
       ]
     },
     {
@@ -209,6 +210,7 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                           <Link
                             key={link.href}
                             href={link.href}
+                            onClick={onClose}
                             className="py-3 text-[14px] font-medium text-gray-500 hover:text-gray-900 transition-colors flex items-center justify-between group/link capitalize"
                           >
                             <span>{link.label}</span>

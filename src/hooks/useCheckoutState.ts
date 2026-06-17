@@ -6,12 +6,13 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { getSavedAddresses, saveAddress, updateAddress } from '@/services/order.service'
 import { useRouter } from 'next/navigation'
+import { useCartStore } from '@/store/cart.store'
 import type { AddressFormData } from '@/components/checkout/AddressForm'
 import { showToast } from '@/components/ui/Toast'
 
 export type AddressMode = 'LOADING' | 'PREVIEW' | 'ADDING' | 'EDITING'
 export type ShippingMethod = 'delivery' | 'pickup'
-export type CheckoutStep = 1 | 2
+export type CheckoutStep = 1 | 2 | 3
 
 const INITIAL_FORM_DATA: AddressFormData = {
   name: '',
@@ -28,6 +29,7 @@ const INITIAL_FORM_DATA: AddressFormData = {
 
 export function useCheckoutState() {
   const router = useRouter()
+  const clearCart = useCartStore((state) => state.clearCart)
   
   // Core Data States
   const [user, setUser] = useState<any>(null)
@@ -43,6 +45,13 @@ export function useCheckoutState() {
   const [formData, setFormData] = useState(INITIAL_FORM_DATA)
   const [shippingMethod, setShippingMethod] = useState<ShippingMethod>('delivery')
   
+  // Terminal Step 3 Result Workspaces
+  const [checkoutStatus, setCheckoutStatus] = useState<'idle' | 'success' | 'failed'>('idle')
+  const [completedOrderId, setCompletedOrderId] = useState<string | null>(null)
+  const [completedOrderNumber, setCompletedOrderNumber] = useState<string | null>(null)
+  const [completedOrderAmount, setCompletedOrderAmount] = useState<number | null>(null)
+  const [paymentErrorMessage, setPaymentErrorMessage] = useState<string | null>(null)
+
   // Progress Operational Status Flags
   const [isSavingAddress, setIsSavingAddress] = useState(false)
   const [addressError, setAddressError] = useState<string | null>(null)
@@ -81,6 +90,27 @@ export function useCheckoutState() {
           return
         }
         setUser(session.user)
+
+        // 🚀 ENTERPRISE SECURITY: Hard Redirect on Step 3 Refresh Attempts
+        const savedSessionStep = sessionStorage.getItem('checkout_step')
+        if (savedSessionStep === '3') {
+           const status = sessionStorage.getItem('checkout_status') as 'success' | 'failed'
+           const orderId = sessionStorage.getItem('checkout_order_id')
+           
+           sessionStorage.removeItem('checkout_step')
+           if (status === 'success' && orderId) {
+             router.replace(`/order/${orderId}?new_order=true`)
+             return 
+           } else if (status === 'failed') {
+             router.replace('/cart')
+             return 
+           }
+        }
+        
+        // Clear partials safely if no direct hit
+        sessionStorage.removeItem('checkout_step')
+        sessionStorage.removeItem('checkout_status')
+        sessionStorage.removeItem('checkout_order_id')
 
         const addresses = await getSavedAddresses()
         setSavedAddresses(addresses)
@@ -275,6 +305,30 @@ export function useCheckoutState() {
     // Database lifecycle cron handles cleanups
   }, [])
 
+  // Terminal Transition Controller
+  const finalizeCheckout = useCallback((status: 'success' | 'failed', orderId?: string, errorMsg?: string, orderNumber?: string, orderAmount?: number) => {
+    if (status === 'success') {
+      clearCart()
+    }
+    setCheckoutStatus(status)
+    if (orderId) {
+      setCompletedOrderId(orderId)
+      sessionStorage.setItem('checkout_order_id', orderId)
+    }
+    if (orderNumber) {
+      setCompletedOrderNumber(orderNumber)
+      sessionStorage.setItem('checkout_order_number', orderNumber)
+    }
+    if (errorMsg) setPaymentErrorMessage(errorMsg)
+    if (orderAmount !== undefined) {
+      setCompletedOrderAmount(orderAmount)
+      sessionStorage.setItem('checkout_order_amount', orderAmount.toString())
+    }
+    setCurrentStep(3)
+    sessionStorage.setItem('checkout_step', '3')
+    sessionStorage.setItem('checkout_status', status)
+  }, [clearCart])
+
   return {
     user,
     isInitializing,
@@ -290,6 +344,12 @@ export function useCheckoutState() {
     canSaveAddress,
     isStepComplete,
     canPlaceOrder,
+    checkoutStatus,
+    completedOrderId,
+    completedOrderNumber,
+    completedOrderAmount,
+    paymentErrorMessage,
+    finalizeCheckout,
     setCurrentStep,
     nextStep,
     prevStep,

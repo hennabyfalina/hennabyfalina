@@ -28,14 +28,18 @@ export async function GET(
     const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single()
     const isAdmin = userData?.role === 'admin' || userData?.role === 'super_admin'
 
-    // 2. FETCH SECURE DATA: Fetch the order with addresses and B2B order items
+    // 2. FETCH SECURE DATA: Fetch the order with addresses and snapshotted metrics
     let query = supabase.from('orders')
       .select(`
         *,
         addresses (*),
         order_items (
           *,
-          products (*)
+          products (
+            id,
+            name,
+            sku
+          )
         )
       `)
       .eq('id', id)
@@ -58,10 +62,9 @@ export async function GET(
     }
 
     // 4. STREAM GENERATION: Instantly render and stream the PDF to prevent memory leaks
-    // Pass the rich B2B order object into our upgraded template
     const pdfStream = await renderToStream(<InvoiceDocument order={order} invoiceType={invoiceType} /> as any)
     
-    // 🚨 THE FIX: Convert legacy NodeJS Stream to modern Web ReadableStream for Next.js App Router
+    // Convert legacy NodeJS Stream to modern Web ReadableStream for Next.js App Router
     const readableWebStream = new ReadableStream({
       start(controller) {
         pdfStream.on('data', (chunk) => controller.enqueue(chunk))

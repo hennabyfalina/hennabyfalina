@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import ProductCard from '@/components/product/ProductCard'
 import { useAuth } from '@/hooks/useAuth'
-import { Product } from '@/types/database.types'
+import type { Product } from '@/types/database.types'
 
 function ProductCardSkeleton() {
   return (
@@ -117,8 +117,9 @@ export default function RecentlyBoughtCarousel() {
       <div className="relative -mx-4 sm:mx-0 px-4 sm:px-0">
         {canScrollLeft && (
           <button 
+            type="button"
             onClick={() => scroll('left')}
-            className="absolute left-0 top-1/2 -translate-y-1/2 -ml-2 sm:-ml-4 z-20 w-8 h-8 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 transition-all opacity-0 group-hover/slider:opacity-100 cursor-pointer shadow-xs"
+            className="absolute left-0 top-1/2 -translate-y-1/2 -ml-2 sm:-ml-4 z-20 w-8 h-8 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 transition-all opacity-0 group-hover/slider:opacity-100 cursor-pointer shadow-none outline-none"
             aria-label="Scroll left"
           >
             <ChevronLeft className="w-4 h-4 pr-0.5" strokeWidth={1.5} />
@@ -135,7 +136,7 @@ export default function RecentlyBoughtCarousel() {
           {recentlyBought.map((product, index) => (
             <div key={product.id} className="w-[200px] sm:w-[260px] flex-shrink-0 h-full snap-start">
               <ProductCard 
-                product={product} 
+                product={product as any} 
                 priority={index < 2}
                 searchQuery="" 
               />
@@ -145,8 +146,9 @@ export default function RecentlyBoughtCarousel() {
 
         {canScrollRight && (
           <button 
+            type="button"
             onClick={() => scroll('right')}
-            className="absolute right-0 top-1/2 -translate-y-1/2 -mr-2 sm:-mr-4 z-20 w-8 h-8 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 transition-all opacity-0 group-hover/slider:opacity-100 cursor-pointer shadow-xs"
+            className="absolute right-0 top-1/2 -translate-y-1/2 -mr-2 sm:-mr-4 z-20 w-8 h-8 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 transition-all opacity-0 group-hover/slider:opacity-100 cursor-pointer shadow-none outline-none"
             aria-label="Scroll right"
           >
             <ChevronRight className="w-4 h-4 pl-0.5" strokeWidth={1.5} />

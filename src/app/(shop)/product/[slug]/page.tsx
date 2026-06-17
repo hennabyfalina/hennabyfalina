@@ -11,9 +11,9 @@ import dynamic from 'next/dynamic'
 import ProductInteractiveSection from '@/components/product/ProductInteractiveSection'
 import ProductPageHeader from '@/components/product/ProductPageHeader'
 import ProductActionDock from '@/components/product/ProductActionDock'
+import { getVariantBasePrice } from '@/lib/pricing'
 
-// ⚡ ENTERPRISE CACHING LAYER: Cache all individual dynamic product pages at Vercel's Edge CDN.
-// This prevents traffic surges from hitting your database for item reads.
+// Cache individual dynamic product pages at Vercel's Edge CDN.
 export const revalidate = 3600 // Revalidate product data once per hour
 
 const FrequentlyBoughtTogether = dynamic(() => import('@/components/product/FrequentlyBoughtTogether'), {
@@ -42,11 +42,9 @@ export async function generateMetadata({ params }: ProductPageProps) {
       description: product.description || '',
       images: product.images?.[0] ? [product.images[0]] : [],
     },
-    //ts-ignore
     alternates: {
       canonical: `/product/${product.slug}`,
     },
-    // Custom layout flags parsed by global Layout nodes to turn off default panels
     other: {
       hideGlobalMobileNav: 'true',
       hideGlobalMobileBottomNav: 'true'
@@ -69,7 +67,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
   }
 
   const hasStock = product.stock > 0
-  const retailPrice = product.retail_price ?? 0
+  
+  // ⚡ ENHANCED SCHEMA SOLVER: Resolves accurate low-bounds for variant-only models to avoid Google validation failures
+  const resolvedBasePrice = getVariantBasePrice(product as any, null)
 
   // Enterprise JSON-LD Schema (Clean SEO Core)
   const jsonLd: any = {
@@ -86,7 +86,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     offers: {
       "@type": "Offer",
       priceCurrency: "INR",
-      price: retailPrice,
+      price: resolvedBasePrice,
       availability: hasStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
       seller: {
         "@type": "Organization",
@@ -118,7 +118,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       {/* 💻 STICKY ACTION HORIZON DOCK */}
       <ProductActionDock 
         product={product}
-        sellingPrice={retailPrice}
+        sellingPrice={resolvedBasePrice}
         hasStock={hasStock}
       />
 
@@ -149,7 +149,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
              <ProductInteractiveSection 
                 product={product} 
                 hasStock={hasStock} 
-                sellingPrice={retailPrice} 
+                sellingPrice={resolvedBasePrice} 
              />
           </div>
         </div>

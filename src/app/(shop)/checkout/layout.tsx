@@ -4,7 +4,7 @@ import { Metadata } from 'next'
 import { siteConfig } from '@/config/site'
 
 export const metadata: Metadata = {
-  title: `Secure checkout | ${siteConfig.name}`,
+  title: `Secure Checkout | ${siteConfig.name}`,
   robots: { index: false, follow: false },
 }
 

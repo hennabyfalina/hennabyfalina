@@ -3,7 +3,6 @@
 import { create } from 'zustand'
 import type { ProductVariant } from '@/lib/pricing'
 
-// Re-export the type for convenience
 export type Variant = ProductVariant
 
 interface VariantState {

@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useCartStore } from '@/store/cart.store'
 import { SHIPPING_THRESHOLD, SHIPPING_COST } from '@/lib/constants'
 import { showToast } from '@/components/ui/Toast'
-import { Sparkles, Lock, ArrowLeft, ArrowRight, ShieldCheck, MapPin, Home } from 'lucide-react'
+import { Sparkles, Lock, ArrowLeft, ArrowRight, ShieldCheck, MapPin, Home, CheckCircle, AlertTriangle } from 'lucide-react'
 
 // Visual Components
 import Container from '@/components/ui/Container'
@@ -32,6 +32,7 @@ import { useCheckoutTimer } from '@/hooks/useCheckoutTimer'
 import { useRazorpayCheckout } from '@/hooks/useRazorpayCheckout'
 import { useCartSignature } from '@/hooks/useCartSignature'
 import { formatCurrency } from '@/lib/utils'
+import confetti from 'canvas-confetti'
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -42,6 +43,7 @@ export default function CheckoutPage() {
 
   const [isRefreshingPrices, setIsRefreshingPrices] = useState(true)
   const [sessionExpired, setSessionExpired] = useState(false)
+  const [redirectCountdown, setRedirectCountdown] = useState<number | null>(null)
 
   // 1. Cart Signature State (Multi-Tab Session Sync)
   const { hasCartChanged, setHasCartChanged, initialSignature } = useCartSignature()
@@ -62,6 +64,13 @@ export default function CheckoutPage() {
     canSaveAddress,
     isStepComplete,
     canPlaceOrder,
+    checkoutStatus,
+    completedOrderId,
+    completedOrderNumber,
+    completedOrderAmount,
+    paymentErrorMessage,
+    finalizeCheckout,
+    setCurrentStep,
     nextStep,
     prevStep,
     setShippingMethod,
@@ -87,10 +96,26 @@ export default function CheckoutPage() {
     return ''
   })
 
+  const clearCheckoutSession = () => {
+    sessionStorage.removeItem('checkout_step')
+    sessionStorage.removeItem('checkout_status')
+    sessionStorage.removeItem('checkout_order_id')
+    sessionStorage.removeItem('checkout_order_number')
+    sessionStorage.removeItem('checkout_order_amount')
+  }
+
   // 🚀 ANTI-CHEAT: Strict Frontend Reservation Timer 
-  const { formattedTime, isExpired, startTimer } = useCheckoutTimer(() => {
+  const { formattedTime, isExpired, startTimer, stopTimer } = useCheckoutTimer(() => {
     setSessionExpired(true)
   })
+
+  // Kill timer & hide modal gracefully when finalizing checkout successfully
+  useEffect(() => {
+    if (currentStep === 3) {
+      stopTimer()
+      setSessionExpired(false)
+    }
+  }, [currentStep, stopTimer])
 
   // Stock Reservation Engine
   useEffect(() => {
@@ -116,22 +141,63 @@ export default function CheckoutPage() {
       }
       reserve()
     }
-  }, [items, checkoutSessionId, user, router])
+  }, [items, checkoutSessionId, user, router, startTimer, initialSignature])
+
+  // 🚀 ENTERPRISE SECURITY: Step 3 Terminal Protections & Auto-Redirects
+  useEffect(() => {
+    if (currentStep === 3) {
+      // 1. Initiate correct countdown length
+      setRedirectCountdown(checkoutStatus === 'success' ? 10 : 60)
+      
+      // 2. SPA Trapping: Push a dummy history state to intercept physical back buttons
+      window.history.pushState(null, '', window.location.href)
+      const handlePopState = () => {
+        clearCheckoutSession()
+        if (checkoutStatus === 'success') {
+          router.replace(`/order/${completedOrderId}?new_order=true`)
+        } else {
+          router.replace('/cart')
+        }
+      }
+      window.addEventListener('popstate', handlePopState)
+      return () => window.removeEventListener('popstate', handlePopState)
+    }
+  }, [currentStep, checkoutStatus, completedOrderId, router])
+
+  // 🚀 Process the countdown ticker
+  useEffect(() => {
+    if (currentStep === 3 && redirectCountdown !== null) {
+      if (redirectCountdown > 0) {
+        const timer = setInterval(() => setRedirectCountdown(prev => prev! - 1), 1000)
+        return () => clearInterval(timer)
+      } else {
+        clearCheckoutSession()
+        if (checkoutStatus === 'success') {
+          router.replace(`/order/${completedOrderId}?new_order=true`)
+        } else {
+          router.replace('/cart')
+        }
+      }
+    }
+  }, [currentStep, redirectCountdown, checkoutStatus, completedOrderId, router])
 
   // Subtotals & Cost Ledger Calculations
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0)
   const shippingCost = shippingMethod === 'pickup' ? 0 : (subtotal > SHIPPING_THRESHOLD ? 0 : SHIPPING_COST)
   const finalTotal = subtotal + shippingCost
-  const totalMrp = items.reduce((sum, item) => sum + ((item.mrp && item.mrp > item.price) ? item.mrp : item.price) * item.quantity, 0)
+  const totalMrp = items.reduce((sum, item) => {
+    const baselinePrice = Number(item.mrp) || Number(item.original_price) || Number(item.price);
+    return sum + (baselinePrice * item.quantity);
+  }, 0)
   const totalSavings = totalMrp - subtotal
 
   // 🚀 UX FIX: Gracefully redirect users back to the cart if they land here with an empty bag
   useEffect(() => {
-    if (!isInitializing && items.length === 0 && !isProcessingCheckout) {
+    if (!isInitializing && items.length === 0 && !isProcessingCheckout && currentStep < 3) {
       router.replace('/cart')
     }
-  }, [isInitializing, items.length, isProcessingCheckout, router])
+  }, [isInitializing, items.length, isProcessingCheckout, router, currentStep])
 
   useEffect(() => {
     const syncPrices = async () => {
@@ -142,15 +208,15 @@ export default function CheckoutPage() {
     items.length > 0 ? syncPrices() : setIsRefreshingPrices(false)
   }, [refreshCartPrices, items.length])
 
-  if (isRefreshingPrices || isInitializing) {
-    return <div className="flex-1 min-h-[75vh] flex flex-col items-center justify-center bg-white"><Loader /></div>
-  }
-
-  if (items.length === 0 && !isProcessingCheckout) return null
-
   const handleInitiateCheckout = async () => {
-    if (!canPlaceOrder) { window.scrollTo({ top: 0, behavior: 'smooth' }); return }
-    if (hasCartChanged) return
+    if (!canPlaceOrder) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (hasCartChanged) {
+      setHasCartChanged(true);
+      return;
+    }
 
     setIsRefreshingPrices(true)
     await refreshCartPrices()
@@ -165,6 +231,7 @@ export default function CheckoutPage() {
       selectedAddressId,
       formData,
       checkoutSessionId,
+      onFinalize: finalizeCheckout
     })
   }
 
@@ -173,6 +240,8 @@ export default function CheckoutPage() {
   let onCtaClick = () => {};
   let isCtaDisabled = false;
   let showCtaSpinner = false;
+  let secondaryCtaText = '';
+  let onSecondaryCtaClick = () => {};
 
   if (currentStep === 1) {
     if (addressMode === 'ADDING' || addressMode === 'EDITING') {
@@ -186,30 +255,66 @@ export default function CheckoutPage() {
       isCtaDisabled = !isStepComplete;
       showCtaSpinner = false;
     }
-  } else {
+  } else if (currentStep === 2) {
     ctaText = `Securely Pay ${formatCurrency(finalTotal)}`;
     onCtaClick = handleInitiateCheckout;
     isCtaDisabled = isProcessingCheckout;
     showCtaSpinner = isProcessingCheckout;
+  } else if (currentStep === 3) {
+    if (checkoutStatus === 'success') {
+      ctaText = 'View Order';
+      onCtaClick = () => { clearCheckoutSession(); router.replace(`/order/${completedOrderId}?new_order=true`); };
+      secondaryCtaText = 'Shopping';
+      onSecondaryCtaClick = () => { clearCheckoutSession(); router.replace('/products'); };
+    } else {
+      ctaText = 'Retry Payment';
+      onCtaClick = handleInitiateCheckout;
+      isCtaDisabled = isProcessingCheckout;
+      showCtaSpinner = isProcessingCheckout;
+      secondaryCtaText = 'Cancel';
+      onSecondaryCtaClick = () => { clearCheckoutSession(); router.replace('/products'); };
+    }
   }
+
+  // 🚀 DELIGHTFUL UX: Fire Confetti on Successful Payment
+  useEffect(() => {
+    if (currentStep === 3 && checkoutStatus === 'success') {
+      confetti({
+        particleCount: 150,
+        spread: 80,
+        origin: { y: 0.4 },
+        colors: ['#10B981', '#3B82F6', '#059669']
+      })
+    }
+  }, [currentStep, checkoutStatus])
+
+  if (isRefreshingPrices || isInitializing) {
+    return <div className="flex-1 min-h-[75vh] flex flex-col items-center justify-center bg-white"><Loader /></div>
+  }
+
+  if (items.length === 0 && !isProcessingCheckout && currentStep < 3) return null
 
   return (
     <>
       <SecureLoadingOverlay isProcessing={isProcessingCheckout} />
       <PersistentCheckoutBar
+        currentStep={currentStep}
+        checkoutStatus={checkoutStatus}
         finalTotal={finalTotal}
         shippingCost={shippingCost}
         buttonText={ctaText}
         onClick={onCtaClick}
         isDisabled={isCtaDisabled}
         isProcessing={showCtaSpinner}
+        secondaryButtonText={secondaryCtaText}
+        onSecondaryClick={onSecondaryCtaClick}
       />
 
       <div className="min-h-screen bg-white pb-32 md:pb-40 pt-[140px] sm:pt-40 select-none font-sans antialiased text-left">
-        <CheckoutHeader />
+        <CheckoutHeader currentStep={currentStep} formattedTime={formattedTime} isExpired={isExpired} />
         
         {/* Step Controller Navigation Subheader Layer */}
-        <CheckoutProgressBar currentStep={currentStep} formattedTime={formattedTime} isExpired={isExpired} />
+        <CheckoutProgressBar currentStep={currentStep} checkoutStatus={checkoutStatus} />
         
         <Container className="max-w-[1400px] px-4 sm:px-8 mt-8">
           <CheckoutErrorAlert error={checkoutError || addressError} />
@@ -220,7 +325,7 @@ export default function CheckoutPage() {
             {/* ========================================================================= */}
             {/* LEFT COLUMN WORKSPACE: LINEAR STEP FLOW SWITCH FRAME                      */}
             {/* ========================================================================= */}
-            <div className="lg:col-span-8 w-full md:min-h-[400px]">
+            <div className={`w-full ${currentStep === 3 ? 'lg:col-span-12' : 'lg:col-span-8 md:min-h-[400px]'}`}>
               
               {/* ─── STEP 1: DELIVERY & ADDRESS ─── */}
               {currentStep === 1 && (
@@ -317,31 +422,94 @@ export default function CheckoutPage() {
                 </div>
               )}
 
+              {/* ─── STEP 3: TERMINAL (SUCCESS / FAILURE) ─── */}
+              {currentStep === 3 && (
+                <div className="space-y-8 animate-fade-in w-full max-w-2xl mx-auto text-center py-4 md:py-8 mt-4">
+                  {checkoutStatus === 'success' ? (
+                    <div className="flex flex-col items-center">
+                      <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-6 border border-emerald-100">
+                        <CheckCircle className="w-10 h-10" strokeWidth={2} />
+                      </div>
+                      <h2 className="text-[28px] font-normal tracking-tight text-gray-900 mb-2">Thank you, {formData.name.split(' ')[0]}!</h2>
+                      <p className="text-[16px] text-gray-500 mb-8">Your order has been confirmed.</p>
+                      
+                      <div className="bg-gray-50/50 border border-gray-100 rounded-2xl p-6 w-full text-left mb-8 space-y-3">
+                        <div className="flex justify-between items-center pb-3 border-b border-gray-100">
+                          <span className="text-gray-500 text-[14px]">Order Number</span>
+                          <span className="text-gray-900 font-medium tracking-wide">{completedOrderNumber || completedOrderId?.split('-')[0].toUpperCase()}</span>
+                        </div>
+                        <div className="flex justify-between items-center pb-3 border-b border-gray-100">
+                          <span className="text-gray-500 text-[14px]">Total Amount</span>
+                          <span className="text-gray-900 font-medium">{formatCurrency(completedOrderAmount ?? finalTotal)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-500 text-[14px]">Delivery Method</span>
+                          <span className="text-gray-900 font-medium capitalize">{shippingMethod === 'pickup' ? 'Store Pickup' : 'Home Delivery'}</span>
+                        </div>
+                      </div>
+
+                      <div className="hidden sm:flex flex-row items-center gap-3 w-full mb-3">
+                        <button onClick={() => { clearCheckoutSession(); router.replace(`/order/${completedOrderId}?new_order=true`); }} className="w-full sm:flex-1 h-12 bg-black hover:bg-stone-900 text-white rounded-xl text-[14px] font-medium transition-all shadow-none cursor-pointer border-none outline-none">
+                          View Order
+                        </button>
+                        <button onClick={() => { clearCheckoutSession(); router.replace('/products'); }} className="w-full sm:flex-1 h-12 bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 rounded-xl text-[14px] font-medium transition-all shadow-none cursor-pointer outline-none whitespace-nowrap">
+                          Shopping
+                        </button>
+                      </div>
+                      
+                      <p className="text-[13px] text-gray-400 italic">Redirecting to order details in {redirectCountdown} seconds...</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center">
+                      <div className="w-20 h-20 bg-red-50 text-red-600 rounded-full flex items-center justify-center mb-6 border border-red-100">
+                        <AlertTriangle className="w-10 h-10" strokeWidth={2} />
+                      </div>
+                      <h2 className="text-[28px] font-normal tracking-tight text-gray-900 mb-2">Payment Incomplete</h2>
+                      <p className="text-[15px] text-gray-600 mb-2">{paymentErrorMessage || 'Transaction was declined or cancelled.'}</p>
+                      <p className="text-[14px] text-gray-400 mb-8">Don&apos;t worry, your cart is safe and stock is still reserved.</p>
+
+                      <div className="hidden sm:flex flex-row items-center gap-3 w-full mb-3">
+                        <button onClick={handleInitiateCheckout} disabled={isProcessingCheckout} className="w-full sm:flex-1 h-12 bg-black hover:bg-stone-900 text-white rounded-xl text-[14px] font-medium transition-all flex items-center justify-center shadow-none cursor-pointer border-none outline-none">
+                          {isProcessingCheckout ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Retry Payment'}
+                        </button>
+                        <button onClick={() => { clearCheckoutSession(); router.replace('/products'); }} className="w-full sm:flex-1 h-12 bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 rounded-xl text-[14px] font-medium transition-all shadow-none cursor-pointer outline-none">
+                          Cancel
+                        </button>
+                      </div>
+                      
+                      {!isProcessingCheckout && <p className="text-[13px] text-gray-400 italic">Complete the payment with in {redirectCountdown} seconds...</p>}
+                    </div>
+                  )}
+                </div>
+              )}
+
             </div>
 
             {/* ========================================================================= */}
             {/* RIGHT COLUMN WORKSPACE: SECURE TRANSACTION SUMMARY IMMUTABLE LEDGER     */}
             {/* ========================================================================= */}
-            <div className="lg:col-span-4 lg:sticky lg:top-40 flex flex-col gap-6 w-full">
-              
-              <OrderSummary 
-                items={items} 
-                subtotal={subtotal} 
-                shipping={shippingCost} 
-                total={finalTotal} 
-                shippingMethod={shippingMethod}
-                ctaText={ctaText}
-                onCtaClick={onCtaClick}
-                isCtaDisabled={isCtaDisabled}
-                showCtaSpinner={showCtaSpinner}
-              />
-              
-              {/* Secure Trust Validation Footnote anchor line */}
-              <div className="flex items-center justify-center gap-2 text-[13px] font-medium text-gray-400 pt-2 capitalize">
-                <ShieldCheck className="w-4 h-4 text-gray-400" strokeWidth={1.8} />
-                <span>100% Secure Checkout</span>
+            {currentStep < 3 && (
+              <div className="lg:col-span-4 lg:sticky lg:top-40 flex flex-col gap-6 w-full">
+                
+                <OrderSummary 
+                  items={items as any} 
+                  subtotal={subtotal} 
+                  shipping={shippingCost} 
+                  total={finalTotal} 
+                  shippingMethod={shippingMethod}
+                  ctaText={ctaText}
+                  onCtaClick={onCtaClick}
+                  isCtaDisabled={isCtaDisabled}
+                  showCtaSpinner={showCtaSpinner}
+                />
+                
+                {/* Secure Trust Validation Footnote anchor line */}
+                <div className="flex items-center justify-center gap-2 text-[13px] font-medium text-gray-400 pt-2 capitalize">
+                  <ShieldCheck className="w-4 h-4 text-gray-400" strokeWidth={1.8} />
+                  <span>100% Secure Checkout</span>
+                </div>
               </div>
-            </div>
+            )}
 
           </div>
         </Container>
@@ -350,7 +518,7 @@ export default function CheckoutPage() {
       <CartChangedModal isOpen={hasCartChanged} onClose={() => setHasCartChanged(false)} onReturnToCart={() => router.push('/cart')} />
       <CartAlertsModal alerts={alerts} onDismiss={clearAlerts} />
       
-      <SessionExpiredModal isOpen={sessionExpired} onClose={() => {
+      <SessionExpiredModal isOpen={sessionExpired && currentStep < 3} onClose={() => {
         setSessionExpired(false);
         router.push('/cart');
       }} />

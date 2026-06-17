@@ -56,14 +56,14 @@ export default function PrintButton({ orderId, orderNumber, invoiceType = 'custo
     <button
       onClick={handlePrint}
       disabled={isDownloading}
-      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white border border-[#D5D9D9] rounded-md text-sm font-bold text-[#0F1111] hover:bg-[#F7FAFA] active:bg-[#EDF2F2] shadow-sm print:hidden transition-all duration-200 disabled:opacity-60 cursor-pointer disabled:cursor-not-allowed active:scale-[0.98]"
+      className="h-9 px-4 bg-stone-50 border border-transparent hover:border-stone-200 text-gray-900 font-semibold rounded-xl transition-all text-[13px] flex items-center justify-center gap-2 print:hidden disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed active:scale-[0.98] outline-none capitalize"
     >
       {isDownloading ? (
-        <div className="w-4 h-4 border-2 border-gray-800 border-t-transparent rounded-full animate-spin" />
+        <div className="w-3.5 h-3.5 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
       ) : (
-        <FileText className="w-4 h-4" />
+        <FileText className="w-3.5 h-3.5 text-gray-400" strokeWidth={2} />
       )}
-      <span>{isDownloading ? 'Generating PDF...' : 'Download Tax Invoice'}</span>
+      <span>{isDownloading ? 'Generating...' : 'Invoice'}</span>
     </button>
   )
 }

@@ -13,9 +13,9 @@ interface BuyNowButtonProps {
     name: string
     slug: string
     retail_price: number
-    wholesale_price: number
-    wholesale_min_qty: number
-    mrp?: number
+    wholesale_price: number | null
+    wholesale_min_qty: number | null
+    mrp?: number | null
     stock: number
     images: string[]
     category_id?: string | null
@@ -23,6 +23,11 @@ interface BuyNowButtonProps {
     rating?: number | null
     review_count?: number | null
     variant_name?: string | null
+    variant_string?: string | null
+    variants?: any
+    is_retail_enabled: boolean
+    is_wholesale_enabled: boolean
+    is_variants_enabled: boolean
   }
   quantity?: number
   className?: string
@@ -48,22 +53,31 @@ export default function BuyNowButton({
 
     setIsBuying(true)
     try {
+      const activeVariantName = product.variant_name || product.variant_string || null
+      
+      // ⚡ FIXED: Formats names instantly to prevent missing variants at checkout
+      const computedName = activeVariantName ? `${product.name} (${activeVariantName})` : product.name
+
       await addItem({
         product_id: product.id,
-        name: product.name,
+        name: computedName,
         slug: product.slug,
         quantity: quantity,
         image: product.images?.[0] || '',
         stock: product.stock,
         category_id: product.category_id || null,
         description: product.description || null,
+        is_retail_enabled: product.is_retail_enabled,
+        is_wholesale_enabled: product.is_wholesale_enabled,
+        is_variants_enabled: product.is_variants_enabled,
         retail_price: product.retail_price,
         wholesale_price: product.wholesale_price,
         wholesale_min_qty: product.wholesale_min_qty,
         rating: product.rating || null,
         review_count: product.review_count || null,
-        mrp: product.mrp || 0,
-        variant_string: product.variant_name || null
+        mrp: product.mrp || product.retail_price,
+        variant_string: activeVariantName,
+        variants: product.variants, 
       })
 
       router.push('/checkout')
@@ -75,7 +89,7 @@ export default function BuyNowButton({
   }
 
   const isOutOfStock = (product?.stock ?? 0) <= 0
-  const defaultClasses = "w-full h-12 flex items-center justify-center gap-2 text-[12px] font-bold uppercase tracking-widest bg-gray-900 hover:bg-black text-white rounded-full cursor-pointer disabled:opacity-40 disabled:bg-stone-100 disabled:text-gray-400 disabled:cursor-not-allowed transition-all duration-300 shadow-sm active:scale-[0.99]"
+  const defaultClasses = "w-full h-12 flex items-center justify-center gap-2 text-[12px] font-bold uppercase tracking-widest bg-gray-900 hover:bg-black text-white rounded-full cursor-pointer disabled:opacity-40 disabled:bg-stone-100 disabled:text-gray-400 disabled:cursor-not-allowed transition-all duration-300 shadow-sm active:scale-[0.99] border-none outline-none"
 
   return (
     <button 
