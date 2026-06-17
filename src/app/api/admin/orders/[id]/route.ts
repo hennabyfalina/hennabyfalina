@@ -1,10 +1,19 @@
 // src/app/api/admin/orders/[id]/route.ts
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyAdmin } from '@/lib/admin-auth'
 import Razorpay from 'razorpay'
 import { z } from 'zod'
+
+// ⚡ REQUEST VALIDATION contract framework mapping
+const orderPatchSchema = z.object({
+  status: z.string().min(1),
+  reason: z.string().optional(),
+  courier_name: z.string().optional(),
+  tracking_number: z.string().optional(),
+  tracking_url: z.string().url().optional().or(z.literal('').transform(() => undefined)),
+})
 
 export async function GET(
   request: NextRequest,
@@ -15,55 +24,37 @@ export async function GET(
     if (!authorized) return response!
 
     const { id } = await params
-    const supabase = await createClient()
+    const supabase = createAdminClient()
 
+    // 🏛️ SINGLE-PASS FETCH: Secure item snapshots directly without legacy retry conditions
     const { data: order, error } = await supabase
       .from('orders')
       .select(`
         *,
-        users!user_id (*),
-        addresses!address_id (*),
+        user:users!user_id (*),
+        address:addresses!address_id (*),
         order_items (
-          *,
-          products (*)
+          id,
+          quantity,
+          price,
+          original_price,
+          variant_string,
+          purchase_type,
+          product:products (*)
         )
       `)
       .eq('id', id)
       .single()
 
-    if (error) {
-      console.error('Error fetching order:', error)
-      
-      if (error.message.includes('relationship')) {
-        const { data: orderSimple, error: simpleError } = await supabase
-          .from('orders')
-          .select(`
-            *,
-            users (*),
-            addresses (*),
-            order_items (
-              *,
-              products (*)
-            )
-          `)
-          .eq('id', id)
-          .single()
-        
-        if (simpleError) {
-          return NextResponse.json({ error: 'Order not found' }, { status: 404 })
-        }
-        
-        return NextResponse.json(orderSimple)
-      }
-      
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    if (error || !order) {
+      return NextResponse.json({ error: 'Order profile parameters not found' }, { status: 404 })
     }
 
     return NextResponse.json(order)
   } catch (error: any) {
-    console.error('Error in order detail API:', error)
+    console.error('Error in administrative single details lookup:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch order' },
+      { error: error.message || 'Internal order retrieval fault compilation failed.' },
       { status: 500 }
     )
   }
@@ -78,7 +69,7 @@ export async function DELETE(
     if (!authorized) return response!
 
     const { id } = await params
-    const supabase = await createClient()
+    const supabase = createAdminClient()
 
     const { error } = await supabase
       .from('orders')
@@ -89,7 +80,10 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to delete order' }, { status: 500 })
+    return NextResponse.json(
+      { error: error.message || 'The database rejected this deletion request.' }, 
+      { status: 500 }
+    )
   }
 }
 
@@ -102,26 +96,17 @@ export async function PATCH(
     if (!authorized) return response!
 
     const { id } = await params
-    // 🚨 Extracting Tracking Data from Request 🚨
-    const orderPatchSchema = z.object({
-      status: z.string().min(1),
-      reason: z.string().optional(),
-      courier_name: z.string().optional(),
-      tracking_number: z.string().optional(),
-      tracking_url: z.string().url().optional().or(z.literal('').transform(() => undefined)),
-    })
-
     const rawBody = await request.json()
+    
     const parsed = orderPatchSchema.safeParse(rawBody)
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Invalid input', details: parsed.error.format() }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid input attributes configuration', details: parsed.error.format() }, { status: 400 })
     }
 
     const { status, reason, courier_name, tracking_number, tracking_url } = parsed.data
+    const supabase = createAdminClient()
 
-    const supabase = await createClient()
-
-    // ─── REFUND PROCESSING LOGIC ──────────────
+    // ─── AUTOMATED B2B/B2C TAX COMPLIANT REFUNDS TRIGGER ───
     if (status === 'cancelled' || status === 'returned') {
       const { data: currentOrder } = await supabase
         .from('orders')
@@ -136,52 +121,46 @@ export async function PATCH(
               key_id: process.env.RAZORPAY_KEY_ID!,
               key_secret: process.env.RAZORPAY_KEY_SECRET!,
             })
+            
             await razorpay.payments.refund(currentOrder.razorpay_payment_id, {
               amount: Math.round(currentOrder.total_amount * 100)
             })
+            
             await supabase.from('orders').update({ payment_status: 'refunded' }).eq('id', id)
-          } catch (refundError) {
-            console.error('Razorpay Refund Error:', refundError)
-            return NextResponse.json({ error: 'Gateway refund failed' }, { status: 500 })
+          } catch (refundError: any) {
+            console.error('Razorpay Gateway Refund Exception:', refundError)
+            return NextResponse.json({ error: `Gateway reversal step execution failed: ${refundError.message}` }, { status: 500 })
           }
         }
       }
     }
-    // ────────────────────────────────────────────────────────────────────
 
-    // 🚨 Build dynamic update payload 🚨
-    const updateData: any = {
+    // Assemble payload modifications dynamically
+    const updatePayload: any = {
       status,
-      ...(status === 'cancelled' && reason ? { payment_failed_reason: reason } : {}),
       updated_at: new Date().toISOString(),
+      ...(status === 'cancelled' && reason ? { payment_failed_reason: reason } : {}),
     }
 
-    // 🚨 Add Dispatch details if status is Shipped
     if (status === 'shipped') {
-      updateData.courier_name = courier_name;
-      updateData.tracking_number = tracking_number;
-      updateData.tracking_url = tracking_url;
-      updateData.shipped_at = new Date().toISOString();
+      updatePayload.courier_name = courier_name || null
+      updatePayload.tracking_number = tracking_number || null
+      updatePayload.tracking_url = tracking_url || null
+      updatePayload.shipped_at = new Date().toISOString()
     }
 
-    const { error } = await supabase
+    const { error: patchError } = await supabase
       .from('orders')
-      .update(updateData)
+      .update(updatePayload)
       .eq('id', id)
 
-    if (error) {
-      console.error('Error updating order status:', error)
-      return NextResponse.json(
-        { error: error.message || 'Failed to update order' },
-        { status: 500 }
-      )
-    }
+    if (patchError) throw patchError
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error('Error in order patch API:', error)
+    console.error('Error updating order records parameters state:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to update order' },
+      { error: error.message || 'Failed to modify transaction states inside database rows.' },
       { status: 500 }
     )
   }

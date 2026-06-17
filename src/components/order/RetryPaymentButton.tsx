@@ -20,8 +20,12 @@ interface RetryPaymentButtonProps {
 export default function RetryPaymentButton({ orderId, orderNumber, amount }: RetryPaymentButtonProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [processingText, setProcessingText] = useState('Initializing Secure Session')
+  const [processingSubText, setProcessingSubText] = useState('Preparing your payment gateway...')
 
   const handleRetry = async () => {
+    setProcessingText('Initializing Secure Session')
+    setProcessingSubText('Preparing your payment gateway...')
     setIsLoading(true)
     
     try {
@@ -79,6 +83,8 @@ export default function RetryPaymentButton({ orderId, orderNumber, amount }: Ret
         },
         theme: { color: '#000000' },
         handler: async function (response: any) {
+          setProcessingText('Verifying Transaction')
+          setProcessingSubText("Please don't close or refresh this page...")
           setIsLoading(true)
           try {
             const res = await fetch('/api/razorpay/verify', {
@@ -105,8 +111,10 @@ export default function RetryPaymentButton({ orderId, orderNumber, amount }: Ret
         },
         modal: {
           ondismiss: async function() {
+            setProcessingText('Cancelling Transaction')
+            setProcessingSubText('Returning to order details securely...')
+            await recordPaymentFailure(orderId, 'Transaction was cancelled.')
             setIsLoading(false)
-            await recordPaymentFailure(orderId, 'Transaction was cancelled by user.')
           }
         }
       }
@@ -116,8 +124,10 @@ export default function RetryPaymentButton({ orderId, orderNumber, amount }: Ret
         const errorMsg = response.error?.description || 'Payment failed. Please try another method.'
         console.error('[Retry] Payment failed:', errorMsg)
         showToast(errorMsg, 'error')
-        setIsLoading(false)
+        setProcessingText('Payment Failed')
+        setProcessingSubText('Retrieving error details securely...')
         await recordPaymentFailure(orderId, errorMsg)
+        setIsLoading(false)
       })
       rzp.open()
 
@@ -129,7 +139,7 @@ export default function RetryPaymentButton({ orderId, orderNumber, amount }: Ret
 
   return (
     <>
-      <SecureLoadingOverlay isProcessing={isLoading} />
+      <SecureLoadingOverlay isProcessing={isLoading} text={processingText} subText={processingSubText} />
       <button
         type="button"
         onClick={handleRetry}

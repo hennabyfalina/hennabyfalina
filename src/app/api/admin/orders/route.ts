@@ -6,11 +6,13 @@ import { verifyAdmin } from '@/lib/admin-auth'
 
 export async function GET(request: NextRequest) {
   try {
+    // 1. GATEKEEPER: Verify the request context matches authorized administrative credentials
     const { authorized, response } = await verifyAdmin(['admin', 'super_admin'])
     if (!authorized) return response!
 
     const supabase = await createClient()
-    // Get query params for filtering
+    
+    // 2. EXTRACTION: Destructure query parameters uniformly
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const paymentMethod = searchParams.get('payment_method')
@@ -18,20 +20,34 @@ export async function GET(request: NextRequest) {
     const limit = searchParams.get('limit')
     const userId = searchParams.get('user_id')
 
+    // 🏛️ BIG-TECH OPTIMIZATION: Clean, explicit relational select query string
     let selectStr = `
       id,
       order_number,
       total_amount,
+      shipping_cost,
+      shipping_method,
       status,
       payment_status,
       payment_method_detail,
       created_at,
-      users!user_id (name)
+      user:users!user_id (id, name, email, phone)
     `
     
-    // 🚨 Deeply nest products & logistics for the Customer Order History tab
+    // If a specific client history lookup is active, append line snapshots immediately
     if (userId) {
-      selectStr += `, shipping_cost, shipping_method, addresses (*), order_items (*, products(name))`
+      selectStr += `, 
+        address:addresses!address_id (*), 
+        order_items (
+          id,
+          quantity,
+          price,
+          original_price,
+          variant_string,
+          purchase_type,
+          product:products (name, sku, images)
+        )
+      `
     }
 
     let query = supabase
@@ -39,6 +55,7 @@ export async function GET(request: NextRequest) {
       .select(selectStr)
       .order('created_at', { ascending: false })
 
+    // 3. EXECUTE CONDITIONAL FILTERS
     if (userId) {
       query = query.eq('user_id', userId)
     }
@@ -59,20 +76,14 @@ export async function GET(request: NextRequest) {
       query = query.limit(parseInt(limit, 10))
     }
 
-    const { data, error } = await query
-
+    const { data: orders, error } = await query
     if (error) throw error
 
-    const formattedOrders = ((data as any[]) || []).map((order: any) => ({
-      ...order,
-      users: Array.isArray(order.users) ? order.users[0] : order.users,
-    }))
-
-    return NextResponse.json(formattedOrders)
+    return NextResponse.json(orders || [])
   } catch (error: any) {
-    console.error('Error fetching orders:', error)
+    console.error('Error fetching admin orders registry:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch orders' },
+      { error: error.message || 'Failed to fetch tracking metrics logs cleanly.' },
       { status: 500 }
     )
   }

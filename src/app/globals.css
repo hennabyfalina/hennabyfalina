@@ -411,6 +411,19 @@
     touch-action: pan-y pinch-zoom;
   }
 
+  .animate-ios-fade {
+    animation: ios-fade 1s linear infinite;
+  }
+
+  @keyframes ios-fade {
+    0% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0.15; /* Replicates native iOS trailing opacity drop */
+    }
+  }
+
   /* Handle iOS Safe Areas for fixed bottom navigation */
   .fixed.bottom-0 {
     padding-bottom: env(safe-area-inset-bottom);

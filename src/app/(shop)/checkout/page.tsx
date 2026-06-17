@@ -83,7 +83,7 @@ export default function CheckoutPage() {
   } = useCheckoutState()
 
   // 3. Razorpay Payment Processing Orchestrator
-  const { processPayment, isProcessingCheckout, checkoutError } = useRazorpayCheckout()
+  const { processPayment, isProcessingCheckout, checkoutError, processingText, processingSubText } = useRazorpayCheckout()
 
   const [checkoutSessionId] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -296,7 +296,7 @@ export default function CheckoutPage() {
 
   return (
     <>
-      <SecureLoadingOverlay isProcessing={isProcessingCheckout} />
+      <SecureLoadingOverlay isProcessing={isProcessingCheckout} text={processingText} subText={processingSubText} />
       <PersistentCheckoutBar
         currentStep={currentStep}
         checkoutStatus={checkoutStatus}

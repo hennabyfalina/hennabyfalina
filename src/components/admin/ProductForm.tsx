@@ -6,17 +6,26 @@ import { createPortal } from 'react-dom'
 import { useState, useEffect, useRef } from 'react'
 import { uploadProductImage, deleteProductImage, getPublicUrl } from '@/lib/supabase/storage'
 import { showToast } from '@/components/ui/Toast' 
-import { UploadCloud, AlertTriangle, CheckCircle2, Image as ImageIcon, Plus, Trash2 } from 'lucide-react'
+import { UploadCloud, AlertTriangle, CheckCircle2, Image as ImageIcon, Plus, Trash2, Sliders, Tag, Settings, Edit, X, Save } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
+import { formatCurrency } from '@/lib/utils'
+
+interface VariantItem {
+  name: string
+  price: number
+  variant_mrp: number
+  wholesale_price: number | null
+  wholesale_min_qty: number | null
+}
 
 interface ProductFormData {
   name: string
   slug: string
   description: string | null
   mrp: number | string
-  retail_price: number | string 
-  wholesale_price: number | string 
-  wholesale_min_qty: number | string
+  retail_price: number | string
+  wholesale_price: number | string | null
+  wholesale_min_qty: number | string | null
   stock: number | string
   sku: string | null
   category_id: string | null
@@ -33,6 +42,12 @@ interface ProductFormData {
   rating?: number | string | null
   review_count?: number | string | null
   frequently_bought_together: string[]
+  
+  // 🏛️ STRATEGIC PRODUCT MODES FEATURE FLAGS
+  is_retail_enabled: boolean
+  is_wholesale_enabled: boolean
+  is_variants_enabled: boolean
+  variants: any
 }
 
 interface ProductFormProps {
@@ -46,6 +61,14 @@ interface ProductFormProps {
 const MAX_IMAGES = 10
 const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg']
 const MAX_FILE_SIZE = 5 * 1024 * 1024
+
+const EMPTY_VARIANT: VariantItem = {
+  name: '',
+  price: '',
+  variant_mrp: '',
+  wholesale_price: null,
+  wholesale_min_qty: null
+} as any
 
 const formatIST = (dateString?: string) => {
   if (!dateString) return '-'
@@ -62,14 +85,30 @@ const formatIST = (dateString?: string) => {
   }).format(date).toUpperCase()
 }
 
-const validateProduct = (data: ProductFormData): { isValid: boolean; errors: string[] } => {
+const validateProduct = (data: ProductFormData, variantsArray: VariantItem[]): { isValid: boolean; errors: string[] } => {
   const errors: string[] = []
   if (!data.name.trim()) errors.push('Product name is required')
   if (!data.slug.trim()) errors.push('Product slug is required')
   if (data.stock === '' || Number(data.stock) < 0) errors.push('Stock cannot be negative')
-  if (data.retail_price === '' || Number(data.retail_price) <= 0) errors.push('Retail price must be greater than 0')
-  if (data.mrp !== '' && Number(data.mrp) > 0 && Number(data.mrp) < Number(data.retail_price)) errors.push('MRP cannot be lower than Retail price')
-  if (data.wholesale_price !== '' && Number(data.wholesale_price) > Number(data.retail_price)) errors.push('Wholesale price cannot be higher than Retail price')
+  
+  // Base calculations only if variants engine is completely bypassed
+  if (!data.is_variants_enabled) {
+    if (data.is_retail_enabled) {
+      if (data.retail_price === '' || Number(data.retail_price) <= 0) errors.push('Retail price must be greater than 0')
+      if (data.mrp !== '' && Number(data.mrp) > 0 && Number(data.mrp) < Number(data.retail_price)) errors.push('MRP cannot be lower than Retail price')
+    }
+    
+    if (data.is_wholesale_enabled) {
+      if (data.wholesale_price === '' || Number(data.wholesale_price) <= 0) errors.push('Wholesale price must be greater than 0')
+      if (data.is_retail_enabled && data.wholesale_price !== '' && Number(data.wholesale_price) > Number(data.retail_price)) {
+        errors.push('Wholesale price cannot be higher than Retail price')
+      }
+    }
+  } else {
+    if (variantsArray.length === 0) {
+      errors.push('Variations Matrix is active. You must add at least one variant variant mapping option.')
+    }
+  }
   
   if (data.rating !== '' && data.rating !== null && data.rating !== undefined) {
     if (Number(data.rating) < 0 || Number(data.rating) > 5) errors.push('Rating must be between 0.0 and 5.0')
@@ -98,8 +137,8 @@ export default function ProductForm({
     description: initialData.description || '',
     mrp: initialData.mrp || '',
     retail_price: initialData.retail_price || '', 
-    wholesale_price: initialData.wholesale_price || '', 
-    wholesale_min_qty: initialData.wholesale_min_qty || 1,
+    wholesale_price: initialData.wholesale_price !== undefined ? initialData.wholesale_price : null, 
+    wholesale_min_qty: initialData.wholesale_min_qty !== undefined ? initialData.wholesale_min_qty : null,
     stock: initialData.stock === 0 ? '' : (initialData.stock || ''),
     sku: initialData.sku || null,
     category_id: initialData.category_id || null,
@@ -120,6 +159,12 @@ export default function ProductForm({
     rating: initialData.rating ?? 4.5,
     review_count: initialData.review_count ?? 128,
     frequently_bought_together: initialData.frequently_bought_together || [],
+    
+    // Core modes architecture
+    is_retail_enabled: initialData.is_retail_enabled ?? true,
+    is_wholesale_enabled: initialData.is_wholesale_enabled ?? false,
+    is_variants_enabled: initialData.is_variants_enabled ?? false,
+    variants: initialData.variants || '',
   })
 
   const [formData, setFormData] = useState<ProductFormData>(initialFormData)
@@ -128,13 +173,29 @@ export default function ProductForm({
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([])
   const [existingImageUrls, setExistingImageUrls] = useState<Map<string, string>>(new Map())
   
+  // 🔄 TWIN-STATE CONTROL WORKSPACE
+  const [localVariants, setLocalVariants] = useState<VariantItem[]>(() => {
+    if (initialData.variants) {
+      try {
+        return typeof initialData.variants === 'string' ? JSON.parse(initialData.variants) : initialData.variants
+      } catch (e) {
+        return []
+      }
+    }
+    return []
+  })
+  const [newVariant, setNewVariant] = useState<VariantItem>(EMPTY_VARIANT)
+  const [editingIndex, setEditingIndex] = useState<number | null>(null)
+
   const [deleteConfirmPath, setDeleteConfirmPath] = useState<string | null>(null)
   const [showSaveConfirm, setShowSaveConfirm] = useState(false)
   const [activeTab, setActiveTab] = useState<'basic' | 'images' | 'inventory' | 'seo' | 'bundles'>('basic')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [bundleSearch, setBundleSearch] = useState('')
 
-  const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData) || newImageFiles.length > 0
+  const isDirty = JSON.stringify(formData) !== JSON.stringify(initialFormData) || 
+                  JSON.stringify(localVariants) !== JSON.stringify(initialData.variants || []) ||
+                  newImageFiles.length > 0
 
   useEffect(() => {
     const loadExistingUrls = () => {
@@ -180,6 +241,65 @@ export default function ProductForm({
       ...prev,
       dimensions: { ...prev.dimensions, [dimension]: value === '' ? '' : parseFloat(value) }
     }))
+  }
+
+  // 📝 LOCAL MATRIX INTERACTION MECHANICS
+  const handleVariantInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setNewVariant(prev => ({
+      ...prev,
+      [name]: value === '' ? '' : (name === 'name' ? value : parseFloat(value))
+    }))
+  }
+
+  const handleAddLocalVariant = () => {
+    if (!newVariant.name.trim()) {
+      showToast('Variant configuration name is required', 'error')
+      return
+    }
+    
+    const preparedNode: VariantItem = {
+      name: newVariant.name,
+      price: Number(newVariant.price) || 0,
+      variant_mrp: Number(newVariant.variant_mrp) || 0,
+      wholesale_price: (newVariant.wholesale_price as any) !== '' && newVariant.wholesale_price !== null ? Number(newVariant.wholesale_price) : null,
+      wholesale_min_qty: (newVariant.wholesale_min_qty as any) !== '' && newVariant.wholesale_min_qty !== null ? Number(newVariant.wholesale_min_qty) : null
+    }
+
+    setLocalVariants(prev => [...prev, preparedNode])
+    setNewVariant(EMPTY_VARIANT)
+    showToast('Variant appended cleanly', 'success')
+  }
+
+  const handleEditClick = (index: number) => {
+    setEditingIndex(index)
+    setNewVariant(localVariants[index])
+  }
+
+  const handleUpdateVariant = () => {
+    if (editingIndex === null || !newVariant.name.trim()) return
+    
+    const updated = [...localVariants]
+    updated[editingIndex] = {
+      name: newVariant.name,
+      price: Number(newVariant.price) || 0,
+      variant_mrp: Number(newVariant.variant_mrp) || 0,
+      wholesale_price: (newVariant.wholesale_price as any) !== '' && newVariant.wholesale_price !== null ? Number(newVariant.wholesale_price) : null,
+      wholesale_min_qty: (newVariant.wholesale_min_qty as any) !== '' && newVariant.wholesale_min_qty !== null ? Number(newVariant.wholesale_min_qty) : null
+    }
+
+    setLocalVariants(updated)
+    setEditingIndex(null)
+    setNewVariant(EMPTY_VARIANT)
+    showToast('Variant matrix node row updated successfully', 'success')
+  }
+
+  const handleRemoveLocalVariant = (index: number) => {
+    setLocalVariants(prev => prev.filter((_, i) => i !== index))
+    if (editingIndex === index) {
+      setEditingIndex(null)
+      setNewVariant(EMPTY_VARIANT)
+    }
   }
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -242,7 +362,7 @@ export default function ProductForm({
 
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault()
-    const { isValid, errors } = validateProduct(formData)
+    const { isValid, errors } = validateProduct(formData, localVariants)
     if (!isValid) {
       setValidationErrors(errors)
       showToast('Please fix the errors before saving', 'error')
@@ -265,12 +385,26 @@ export default function ProductForm({
     }
 
     try {
+      // 🏛️ INTERFACE ARCHITECTURE ALIGNMENT RULE FALLBACK CONTEXTS
+      let computedRetailPrice = formData.retail_price
+      let computedMrp = formData.mrp
+      let computedWholesalePrice = formData.wholesale_price
+      let computedWholesaleMinQty = formData.wholesale_min_qty
+
+      if (formData.is_variants_enabled && localVariants.length > 0) {
+        const fallbackNode = localVariants[0]
+        computedRetailPrice = fallbackNode.price
+        computedMrp = fallbackNode.variant_mrp
+        computedWholesalePrice = fallbackNode.wholesale_price
+        computedWholesaleMinQty = fallbackNode.wholesale_min_qty
+      }
+
       await onSubmit({
         ...formData,
-        mrp: Number(formData.mrp) || 0,
-        retail_price: Number(formData.retail_price) || 0, 
-        wholesale_price: Number(formData.wholesale_price) || 0, 
-        wholesale_min_qty: Number(formData.wholesale_min_qty) || 1,
+        mrp: formData.is_retail_enabled || formData.is_variants_enabled ? (Number(computedMrp) || 0) : 0,
+        retail_price: formData.is_retail_enabled || formData.is_variants_enabled ? (Number(computedRetailPrice) || 0) : 0, 
+        wholesale_price: formData.is_wholesale_enabled || formData.is_variants_enabled ? (computedWholesalePrice !== null ? Number(computedWholesalePrice) : null) : null, 
+        wholesale_min_qty: formData.is_wholesale_enabled || formData.is_variants_enabled ? (computedWholesaleMinQty !== null ? Number(computedWholesaleMinQty) : null) : null,
         stock: formData.stock === '' ? 0 : Number(formData.stock),
         weight: formData.weight === '' || formData.weight === null ? null : Number(formData.weight),
         weight_unit: formData.weight_unit || 'kg',
@@ -283,7 +417,8 @@ export default function ProductForm({
           width: Number(formData.dimensions.width) || 0,
           height: Number(formData.dimensions.height) || 0,
         } : null as any,
-        images: [...formData.images, ...uploadedPaths]
+        images: [...formData.images, ...uploadedPaths],
+        variants: formData.is_variants_enabled ? localVariants : null
       })
       setNewImageFiles([])
       newImagePreviews.forEach(URL.revokeObjectURL)
@@ -293,8 +428,8 @@ export default function ProductForm({
     }
   }
 
-  const inputClass = "w-full px-4 py-3 admin-bg-primary border admin-border admin-text-primary placeholder:text-[#565959] rounded-2xl focus:outline-none focus:border-[#A8C7FA] focus:ring-1 focus:ring-[#A8C7FA] transition-all"
-  const labelClass = "block text-[13px] font-medium admin-text-muted mb-1.5 ml-1 uppercase tracking-wider"
+  const inputClass = "w-full px-4 py-3 admin-bg-primary border admin-border admin-text-primary placeholder:text-[#565959] rounded-2xl focus:outline-none focus:border-[#A8C7FA] focus:ring-1 focus:ring-[#A8C7FA] transition-all text-sm font-medium"
+  const labelClass = "block text-[11px] font-bold admin-text-muted mb-1.5 ml-1 uppercase tracking-widest"
 
   return (
     <>
@@ -318,7 +453,7 @@ export default function ProductForm({
                 key={tab}
                 type="button"
                 onClick={() => setActiveTab(tab as any)}
-                className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+                className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer border-none bg-transparent outline-none ${
                   activeTab === tab
                     ? 'border-[#A8C7FA] text-[#A8C7FA]'
                     : 'border-transparent admin-text-muted hover:admin-text-primary hover:border-[#565959]'
@@ -376,30 +511,151 @@ export default function ProductForm({
             </div>
 
             <div className="mt-8 pt-6 border-t admin-border">
-              <div className="mb-6">
-                <h4 className="text-base font-medium admin-text-primary tracking-wide">Hybrid Pricing Strategy</h4>
-                <p className="text-xs admin-text-muted mt-1">Set standard retail and bulk wholesale rates.</p>
+              <div className="mb-4 flex items-center gap-2">
+                <Settings className="w-4 h-4 admin-text-accent" />
+                <h4 className="text-sm font-bold uppercase tracking-wider admin-text-primary">Product Modes</h4>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                <div>
-                  <label htmlFor="mrp" className={labelClass}>MRP (₹)</label>
-                  <input id="mrp" type="number" name="mrp" value={formData.mrp} onChange={handleNumberChange} placeholder="0.00" step="0.01" className={inputClass} />
-                </div>
-                <div>
-                  <label htmlFor="retail_price" className={labelClass}>Selling Price (₹) *</label>
-                  <input id="retail_price" type="number" name="retail_price" value={formData.retail_price} onChange={handleNumberChange} placeholder="0.00" step="0.01" required className={inputClass} />
-                </div>
-                <div>
-                  <label htmlFor="wholesale_price" className={labelClass}>Wholesale Price (₹)</label>
-                  <input id="wholesale_price" type="number" name="wholesale_price" value={formData.wholesale_price} onChange={handleNumberChange} placeholder="0.00" step="0.01" className={inputClass} />
-                </div>
-                <div>
-                  <label htmlFor="wholesale_min_qty" className={labelClass}>Wholesale Min Qty</label>
-                  <input id="wholesale_min_qty" type="number" name="wholesale_min_qty" value={formData.wholesale_min_qty} onChange={handleNumberChange} placeholder="1" min="1" className={inputClass} />
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <label className="flex items-center gap-3 p-3 admin-bg-primary border admin-border rounded-2xl cursor-pointer hover:border-[#A8C7FA] transition-colors">
+                  <input type="checkbox" name="is_retail_enabled" title="Enable Retail" checked={formData.is_retail_enabled} onChange={handleChange} className="w-5 h-5 rounded admin-border admin-bg-card text-[#0B57D0]" />
+                  <span className="text-xs font-bold admin-text-primary tracking-wider normal">Retail</span>
+                </label>
+                <label className="flex items-center gap-3 p-3 admin-bg-primary border admin-border rounded-2xl cursor-pointer hover:border-[#A8C7FA] transition-colors">
+                  <input type="checkbox" name="is_wholesale_enabled" title="Enable Wholesale" checked={formData.is_wholesale_enabled} onChange={handleChange} className="w-5 h-5 rounded admin-border admin-bg-card text-[#0B57D0]" />
+                  <span className="text-xs font-bold admin-text-primary tracking-wider normal">Wholesale</span>
+                </label>
+                <label className="flex items-center gap-3 p-3 admin-bg-primary border admin-border rounded-2xl cursor-pointer hover:border-[#A8C7FA] transition-colors">
+                  <input type="checkbox" name="is_variants_enabled" title="Enable Variations" checked={formData.is_variants_enabled} onChange={handleChange} className="w-5 h-5 rounded admin-border admin-bg-card text-[#0B57D0]" />
+                  <span className="text-xs font-bold admin-text-primary tracking-wider normal">Variants</span>
+                </label>
               </div>
             </div>
+
+            {/* 🎯 CONDITIONAL ROOT PRICING BLOCKS: Hides instantly if the variable engine overrides the root scope */}
+            {!formData.is_variants_enabled && (formData.is_retail_enabled || formData.is_wholesale_enabled) && (
+              <div className="mt-6 pt-6 border-t admin-border animate-in fade-in duration-200">
+                <div className="mb-4">
+                  <h4 className="text-sm font-bold uppercase tracking-wider admin-text-primary">Base Catalog Pricing</h4>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                  {formData.is_retail_enabled && (
+                    <>
+                      <div className="animate-in fade-in duration-150">
+                        <label htmlFor="mrp" className={labelClass}>Retail MRP (₹)</label>
+                        <input id="mrp" type="number" name="mrp" value={formData.mrp} onChange={handleNumberChange} placeholder="0.00" step="0.01" className={inputClass} />
+                      </div>
+                      <div className="animate-in fade-in duration-150">
+                        <label htmlFor="retail_price" className={labelClass}>Retail Rate (₹) *</label>
+                        <input id="retail_price" type="number" name="retail_price" value={formData.retail_price} onChange={handleNumberChange} placeholder="0.00" step="0.01" className={inputClass} />
+                      </div>
+                    </>
+                  )}
+                  {formData.is_wholesale_enabled && (
+                    <>
+                      <div className="animate-in fade-in duration-150">
+                        <label htmlFor="wholesale_price" className={labelClass}>Wholesale Rate (₹) *</label>
+                        <input id="wholesale_price" type="number" name="wholesale_price" value={formData.wholesale_price ?? ''} onChange={handleNumberChange} placeholder="0.00" step="0.01" className={inputClass} />
+                      </div>
+                      <div className="animate-in fade-in duration-150">
+                        <label htmlFor="wholesale_min_qty" className={labelClass}>Bulk Min Qty *</label>
+                        <input id="wholesale_min_qty" type="number" name="wholesale_min_qty" value={formData.wholesale_min_qty ?? ''} onChange={handleNumberChange} placeholder="1" min="1" className={inputClass} />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 🏛️ ENTERPRISE PRODUCTION READY VISUAL VARIANTS BUILDER ENGINE BLOCK */}
+            {formData.is_variants_enabled && (
+              <div className="mt-6 pt-6 border-t admin-border animate-in fade-in duration-200 space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sliders className="w-4 h-4 admin-text-accent" />
+                  <h4 className="text-sm font-bold uppercase tracking-wider admin-text-primary">Product Variations Matrix Console</h4>
+                </div>
+
+                {/* VISUAL CARDS ENTRY SLATE LAYOUT WRAPPER */}
+                <div className="admin-bg-primary rounded-[24px] p-5 border admin-border space-y-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider admin-text-accent">
+                    {editingIndex !== null ? 'Edit Variant Parameters Workspace' : 'Add New Variant Workspace'}
+                  </p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                    <div>
+                      <label className={labelClass}>Variant Name *</label>
+                      <input type="text" name="name" value={newVariant.name} onChange={handleVariantInputChange} placeholder="e.g. 1kg Pack, 1Lt, 30ml" className={inputClass} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Retail price (₹)</label>
+                      <input type="number" name="price" value={newVariant.price} onChange={handleVariantInputChange} placeholder="0.00" step="0.01" className={inputClass} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Retail MRP (₹)</label>
+                      <input type="number" name="variant_mrp" value={newVariant.variant_mrp} onChange={handleVariantInputChange} placeholder="0.00" step="0.01" className={inputClass} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Bulk Price (₹)</label>
+                      <input type="number" name="wholesale_price" value={newVariant.wholesale_price ?? ''} onChange={handleVariantInputChange} placeholder="Optional" step="0.01" className={inputClass} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Bulk Min Qty</label>
+                      <input type="number" name="wholesale_min_qty" value={newVariant.wholesale_min_qty ?? ''} onChange={handleVariantInputChange} placeholder="Optional" min="1" className={inputClass} />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    {editingIndex !== null && (
+                      <button type="button" onClick={() => { setEditingIndex(null); setNewVariant(EMPTY_VARIANT); }} className="px-5 py-2 rounded-full font-bold text-xs admin-bg-elevated admin-text-secondary hover:admin-text-primary transition-all cursor-pointer border-none outline-none flex items-center gap-1.5">
+                        <X className="w-3.5 h-3.5" /> Cancel
+                      </button>
+                    )}
+                    <button 
+                      type="button" 
+                      onClick={editingIndex !== null ? handleUpdateVariant : handleAddLocalVariant} 
+                      className="px-6 py-2 rounded-full font-bold text-xs bg-[#0B57D0] text-white hover:bg-[#0842A0] transition-all cursor-pointer border-none outline-none flex items-center gap-1.5 shadow-md shadow-blue-900/10"
+                    >
+                      {editingIndex !== null ? <><Save className="w-3.5 h-3.5" /> Commit Update</> : <><Plus className="w-3.5 h-3.5" /> Append Variant</>}
+                    </button>
+                  </div>
+                </div>
+
+                {/* IMMUTABLE SNAPSHOT RENDERING CONTAINER SLATE SHEET */}
+                {localVariants.length > 0 && (
+                  <div className="space-y-3">
+                    <p className={labelClass}>Active Configured Variant Options Layer Matrix Matrix ({localVariants.length})</p>
+                    <div className="flex flex-col gap-2.5">
+                      {localVariants.map((item, index) => (
+                        <div key={index} className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-[20px] border transition-all ${editingIndex === index ? 'bg-[#0B57D0]/10 border-[#0B57D0]' : 'admin-bg-primary admin-border hover:border-[#A8C7FA]'}`}>
+                          <div className="space-y-1">
+                            <p className="text-sm font-bold admin-text-primary capitalize">{item.name.toLowerCase()}</p>
+                            <div className="flex flex-wrap items-center gap-3 text-xs font-semibold admin-text-secondary">
+                              <span>Retail: <span className="admin-text-primary font-mono">{formatCurrency(item.price)}</span></span>
+                              {item.variant_mrp > item.price && <span className="line-through admin-text-muted font-mono">{formatCurrency(item.variant_mrp)}</span>}
+                              
+                              {item.wholesale_price && item.wholesale_min_qty ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold tracking-widest normal admin-badge-delivered border border-[var(--admin-status-delivered-text)]/20 whitespace-nowrap">
+                                  <Tag className="w-3 h-3" /> Wholesale: {formatCurrency(item.wholesale_price)} @ {item.wholesale_min_qty}+ units
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-center mt-3 sm:mt-0">
+                            <button type="button" onClick={() => handleEditClick(index)} className="p-2 admin-text-muted hover:admin-text-accent hover:admin-bg-hover rounded-full transition-colors cursor-pointer border-none bg-transparent outline-none">
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button type="button" onClick={() => handleRemoveLocalVariant(index)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-full transition-colors cursor-pointer border-none bg-transparent outline-none">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-6 border-t admin-border">
               <div>
@@ -420,7 +676,7 @@ export default function ProductForm({
               <label className="text-sm font-medium admin-text-primary">
                 Gallery <span className="admin-text-muted">({formData.images.length + newImageFiles.length} / {MAX_IMAGES})</span>
               </label>
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="px-5 py-2 text-sm font-bold admin-bg-elevated hover:admin-bg-hover admin-text-primary rounded-full transition-colors cursor-pointer w-full sm:w-auto">
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="px-5 py-2 text-sm font-bold admin-bg-elevated hover:admin-bg-hover admin-text-primary rounded-full transition-colors cursor-pointer w-full sm:w-auto border-none outline-none">
                 Select Files
               </button>
             </div>
@@ -442,7 +698,7 @@ export default function ProductForm({
                         {newImagePreviews.map((url, idx) => (
                           <div key={idx} className="relative group">
                             <img src={url} alt={`New upload preview ${idx + 1}`} title={`New upload preview ${idx + 1}`} className="w-24 h-24 object-cover rounded-2xl border admin-border" />
-                            <button type="button" onClick={() => removeNewImage(idx)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm shadow-lg hover:bg-red-600 transition-transform hover:scale-110 cursor-pointer">✕</button>
+                            <button type="button" onClick={() => removeNewImage(idx)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm shadow-lg hover:bg-red-600 transition-transform hover:scale-110 cursor-pointer border-none outline-none">✕</button>
                           </div>
                         ))}
                      </div>
@@ -457,7 +713,7 @@ export default function ProductForm({
                         return (
                           <div key={path} className="relative group cursor-move" draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', idx.toString())} onDrop={(e) => { e.preventDefault(); reorderImages(parseInt(e.dataTransfer.getData('text/plain')), idx); }} onDragOver={(e) => e.preventDefault()}>
                             {publicUrl ? <img src={publicUrl} alt={`Product image ${idx + 1}`} title={`Product image ${idx + 1}`} className="w-24 h-24 object-cover rounded-2xl border admin-border opacity-90 group-hover:opacity-100 transition-opacity" /> : <div className="w-24 h-24 admin-bg-primary rounded-2xl flex items-center justify-center border admin-border"><ImageIcon className="w-6 h-6 text-[#565959] animate-pulse" /></div>}
-                            <button type="button" onClick={() => setDeleteConfirmPath(path)} className="absolute -top-2 -right-2 bg-red-100 dark:bg-[#4D2628] border border-red-300 dark:border-[#8C1D18] text-red-600 dark:text-[#F2B8B5] rounded-full w-7 h-7 flex items-center justify-center text-sm shadow-lg hover:bg-red-500 hover:text-white transition-all cursor-pointer z-10">✕</button>
+                            <button type="button" onClick={() => setDeleteConfirmPath(path)} className="absolute -top-2 -right-2 bg-red-100 dark:bg-[#4D2628] border border-red-300 dark:border-[#8C1D18] text-red-600 dark:text-[#F2B8B5] rounded-full w-7 h-7 flex items-center justify-center text-sm shadow-lg hover:bg-red-500 hover:text-white transition-all cursor-pointer z-10 border-none outline-none">✕</button>
                             <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black/80 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{idx + 1}</div>
                           </div>
                         )
@@ -516,12 +772,12 @@ export default function ProductForm({
             <div>
               <label htmlFor="product-meta_title" className={labelClass}>Meta Title</label>
               <input id="product-meta_title" type="text" name="meta_title" value={formData.meta_title || ''} onChange={handleChange} placeholder="Optimize for search engines..." maxLength={60} className={inputClass} />
-              <p className="text-xs text-[#565959] mt-2 ml-1">{formData.meta_title?.length || 0}/60 chars</p>
+              <p className="text-xs text-[#565959] mt-2 ml-1 font-mono">{formData.meta_title?.length || 0}/60 chars</p>
             </div>
             <div>
               <label htmlFor="product-meta_description" className={labelClass}>Meta Description</label>
               <textarea id="product-meta_description" name="meta_description" value={formData.meta_description || ''} onChange={handleChange} placeholder="A short, compelling description for Google search results..." rows={4} maxLength={160} className={`${inputClass} resize-none`} />
-              <p className="text-xs text-[#565959] mt-2 ml-1">{formData.meta_description?.length || 0}/160 chars</p>
+              <p className="text-xs text-[#565959] mt-2 ml-1 font-mono">{formData.meta_description?.length || 0}/160 chars</p>
             </div>
           </div>
         )}
@@ -539,7 +795,7 @@ export default function ProductForm({
                 {allProducts.filter(p => p.id !== initialData?.id && p.name.toLowerCase().includes(bundleSearch.toLowerCase())).map(p => {
                   const isSelected = formData.frequently_bought_together.includes(p.id)
                   return (
-                    <label key={p.id} className={`flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-colors border ${isSelected ? 'bg-[#0B57D0]/10 border-[#0B57D0]/30' : 'hover:admin-bg-elevated border-transparent'}`}>
+                    <label key={p.id} className={`flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-colors border border-solid ${isSelected ? 'bg-[#0B57D0]/10 border-[#0B57D0]/30' : 'hover:admin-bg-elevated border-transparent'}`}>
                       <input type="checkbox" title={`Select ${p.name}`} aria-label={`Select ${p.name}`} checked={isSelected} onChange={(e) => { const c = e.target.checked; setFormData(prev => ({ ...prev, frequently_bought_together: c ? [...prev.frequently_bought_together, p.id] : prev.frequently_bought_together.filter(id => id !== p.id) })) }} className="w-5 h-5 rounded admin-border admin-bg-primary text-[#0B57D0] focus:ring-[#A8C7FA]" />
                       <span className={`text-sm select-none flex-1 ${isSelected ? 'text-[#A8C7FA] font-medium' : 'admin-text-secondary'}`}>{p.name}</span>
                     </label>
@@ -551,7 +807,7 @@ export default function ProductForm({
         )}
 
         <div className="pt-4 border-t admin-border">
-          <button type="submit" disabled={isLoading || !isDirty} className="w-full py-4 bg-[#0B57D0] text-white font-bold rounded-full hover:bg-[#0842A0] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-lg shadow-blue-900/20 active:scale-[0.98]">
+          <button type="submit" disabled={isLoading || !isDirty} className="w-full py-4 bg-[#0B57D0] text-white font-bold rounded-full hover:bg-[#0842A0] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-lg shadow-blue-900/20 border-none outline-none active:scale-[0.98]">
             {isLoading ? 'Processing...' : 'Save Product Configuration'}
           </button>
         </div>
@@ -559,15 +815,15 @@ export default function ProductForm({
 
       {deleteConfirmPath && createPortal(
         <div className="z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh' }}>
-          <div className="admin-bg-card border admin-border rounded-[32px] p-7 md:p-8 max-w-sm w-full animate-in zoom-in-95 text-center flex flex-col items-center z-10">
+          <div className="admin-bg-card border admin-border rounded-[32px] p-7 md:p-8 max-w-sm w-full animate-in zoom-in-95 text-center flex flex-col items-center z-10 font-sans">
             <div className="w-14 h-14 bg-red-100 dark:bg-[#4D2628] border border-red-300 dark:border-[#8C1D18] text-red-600 dark:text-[#F2B8B5] rounded-full flex items-center justify-center mb-5">
               <AlertTriangle className="w-6 h-6" />
             </div>
             <h3 className="text-xl font-medium admin-text-primary mb-2">Delete Image?</h3>
             <p className="text-sm admin-text-secondary mb-8 leading-relaxed">This permanently removes the image from cloud storage.</p>
             <div className="flex flex-col w-full gap-3">
-              <button onClick={handleDeleteExistingImage} className="w-full py-3.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-full transition-colors cursor-pointer">Delete Permanently</button>
-              <button onClick={() => setDeleteConfirmPath(null)} className="w-full py-3.5 border admin-border admin-text-primary hover:admin-bg-elevated font-medium rounded-full transition-colors cursor-pointer">Cancel</button>
+              <button onClick={handleDeleteExistingImage} className="w-full py-3.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-full transition-colors cursor-pointer border-none outline-none">Delete Permanently</button>
+              <button onClick={() => setDeleteConfirmPath(null)} className="w-full py-3.5 border border-solid admin-border admin-text-primary hover:admin-bg-elevated font-medium rounded-full transition-colors cursor-pointer bg-transparent outline-none">Cancel</button>
             </div>
           </div>
         </div>,
@@ -576,15 +832,15 @@ export default function ProductForm({
 
       {showSaveConfirm && createPortal(
         <div className="z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh' }}>
-          <div className="admin-bg-card border admin-border rounded-[32px] p-7 md:p-8 max-w-sm w-full animate-in zoom-in-95 text-center flex flex-col items-center z-10">
+          <div className="admin-bg-card border admin-border rounded-[32px] p-7 md:p-8 max-w-sm w-full animate-in zoom-in-95 text-center flex flex-col items-center z-10 font-sans">
             <div className="w-14 h-14 bg-[#0B57D0]/20 border border-[#0B57D0]/40 text-[#A8C7FA] rounded-full flex items-center justify-center mb-5">
               <CheckCircle2 className="w-6 h-6" />
             </div>
             <h3 className="text-xl font-medium admin-text-primary mb-2">Deploy Changes?</h3>
             <p className="text-sm admin-text-secondary mb-8 leading-relaxed">You are about to {initialData.id ? 'update' : 'create'} this product in the live database.</p>
             <div className="flex flex-col w-full gap-3">
-              <button onClick={handleConfirmSave} className="w-full py-3.5 bg-[#0B57D0] text-white font-bold rounded-full hover:bg-[#0842A0] transition-colors cursor-pointer shadow-lg shadow-blue-900/20">Confirm Deployment</button>
-              <button onClick={() => setShowSaveConfirm(false)} className="w-full py-3.5 border admin-border admin-text-primary hover:admin-bg-elevated font-medium rounded-full transition-colors cursor-pointer">Review Again</button>
+              <button onClick={handleConfirmSave} className="w-full py-3.5 bg-[#0B57D0] text-white font-bold rounded-full hover:bg-[#0842A0] transition-colors cursor-pointer shadow-lg shadow-blue-900/20 border-none outline-none">Confirm Deployment</button>
+              <button onClick={() => setShowSaveConfirm(false)} className="w-full py-3.5 border border-solid admin-border admin-text-primary hover:admin-bg-elevated font-medium rounded-full transition-colors cursor-pointer bg-transparent outline-none">Review Again</button>
             </div>
           </div>
         </div>,

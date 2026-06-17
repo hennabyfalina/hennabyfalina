@@ -123,7 +123,7 @@ export default function AddToCartButton({
   }
 
   const isOutOfStock = (product.stock ?? 0) <= 0
-  const defaultClasses = "w-full h-12 text-[12px] font-bold uppercase tracking-widest bg-stone-100 hover:bg-stone-200 text-gray-900 rounded-full cursor-pointer transition-all duration-300 shadow-sm active:scale-[0.99] border-none outline-none flex items-center justify-center"
+  const defaultClasses = "w-full h-12 text-[12px] font-bold normal tracking-widest bg-stone-100 hover:bg-stone-200 text-gray-900 rounded-full cursor-pointer transition-all duration-300 shadow-sm active:scale-[0.99] border-none outline-none flex items-center justify-center"
   const buttonClasses = className || defaultClasses
 
   let buttonText = 'Add to Cart'

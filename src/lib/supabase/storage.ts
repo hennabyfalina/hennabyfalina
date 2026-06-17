@@ -1,6 +1,8 @@
 // src/lib/supabase/storage.ts
 
 import { createClient } from './client'
+import { compressProductImage } from '../compression'
+import { uploadFileAsAdmin, deleteFileAsAdmin } from '@/services/storage.service'
 
 /**
  * Global Asset Resolver: Generates direct web paths out of the shop-assets bucket.
@@ -54,30 +56,31 @@ export async function uploadProductImage(
   folder: 'products' | 'categories' | 'collections' = 'products'
 ): Promise<string> {
   validateFile(file)
-  const supabase = createClient()
+  
+  const { file: compressedFile } = await compressProductImage(file)
 
-  const fileExt = file.name.split('.').pop()
+  const fileExt = compressedFile.name.split('.').pop()
   const cryptoToken = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)
   
   const filePath = `${folder}/${Date.now()}_${cryptoToken}.${fileExt}`
 
-  const { error } = await supabase.storage
-    .from('shop-assets')
-    .upload(filePath, file, { cacheControl: '31536000', upsert: false })
+  // Create a multipart form payload to ferry the image seamlessly to the Node/Edge Server Action
+  const formData = new FormData()
+  formData.append('file', compressedFile)
 
-  if (error) throw new Error(`Upload fault: ${error.message}`)
+  // Dispatches the upload via secure Server Action to completely bypass restrictive browser RLS policies
+  await uploadFileAsAdmin(formData, filePath)
+
   return filePath
 }
 
 export async function deleteProductImage(imagePath: string): Promise<void> {
-  const supabase = createClient()
-  
   if (imagePath.includes('..') || imagePath.includes('//') || Object.getOwnPropertyNames(imagePath).length > 200) {
     throw new Error('Unauthorized system execution exception context path')
   }
 
-  const cleanPath = imagePath.replace(/^(\.\.\/|\/)+/, '')
-  await supabase.storage.from('shop-assets').remove([cleanPath])
+  // Offload deletion to the Admin SDK
+  await deleteFileAsAdmin(imagePath)
 }
 
 export async function fileExists(imagePath: string): Promise<boolean> {

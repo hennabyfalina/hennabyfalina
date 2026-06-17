@@ -20,7 +20,6 @@ import { useAuth } from '@/hooks/useAuth'
 import { createProduct, updateProduct, deleteProduct } from '@/services/product.service'
 import AdminProductsLoading from './loading'
 
-
 const formatIST = (dateString?: string) => {
   if (!dateString) return '-'
   const date = new Date(dateString)
@@ -161,7 +160,7 @@ export default function AdminProducts() {
       await deleteProduct(productToDelete.id)
       await loadProducts()
       setProductToDelete(null)
-      showToast('Product permanently deleted', 'success')
+      showToast('Product soft-archived successfully', 'success')
     } catch (error: any) {
       showToast(error.message || 'Failed to delete product', 'error')
     } finally {
@@ -169,9 +168,9 @@ export default function AdminProducts() {
     }
   }
 
-if (isLoading && products.length === 0) {
-  return <AdminProductsLoading />;
-}
+  if (isLoading && products.length === 0) {
+    return <AdminProductsLoading />;
+  }
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -199,7 +198,7 @@ if (isLoading && products.length === 0) {
 
   return (
     <>
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6 font-sans antialiased text-left select-none">
         
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -208,7 +207,7 @@ if (isLoading && products.length === 0) {
           </div>
           <button
             onClick={handleAddNew}
-            className="w-full sm:w-auto px-6 py-3 text-sm font-bold rounded-full cursor-pointer admin-action-button"
+            className="w-full sm:w-auto px-6 py-3 text-sm font-bold rounded-full cursor-pointer admin-action-button border-none outline-none"
           >
             + Add New Product
           </button>
@@ -240,7 +239,7 @@ if (isLoading && products.length === 0) {
               className="w-full px-4 py-3 pl-10 admin-bg-primary border border-transparent admin-text-primary placeholder:admin-text-muted rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-[#A8C7FA] transition-shadow cursor-text"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 admin-text-muted hover:admin-text-primary">
+              <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 admin-text-muted hover:admin-text-primary border-none bg-transparent outline-none cursor-pointer">
                 ✕
               </button>
             )}
@@ -297,7 +296,7 @@ if (isLoading && products.length === 0) {
             </div>
           )}
           <div className="overflow-x-auto overscroll-contain-x no-scrollbar">
-            <table className="w-full min-w-[1000px] text-left">
+            <table className="w-full min-w-[1000px] text-left border-collapse">
               <thead className="admin-bg-primary">
                 <tr>
                   <th className="px-6 py-4 text-xs font-medium admin-text-muted uppercase tracking-widest w-16">Img</th>
@@ -313,7 +312,7 @@ if (isLoading && products.length === 0) {
               <tbody className="divide-y admin-border">
                 {filteredProducts.length === 0 && !isLoading ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center admin-text-muted font-medium">
+                    <td colSpan={8} className="px-6 py-12 text-center admin-text-muted font-medium italic">
                       No products found matching your search criteria.
                     </td>
                   </tr>
@@ -322,7 +321,6 @@ if (isLoading && products.length === 0) {
                     const imageUrl = product.images?.[0] ? imageUrls.get(product.id) : null
                     
                     const displayPrice = product.retail_price
-                  
                     const displayB2bPrice = product.wholesale_price
                     const displayB2bQty = product.wholesale_min_qty
 
@@ -352,8 +350,8 @@ if (isLoading && products.length === 0) {
                         </td>
                         
                         <td className="px-6 py-4">
-                          <div className="font-medium admin-text-primary text-[15px] group-hover:admin-text-accent transition-colors line-clamp-2">
-                            {product.name}
+                          <div className="font-medium admin-text-primary text-[15px] group-hover:admin-text-accent transition-colors line-clamp-2 capitalize">
+                            {product.name.toLowerCase()}
                           </div>
                           <div className="text-xs admin-text-muted font-mono mt-1 tracking-wide">
                             {product.sku || 'NO-SKU'}
@@ -363,34 +361,40 @@ if (isLoading && products.length === 0) {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex flex-col">
                             <div className="text-sm font-medium admin-text-primary">
-                              {formatCurrency(displayPrice)}
+                              {product.is_variants_enabled ? (
+                                <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-600 border border-purple-100 normal tracking-wide">
+                                  Variants
+                                </span>
+                              ) : (
+                                formatCurrency(displayPrice)
+                              )}
                             </div>
-                            {product.mrp && product.mrp > displayPrice && (
-                              <div className="text-[11px] admin-text-muted line-through mt-0.5">
+                            {!product.is_variants_enabled && product.mrp && product.mrp > displayPrice ? (
+                              <div className="text-[11px] admin-text-muted line-through mt-0.5 font-mono">
                                 {formatCurrency(product.mrp)}
                               </div>
-                            )}
+                            ) : null}
                           </div>
                         </td>
                         
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {displayB2bPrice && displayB2bQty ? (
+                          {product.is_wholesale_enabled && displayB2bPrice && displayB2bQty ? (
                             <div className="flex flex-col">
-                              <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(displayB2bPrice)}</span>
-                              <span className="text-[11px] admin-text-secondary mt-0.5">Min Qty: {displayB2bQty}</span>
+                              <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 font-mono">{formatCurrency(displayB2bPrice)}</span>
+                              <span className="text-[11px] admin-text-secondary mt-0.5 font-semibold">Min Qty: {displayB2bQty}</span>
                             </div>
                           ) : (
-                            <span className="text-xs text-gray-400 dark:text-[#565959] italic">No B2B rules</span>
+                            <span className="text-xs text-gray-400 dark:text-[#565959] italic lowercase">no tier criteria locked</span>
                           )}
                         </td>
 
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
-                            <span className={`text-sm font-medium ${
+                            <span className={`text-sm font-medium font-mono ${
                               product.stock <= 5 && product.stock > 0 
-                                ? 'text-amber-600 dark:text-amber-400' 
+                                ? 'text-amber-600 dark:text-amber-400 font-bold' 
                                 : product.stock === 0 
-                                ? 'text-red-600 dark:text-red-400' 
+                                ? 'text-red-600 dark:text-red-400 font-bold' 
                                 : 'admin-text-primary'
                             }`}>
                               {product.stock}
@@ -401,39 +405,41 @@ if (isLoading && products.length === 0) {
                         </td>
 
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-3 py-1 rounded-full text-[11px] font-bold tracking-widest uppercase ${
+                          <span className={`inline-flex px-3 py-1 rounded-full text-[11px] font-bold tracking-widest normal ${
                             product.status === 'published'
                               ? 'admin-badge-delivered border border-[var(--admin-status-delivered-text)]/20'
                               : product.status === 'draft'
                               ? 'admin-bg-elevated admin-text-secondary border admin-border'
                               : 'admin-badge-pending border border-[var(--admin-status-pending-text)]/20'
                           }`}>
-                            {product.status === 'published' ? 'PUBLISHED' : product.status === 'draft' ? 'DRAFT' : 'ARCHIVED'}
+                            {product.status === 'published' ? 'Published' : product.status === 'draft' ? 'Draft' : 'Archieved'}
                           </span>
                         </td>
 
-                        <td className="px-6 py-4 whitespace-nowrap text-sm admin-text-muted">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm admin-text-muted font-mono">
                           {formatIST(product.updated_at)}
                         </td>
 
-                        <td className="px-6 py-4 text-right whitespace-nowrap">
+                        <td className="px-6 py-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-2">
                             <button 
+                               type="button"
                                onClick={(e) => handleEdit(product, e)}
-                               className="p-2 admin-text-accent hover:bg-[#0B57D0]/20 rounded-full transition-colors cursor-pointer"
+                               className="p-2 admin-text-accent hover:bg-[#0B57D0]/20 rounded-full transition-colors cursor-pointer border-none bg-transparent outline-none"
                                title="Edit Product"
                              >
                                <Edit className="w-4 h-4" />
-                             </button>
-                             {isSuperAdmin && (
-                               <button 
-                                  onClick={(e) => { e.stopPropagation(); setProductToDelete(product); }}
-                                  className="p-2 rounded-full hover:admin-bg-elevated transition-all duration-200 cursor-pointer"
-                                 title="Delete Product"
-                               >
-                                 <Trash2 className="w-4 h-4 text-red-500 hover:text-red-400" />
-                               </button>
-                             )}
+                            </button>
+                            {isSuperAdmin && (
+                              <button 
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setProductToDelete(product); }}
+                                className="p-2 rounded-full hover:admin-bg-elevated transition-all duration-200 cursor-pointer border-none bg-transparent outline-none"
+                                title="Delete Product"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-500 hover:text-red-400" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -454,6 +460,9 @@ if (isLoading && products.length === 0) {
             retail_price: editingProduct.retail_price ?? '',
             wholesale_price: editingProduct.wholesale_price ?? '',
             wholesale_min_qty: editingProduct.wholesale_min_qty ?? 1,
+            is_retail_enabled: editingProduct.is_retail_enabled ?? true,
+            is_wholesale_enabled: editingProduct.is_wholesale_enabled ?? false,
+            is_variants_enabled: editingProduct.is_variants_enabled ?? false,
             frequently_bought_together: editingProduct.frequently_bought_together || [],
             weight_unit: (editingProduct.weight_unit === 'g' || editingProduct.weight_unit === 'kg') ? editingProduct.weight_unit : 'kg',
             dimensions: editingProduct.dimensions || { length: '', width: '', height: '' }

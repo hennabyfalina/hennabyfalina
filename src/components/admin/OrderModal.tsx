@@ -7,12 +7,11 @@ import Modal from '@/components/ui/Modal'
 import AdminConfirmModal from './layout/AdminConfirmModal'
 import OrderStatusBadge from './OrderStatusBadge'
 import AdminLoader from './AdminLoader'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
 import { showToast } from '@/components/ui/Toast'
-import { Package, Truck, MapPin, CreditCard, Calendar, Hash, ExternalLink, Printer, Trash2, Phone, Download, Copy, Check } from 'lucide-react'
+import { Package, Truck, MapPin, CreditCard, Calendar, Hash, Trash2, Phone, MessageSquare, Copy, Check, Tag, Sliders } from 'lucide-react'
 import InvoiceLink from '@/components/order/InvoiceLink'
 import { siteConfig } from '@/config/site'
-import { ORDER_STATUS_FILTERS } from '@/lib/constants'
 import { useAuth } from '@/hooks/useAuth'
 
 interface OrderModalProps {
@@ -24,12 +23,12 @@ interface OrderModalProps {
 }
 
 const CopyButton = ({ text, id, copiedId, onClick }: { text: string, id: string, copiedId: string | null, onClick: (text: string, id: string) => void }) => (
-  <button onClick={() => onClick(text, id)} className="p-1.5 hover:admin-bg-elevated rounded-md transition-colors admin-text-muted hover:admin-text-accent cursor-pointer shrink-0">
+  <button type="button" onClick={() => onClick(text, id)} className="p-1.5 hover:admin-bg-elevated rounded-md transition-colors admin-text-muted hover:admin-text-accent cursor-pointer shrink-0 border-none bg-transparent outline-none">
     {copiedId === id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
   </button>
 )
 
-export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSuccess }: OrderModalProps) {
+export default function OrderModal({ isOpen, onClose, orderId, onSuccess }: OrderModalProps) {
   const { isSuperAdmin } = useAuth()
   const [order, setOrder] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -48,11 +47,7 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
   const [showStatusConfirm, setShowStatusConfirm] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  
-  const [downloadingArtwork, setDownloadingArtwork] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
-
-  const rawAvailableStatuses = ORDER_STATUS_FILTERS.filter(f => f.value !== 'all')
 
   const loadOrder = async () => {
     setLoading(true)
@@ -61,11 +56,29 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
       const response = await fetch(`/api/admin/orders/${orderId}`)
       if (!response.ok) throw new Error('Failed to load order data')
       const data = await response.json()
-      setOrder(data)
 
-      if (data.courier_name) setCourierName(data.courier_name)
-      if (data.tracking_number) setTrackingNumber(data.tracking_number)
-      if (data.tracking_url) setTrackingUrl(data.tracking_url)
+      // 🔒 BULLETPROOF ARRAY NORMALIZATION: Fixes the "N/A" bug caused by Supabase returning arrays
+      const addrSource = data.address || data.addresses;
+      const normalizedAddress = Array.isArray(addrSource) ? addrSource[0] : addrSource;
+
+      const usrSource = data.user || data.users;
+      const normalizedUser = Array.isArray(usrSource) ? usrSource[0] : usrSource;
+
+      const normalizedData = {
+        ...data,
+        addresses: normalizedAddress || {},
+        users: normalizedUser || null,
+        order_items: (data.order_items || []).map((item: any) => ({
+          ...item,
+          products: Array.isArray(item.product) ? item.product[0] : (item.product || (Array.isArray(item.products) ? item.products[0] : item.products))
+        }))
+      }
+
+      setOrder(normalizedData)
+
+      if (normalizedData.courier_name) setCourierName(normalizedData.courier_name)
+      if (normalizedData.tracking_number) setTrackingNumber(normalizedData.tracking_number)
+      if (normalizedData.tracking_url) setTrackingUrl(normalizedData.tracking_url)
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load order')
@@ -155,35 +168,6 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
     }
   }
 
-  const handleSecureDownload = async (internalPath: string, action: 'view' | 'download' = 'view') => {
-    setDownloadingArtwork(internalPath)
-    try {
-      const url = `/api/admin/artwork?path=${encodeURIComponent(internalPath)}`
-      
-      if (action === 'download') {
-        const response = await fetch(url)
-        if (!response.ok) throw new Error('Failed to fetch file')
-        const blob = await response.blob()
-        const objectUrl = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = objectUrl
-        a.download = internalPath.split('/').pop() || `artwork-${new Date().getTime()}`
-        document.body.appendChild(a)
-        a.click()
-        showToast("Download Successfully. Check your device's download section.", 'success')
-        window.URL.revokeObjectURL(objectUrl)
-        document.body.removeChild(a)
-      } else {
-        showToast("Opening artwork in new tab...", 'success')
-        window.open(url, '_blank')
-      }
-    } catch (error) {
-      showToast('Failed to access artwork file', 'error')
-    } finally {
-      setDownloadingArtwork(null)
-    }
-  }
-
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text)
     setCopiedId(id)
@@ -204,7 +188,7 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
       <Modal isOpen={isOpen} onClose={onClose} title="Order Details">
         <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
           <p className="text-red-400 font-medium text-sm mb-6">{error || 'Order not found'}</p>
-          <button onClick={onClose} className="px-6 py-2.5 admin-bg-elevated admin-text-primary rounded-full text-sm font-medium hover:admin-bg-hover transition-colors">
+          <button onClick={onClose} className="px-6 py-2.5 admin-bg-elevated admin-text-primary rounded-full text-sm font-medium hover:admin-bg-hover transition-colors border-none outline-none cursor-pointer">
             Close Panel
           </button>
         </div>
@@ -229,7 +213,7 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
   const address = order.addresses || {}
 
   const deliveryStatuses = [
-    { label: 'Pending', value: 'pending' },
+    { label: 'Pending Payment', value: 'pending' },
     { label: 'Confirmed', value: 'confirmed' },
     { label: 'Processing', value: 'processing' },
     { label: 'Shipped', value: 'shipped' },
@@ -241,7 +225,7 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
   ];
 
   const pickupStatuses = [
-    { label: 'Pending', value: 'pending' },
+    { label: 'Pending Payment', value: 'pending' },
     { label: 'Confirmed', value: 'confirmed' },
     { label: 'Processing', value: 'processing' },
     { label: 'Ready for Pickup', value: 'ready_for_pickup' },
@@ -259,12 +243,13 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
     (newStatus === 'shipped' && (!courierName.trim() || !trackingNumber.trim())) ||
     (newStatus === 'cancelled' && !reason.trim())
 
+  const itemsSubtotal = order.total_amount - (order.shipping_cost || 0)
+
   return (
     <>
       <Modal isOpen={isOpen} onClose={onClose} title={`Order #${order.order_number}`}>
-        <div className="space-y-6 max-h-[75vh] overflow-y-auto overscroll-contain pr-1 sm:pr-2 no-scrollbar admin-text-primary pb-6">
+        <div className="space-y-6 max-h-[75vh] overflow-y-auto overscroll-contain pr-1 sm:pr-2 no-scrollbar admin-text-primary pb-6 text-left font-sans select-none">
           
-          {/* Order Summary Block */}
           <div className="admin-bg-primary rounded-[24px] p-5 sm:p-6 border admin-border">
             <div className="grid grid-cols-2 gap-y-6 gap-x-4">
               <div>
@@ -307,229 +292,177 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
             )}
           </div>
 
-          {/* Order Items */}
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-sm font-medium admin-text-primary flex items-center gap-2">
-                <Package className="w-4 h-4 admin-text-accent" /> Order Items
+              <h3 className="text-md font-bold uppercase tracking-wider admin-text-primary flex items-center gap-2">
+                <Package className="w-4 h-4 admin-text-accent" /> Order Details
               </h3>
               <span className="text-xs font-bold admin-text-muted admin-bg-primary px-2.5 py-1 rounded-full border admin-border">
-                {order.order_items?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0} Items
+                {order.order_items?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0} units
               </span>
             </div>
             
             <div className="flex flex-col gap-3">
-              {order.order_items?.map((item: any, index: number) => (
-                <div key={item.id} className="admin-bg-primary border admin-border rounded-[24px] p-4 sm:p-5 flex flex-col gap-4 hover:border-[#44474A] transition-colors">
-                  
-                  <div className="flex justify-between items-start gap-3">
-                    <div className="flex-1">
-                      <h4 className="font-medium admin-text-primary text-[15px] sm:text-base leading-tight">
-                        {order.order_items.length > 1 ? `${index + 1}. ` : ''}{item.products?.name || 'Product'}
-                      </h4>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="font-medium admin-text-primary text-base">
-                        {formatCurrency((item.price || 0) * (item.quantity || 0))}
-                      </div>
-                    </div>
-                  </div>
+              {order.order_items?.map((item: any, index: number) => {
+                const cleanProductName = item.products?.name || 'Product'
+                const displayHeadingTitle = item.variant_string && !cleanProductName.includes(`(${item.variant_string})`)
+                  ? `${cleanProductName} (${item.variant_string})`
+                  : cleanProductName
 
-                  <div className="flex items-center gap-3 text-xs">
-                    <div className="admin-bg-card px-3 py-1.5 rounded-full border admin-border">
-                      <span className="admin-text-muted">Qty:</span> <span className="font-bold admin-text-primary">{item.quantity}</span>
-                    </div>
-                    <div className="admin-bg-card px-3 py-1.5 rounded-full border admin-border">
-                      <span className="admin-text-muted">Rate:</span> <span className="font-bold admin-text-primary">{formatCurrency(item.price || 0)}</span>
-                    </div>
-                  </div>
+                const isWholesaleMode = item.purchase_type === 'wholesale' || item.purchase_type === 'variant_wholesale'
 
-                  {(() => {
-                    const parseUrls = (data: any): string[] => {
-                      if (!data) return [];
-                      // If it's already an array
-                      if (Array.isArray(data)) {
-                        return data.flatMap(item => {
-                          if (typeof item === 'string') return item.trim() ? item : [];
-                          if (item && typeof item === 'object') {
-                            // Try common property names
-                            const url = item.url || item.path || item.filePath || item.src;
-                            return url && typeof url === 'string' && url.trim() ? url : [];
-                          }
-                          return [];
-                        });
-                      }
-                      // If it's a string, try to parse JSON
-                      if (typeof data === 'string') {
-                        const trimmed = data.trim();
-                        if (!trimmed) return [];
-                        try {
-                          const parsed = JSON.parse(trimmed);
-                          if (Array.isArray(parsed)) {
-                            return parsed.flatMap(item => {
-                              if (typeof item === 'string') return item.trim() ? item : [];
-                              if (item && typeof item === 'object') {
-                                const url = item.url || item.path || item.filePath;
-                                return url && typeof url === 'string' && url.trim() ? url : [];
-                              }
-                              return [];
-                            });
-                          }
-                          // If parsing didn't yield an array but it's a plain string, treat as single file
-                          if (typeof parsed === 'string' && parsed.trim()) return [parsed];
-                        } catch {
-                          // Not JSON – treat the whole string as one file path (if it looks like a path)
-                          if (trimmed.includes('/') || trimmed.includes('.')) return [trimmed];
-                        }
-                      }
-                      return [];
-                    };
-                    const primaryUrls = parseUrls(item.artwork_urls);
-                    const fallbackUrls = parseUrls(item.customization_details?.artwork_urls);
-                    const urls = primaryUrls.length > 0 ? primaryUrls : fallbackUrls;
-                    const hasFiles = urls.length > 0;
-                    const note = item.printing_instructions || item.customization_details?.printing_instructions;
-                    const hasNotes = typeof note === 'string' && note.trim().length > 0;
-                    const hasCustomType = item.printing_type && item.printing_type !== 'None' && item.printing_type !== 'Retail (Readymade)';
-                    
-                    if (!hasFiles && !hasNotes && !hasCustomType) return null;
+                return (
+                  <div key={item.id} className="admin-bg-primary border admin-border rounded-[24px] p-4 sm:p-5 flex flex-col gap-4 hover:border-[#44474A] transition-colors">
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="flex-1">
+                        <h4 className="font-bold admin-text-primary text-[15px] sm:text-base leading-tight capitalize">
+                          {order.order_items.length > 1 ? `${index + 1}. ` : ''}{displayHeadingTitle.toLowerCase()}
+                        </h4>
 
-                    return (
-                      <div className={`pt-3 mt-1 ${(hasFiles || hasNotes) ? 'border-t-0 admin-bg-card p-3 sm:p-4 rounded-xl border admin-border' : 'border-t admin-border/50'}`}>
-                        <div className="flex flex-col sm:flex-row sm:items-start gap-3 justify-between">
-                          <div>
-                            {hasCustomType && (
-                              <div className="text-md admin-text-secondary">
-                                <span className="admin-text-muted">Custom Type:</span> <span className="capitalize admin-text-accent font-medium">{item.printing_type}</span>
-                              </div>
-                            )}
-                            {hasNotes && (
-                              <div className="text-md admin-text-secondary">
-                                <span className="admin-text-muted">Note:</span> {note}
-                              </div>
-                            )}
-                          </div>
-                          
-                          {hasFiles && (
-                            <div className="flex flex-wrap gap-2 justify-end w-full sm:w-auto">
-                              {urls.map((url: string, idx: number) => (
-                                <div key={idx} className="flex flex-row items-center admin-bg-elevated border admin-border rounded-full overflow-hidden shrink-0 w-full sm:w-auto transition-colors focus-within:border-[#A8C7FA]">
-                                  <button onClick={() => handleSecureDownload(url, 'view')} disabled={!!downloadingArtwork} className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 hover:admin-bg-hover text-xs font-medium admin-text-primary transition-colors cursor-pointer disabled:opacity-50 flex-1 border-r admin-border">
-                                    <ExternalLink className="w-3 h-3 admin-text-accent" /> View {idx + 1}
-                                  </button>
-                                  <button onClick={() => handleSecureDownload(url, 'download')} disabled={!!downloadingArtwork} className="inline-flex items-center justify-center px-3 py-2 sm:py-1.5 hover:admin-bg-hover text-xs font-medium text-[#00FF41] transition-colors cursor-pointer disabled:opacity-50" title={`Download File ${idx + 1}`}>
-                                    {downloadingArtwork === url ? <div className="w-3.5 h-3.5 border-2 border-[#00FF41] border-t-transparent rounded-full animate-spin" /> : <Download className="w-3.5 h-3.5 stroke-[2.5px]" />}
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
+                        <div className="flex flex-col gap-1.5 pt-2">
+
+                          {isWholesaleMode && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md w-fit lowercase">
+                              <Tag className="w-2.5 h-3" />Wholesale price  applied
+                            </span>
                           )}
                         </div>
                       </div>
-                    )
-                  })()}
-                </div>
-              ))}
+                      <div className="text-right shrink-0">
+                        <div className="font-bold admin-text-primary text-base">
+                          {formatCurrency((item.price || 0) * (item.quantity || 0))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 text-xs pt-1">
+                      <div className="admin-bg-card px-3 py-1.5 rounded-full border admin-border">
+                        <span className="admin-text-muted">Quantity:</span> <span className="font-bold admin-text-primary">{item.quantity}</span>
+                      </div>
+                      <div className="admin-bg-card px-3 py-1.5 rounded-full border admin-border">
+                        <span className="admin-text-muted">Unit Rate:</span> <span className="font-bold admin-text-primary">{formatCurrency(item.price || 0)}</span>
+                      </div>
+                      {item.original_price && item.original_price > item.price && (
+                        <span className="text-stone-300 font-normal line-through font-mono">{formatCurrency(item.original_price)}</span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="mt-4 pt-6 border-t admin-border space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="admin-text-muted">Items Subtotal</span>
+                <span className="admin-text-primary font-medium">{formatCurrency(itemsSubtotal)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="admin-text-muted">Delivery Fee ({order.shipping_method || 'Standard'})</span>
+                <span className="admin-text-primary font-medium">{order.shipping_cost ? formatCurrency(order.shipping_cost) : <span className="text-[#93D7A4]">Free</span>}</span>
+              </div>
+              <div className="flex justify-between items-center font-medium pt-5 border-t admin-border mt-2">
+                <span className="text-lg admin-text-primary">Grand Total Paid</span>
+                <span className="text-2xl font-bold admin-text-primary tracking-tight">{formatCurrency(order.total_amount)}</span>
+              </div>
             </div>
           </div>
 
-          {/* Address Info */}
           <div>
-            <h3 className="text-sm font-medium admin-text-primary mb-3 flex items-center gap-2">
+            <h3 className="text-md font-bold uppercase tracking-wider admin-text-primary mb-3 flex items-center gap-2">
               <MapPin className="w-4 h-4 admin-text-accent" /> 
-              {isPickup ? 'Store Pickup Details' : 'Shipping Address'}
+              {isPickup ? 'Store Pickup Details' : 'Shipping  Address'}
             </h3>
             <div className="admin-bg-primary rounded-[24px] p-5 sm:p-6 border admin-border">
               {isPickup ? (
-                
-                  <div className="grid grid-cols-1 gap-3">
-                    <div>
-                      <p className="text-[11px] admin-text-muted uppercase tracking-widest font-bold mb-1">Customer Name</p>
-                      <p className="text-sm admin-text-primary">{getAddressField('name')}</p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] admin-text-muted uppercase tracking-widest font-bold mb-1">Phone</p>
-                      <a href={`tel:${getAddressField('phone')}`} className="text-sm font-medium admin-text-accent hover:underline">
-                        {getAddressField('phone')}
-                      </a>
-                    </div>
-                    <div>
-                      <p className="text-[11px] admin-text-muted uppercase tracking-widest font-bold mb-1">Pincode</p>
-                      <p className="text-sm admin-text-primary">{getAddressField('pincode')}</p>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-1">
+                    <p className="text-[10px] admin-text-muted font-bold uppercase tracking-widest">Store Branch</p>
+                    <p className="text-lg font-medium admin-text-primary">{siteConfig.name}</p>
+                    <p className="text-sm admin-text-secondary mt-2 leading-relaxed">
+                      {siteConfig.address.line1}, {siteConfig.address.line2}<br />
+                      {siteConfig.address.city} - {siteConfig.address.pincode}, {siteConfig.address.state}
+                    </p>
                   </div>
-               
+                  <div className="space-y-1">
+                    <p className="text-[10px] admin-text-muted font-bold uppercase tracking-widest">Contact Person</p>
+                    <p className="text-base admin-text-primary font-medium flex items-center gap-2 mt-1">
+                      <Phone className="w-4 h-4 text-[#0B57D0]" /> {order.pickup_contact?.name || siteConfig.contact.phone.primary}
+                    </p>
+                    {order.pickup_contact?.phone && (
+                      <p className="text-xs font-mono font-semibold text-blue-600 mt-1 pl-6">buyer phone: +91 {order.pickup_contact.phone}</p>
+                    )}
+                  </div>
+                </div>
               ) : (
-                <div className="flex flex-col">
-                  <div className="flex flex-col sm:flex-row gap-6 sm:gap-8">
-                    <div className="flex-1 space-y-1.5">
-                      <p className="text-[11px] admin-text-muted uppercase tracking-widest font-bold">Recipient</p>
-                      <p className="text-base font-bold admin-text-primary">{address.name || 'N/A'}</p>
-                      <a href={`tel:${address.phone}`} className="text-sm font-medium admin-text-accent flex items-center gap-1.5 hover:underline w-fit">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-[10px] admin-text-muted font-bold uppercase tracking-widest mb-1">Customer Details</p>
+                      <p className="text-lg font-bold admin-text-primary capitalize">{address.name?.toLowerCase() || 'N/A'}</p>
+                      <a href={`tel:${address.phone}`} className="text-[#0B57D0] hover:admin-text-accent text-sm font-medium flex items-center gap-2 mt-1 cursor-pointer transition-colors font-mono">
                         {address.phone || 'N/A'}
                       </a>
                     </div>
-                    <div className="flex-[2] space-y-1.5 border-t sm:border-t-0 sm:border-l admin-border pt-5 sm:pt-0 sm:pl-8">
-                      <p className="text-[11px] admin-text-muted uppercase tracking-widest font-bold">Delivery Address</p>
-                      <p className="text-sm admin-text-secondary leading-relaxed">
-                        {address.address_line1 || address.address}
-                        {address.address_line2 && <>, {address.address_line2}</>}
-                        <br />
-                        {address.city || 'N/A'} - <span className="font-bold admin-text-primary">{address.pincode || 'N/A'}</span>
-                        <br />
-                        {address.state || 'N/A'}, {address.country || 'India'}
+                    <div>
+                      <p className="text-[10px] admin-text-muted font-bold uppercase tracking-widest mb-1">Delivery Address</p>
+                      <p className="text-sm admin-text-secondary leading-relaxed capitalize">
+                        {address.address_line1 || address.address}<br />
+                        {address.address_line2 && <>{address.address_line2.toLowerCase()}<br /></>}
+                        {address.city?.toLowerCase() || 'N/A'} - <span className="font-bold admin-text-primary font-mono">{address.pincode || 'N/A'}</span><br />
+                        {address.state?.toLowerCase() || 'N/A'}, {address.country || 'India'}
                       </p>
                     </div>
                   </div>
-                  {(address.landmark || address.delivery_instructions) && (
-                    <div className="mt-5 pt-4 border-t admin-border grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {address.landmark && (
-                        <div>
-                          <p className="text-[10px] admin-text-muted uppercase tracking-widest mb-1">Landmark</p>
-                          <p className="text-sm admin-text-primary">{address.landmark}</p>
-                        </div>
-                      )}
-                      {address.delivery_instructions && (
-                        <div>
-                          <p className="text-[10px] admin-text-muted uppercase tracking-widest mb-1">Instructions</p>
-                          <p className="text-sm admin-text-primary">{address.delivery_instructions}</p>
-                        </div>
-                      )}
+                  <div className="space-y-4 admin-bg-primary p-5 rounded-[24px] border border-transparent">
+                    <div>
+                      <p className="text-[11px] admin-text-muted font-bold uppercase tracking-wider flex items-center gap-2 mb-2">
+                         Area Landmark
+                      </p>
+                      <p className="text-sm admin-text-primary font-medium italic capitalize">
+                        {address.landmark ? `"${address.landmark.toLowerCase()}"` : 'No landmark provided'}
+                      </p>
                     </div>
-                  )}
+                    <div>
+                      <p className="text-[11px] admin-text-muted font-bold uppercase tracking-wider flex items-center gap-2 mb-2">
+                         Delivery Notes
+                      </p>
+                      <p className="text-sm admin-text-primary leading-relaxed">
+                        {address.delivery_instructions || 'None'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Payment Info */}
           <div>
-             <h3 className="text-sm font-medium admin-text-primary mb-3 flex items-center gap-2">
+             <h3 className="text-md font-bold uppercase tracking-wider admin-text-primary mb-3 flex items-center gap-2">
               <CreditCard className="w-4 h-4 admin-text-accent" /> Payment Details
             </h3>
             <div className="admin-bg-primary rounded-[24px] p-5 sm:p-6 border admin-border space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm admin-text-muted">Method</span>
-                <span className="text-sm font-medium admin-text-primary capitalize">Razorpay {order.payment_method_detail || order.payment_method || 'Standard'}</span>
+              <div className="flex justify-between items-center text-xs">
+                <span className="admin-text-muted">Payment Mode</span>
+                <span className="admin-text-primary font-normal tracking-wide">Razorpay {order.payment_method_detail || order.payment_method || 'Standard'}</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm admin-text-muted">Status</span>
+              <div className="flex justify-between items-center text-xs">
+                <span className="admin-text-muted">Payment Verification</span>
                 <OrderStatusBadge status={order.payment_status} type="payment" />
               </div>
               {order.razorpay_payment_id && (
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                  <span className="text-sm admin-text-muted">Txn ID</span>
-                  <div className="flex items-center gap-2 admin-bg-card px-2 py-1 rounded-md border admin-border w-fit max-w-full">
-                    <span className="text-[11px] font-mono admin-text-accent break-all">{order.razorpay_payment_id}</span>
+                  <span className="text-[11px] admin-text-muted font-normal tracking-widest">Transaction ID</span>
+                  <div className="flex items-center gap-2 admin-bg-card px-2 py-1 rounded-md border admin-border w-fit max-w-full justify-between">
+                    <span className="text-[11px] font-mono admin-text-accent break-all select-all">{order.razorpay_payment_id}</span>
                     <CopyButton text={order.razorpay_payment_id} id="pay_id" copiedId={copiedId} onClick={copyToClipboard} />
                   </div>
                 </div>
               )}
               {order.razorpay_order_id && (
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                  <span className="text-sm admin-text-muted">Gateway Order</span>
-                  <div className="flex items-center gap-2 admin-bg-card px-2 py-1 rounded-md border admin-border w-fit max-w-full">
-                    <span className="text-[11px] font-mono admin-text-accent break-all">{order.razorpay_order_id}</span>
+                  <span className="text-[11px] admin-text-muted font-normal tracking-widest">Order ID</span>
+                  <div className="flex items-center gap-2 admin-bg-card px-2 py-1 rounded-md border admin-border w-fit max-w-full justify-between">
+                    <span className="text-[11px] font-mono admin-text-accent break-all select-all">{order.razorpay_order_id}</span>
                     <CopyButton text={order.razorpay_order_id} id="razor_order_id" copiedId={copiedId} onClick={copyToClipboard} />
                   </div>
                 </div>
@@ -537,9 +470,11 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
             </div>
           </div>
 
-          {/* ACTION ZONE: UPDATE STATUS */}
           <div className="pt-4 border-t admin-border">
-            <h3 className="text-[11px] font-bold admin-text-muted uppercase tracking-widest mb-3">Workflow Action</h3>
+            <h3 className="text-[15px] font-bold admin-text-bold uppercase tracking-widest mb-3 flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 admin-text-accent" />
+              Action
+            </h3>
             <div className="space-y-5 admin-bg-primary p-5 sm:p-6 rounded-[24px] border admin-border">
               
               <div className="flex items-center justify-between gap-4">
@@ -551,7 +486,7 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                 value={newStatus}
                 title="Select new order status"
                 onChange={(e) => setNewStatus(e.target.value)}
-                className="w-full px-5 py-3.5 admin-bg-card border admin-border admin-text-primary rounded-full text-sm font-bold focus:outline-none focus:border-[#A8C7FA] transition-colors appearance-none cursor-pointer text-center"
+                className="w-full px-5 py-3.5 admin-bg-card border admin-border admin-text-primary rounded-full text-xs font-bold focus:outline-none focus:border-[#A8C7FA] transition-colors appearance-none cursor-pointer text-center"
               >
                 {displayStatuses.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -559,8 +494,8 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
               </select>
 
               {newStatus === 'shipped' && !isPickup && (
-                <div className="space-y-3 admin-bg-card p-4 rounded-[20px] border admin-border">
-                  <p className="text-xs font-bold admin-text-accent mb-2 uppercase tracking-wide">Dispatch Details</p>
+                <div className="space-y-3 admin-bg-card p-4 rounded-[20px] border admin-border animate-in fade-in duration-150">
+                  <p className="text-[10px] font-bold admin-text-accent mb-2 uppercase tracking-widest">Dispatch Details</p>
                   <input
                     type="text"
                     value={courierName}
@@ -588,16 +523,16 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
                 </div>
               )}
 
-          <div className="space-y-3 admin-bg-card p-4 rounded-[20px] border admin-border mt-4">
-            <p className="text-xs font-bold admin-text-accent mb-2 uppercase tracking-wide">Estimated Delivery Date</p>
-            <input
-              type="date"
-              value={estimatedDeliveryDate}
-              title="Estimated Delivery Date"
-              onChange={(e) => setEstimatedDeliveryDate(e.target.value)}
-              className="w-full px-4 py-3 admin-bg-primary border admin-border admin-text-primary rounded-[14px] text-sm focus:outline-none focus:border-[#A8C7FA] transition-colors cursor-pointer"
-            />
-          </div>
+              <div className="space-y-3 admin-bg-card p-4 rounded-[20px] border admin-border mt-4">
+                <p className="text-[12px] font-bold admin-text-accent mb-2 normal tracking-widest">Estimated Delivery Date</p>
+                <input
+                  type="date"
+                  value={estimatedDeliveryDate}
+                  title="Estimated Delivery Date"
+                  onChange={(e) => setEstimatedDeliveryDate(e.target.value)}
+                  className="w-full px-4 py-3 admin-bg-primary border admin-border admin-text-primary rounded-[14px] text-sm focus:outline-none focus:border-[#A8C7FA] transition-colors cursor-pointer"
+                />
+              </div>
 
               {newStatus === 'cancelled' && (
                 <textarea
@@ -611,12 +546,13 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
               )}
 
               <button
+                type="button"
                 onClick={handleInitiateUpdate}
                 disabled={isUpdateDisabled}
-                className={`w-full py-3.5 rounded-full text-sm font-bold transition-all cursor-pointer ${
+                className={`w-full py-4 rounded-full text-sm font-bold tracking-wide transition-all border-none outline-none cursor-pointer ${
                   isUpdateDisabled 
                     ? 'admin-bg-card admin-text-muted cursor-not-allowed border admin-border' 
-                    : 'bg-[#0B57D0] text-white hover:bg-[#0842A0] border-transparent shadow-lg shadow-blue-900/20'
+                    : 'bg-[#0B57D0] text-white hover:bg-[#0842A0] border-transparent shadow-lg shadow-blue-900/20 active:scale-[0.99]'
                 }`}
               >
                 Update to {displayStatuses.find(s => s.value === newStatus)?.label || newStatus}
@@ -627,10 +563,11 @@ export default function OrderModal({ isOpen, onClose, orderId, orderNumber, onSu
           {isSuperAdmin && (
             <div className="pt-2">
               <button 
+                type="button" 
                 onClick={() => setShowDeleteConfirm(true)}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-full text-sm font-bold bg-[#3C1E0A]/40 text-[#F9AB00] hover:bg-[#3C1E0A] hover:text-[#F9AB00] border border-transparent transition-colors cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-full text-sm font-bold bg-[#3C1E0A]/40 text-[#F9AB00] hover:bg-[#3C1E0A] hover:text-[#F9AB00] border border-transparent transition-colors cursor-pointer outline-none"
               >
-                <Trash2 className="w-4 h-4" /> Delete Order Permanently
+                Delete Order Permanently
               </button>
             </div>
           )}

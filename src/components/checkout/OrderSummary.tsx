@@ -43,14 +43,14 @@ function OrderSummary({
 }: OrderSummaryProps) {
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0)
   const [isExpanded, setIsExpanded] = useState(true)
-  const [showScrollIndicator, setShowScrollIndicator] = useState(items.length > 2)
+  const [showScrollIndicator, setShowScrollIndicator] = useState(items.length > 3)
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget
-    const isAtBottom = Math.abs(target.scrollHeight - target.clientHeight - target.scrollTop) < 2
+    const isAtBottom = Math.abs(target.scrollHeight - target.clientHeight - target.scrollTop) < 3
     if (isAtBottom && showScrollIndicator) {
       setShowScrollIndicator(false)
-    } else if (!isAtBottom && items.length > 2 && !showScrollIndicator) {
+    } else if (!isAtBottom && items.length > 3 && !showScrollIndicator) {
       setShowScrollIndicator(true)
     }
   }

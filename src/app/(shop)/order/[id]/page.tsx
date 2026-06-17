@@ -141,7 +141,7 @@ export default async function OrderPage({ params, searchParams }: OrderPageProps
               {order.status === 'delivered' || order.status === 'picked_up' ? (
                 <span>{isStorePickup ? 'Picked up on' : 'Delivered on'} {formatDate(order.updated_at || order.created_at)}</span>
               ) : isStorePickup ? (
-                <span className="text-emerald-600 font-semibold">Ready for studio pickup</span>
+                <span className="text-emerald-600 font-semibold">Ready for pickup</span>
               ) : (
                 <span>Estimated arrival status: {formatDate(deliveryDate)}</span>
               )}

@@ -43,17 +43,28 @@ export default function AdminOrders() {
 
       const response = await fetch(`/api/admin/orders?${params.toString()}`)
       const data = await response.json()
-      setOrders(data)
+      
+      // 🔒 DATA NORMALIZATION MATCH: Maps backend order.user properties to your exact template UI variables
+      const processedData = ((data as any[]) || []).map(o => ({
+        ...o,
+        users: o.user ? { name: o.user.name || 'Guest Checkout' } : null
+      }))
+      setOrders(processedData)
 
-      let statsSource = data
+      let statsSource = processedData
       if (statusFilter === 'all' && paymentMethodFilter === 'all' && !searchQuery) {
-        setGlobalOrders(data)
+        setGlobalOrders(processedData)
       } else {
         if (forceRefreshGlobal || globalOrders.length === 0) {
           const gRes = await fetch('/api/admin/orders')
           const gData = await gRes.json()
-          setGlobalOrders(gData)
-          statsSource = gData
+          
+          const processedGlobal = ((gData as any[]) || []).map(o => ({
+            ...o,
+            users: o.user ? { name: o.user.name || 'Guest Checkout' } : null
+          }))
+          setGlobalOrders(processedGlobal)
+          statsSource = processedGlobal
         } else {
           statsSource = globalOrders
         }
@@ -61,10 +72,11 @@ export default function AdminOrders() {
       
       const currentStats = { total: statsSource.length, pending: 0, processing: 0, delivered: 0, cancelled: 0 }
       statsSource.forEach((o: Order) => {
-        if (o.status === 'pending') currentStats.pending++
-        else if (['processing', 'confirmed', 'packed', 'ready_for_pickup', 'shipped'].includes(o.status)) currentStats.processing++
-        else if (['delivered', 'picked_up'].includes(o.status)) currentStats.delivered++
-        else if (['cancelled', 'returned', 'cancel_requested', 'return_requested'].includes(o.status)) currentStats.cancelled++
+        const orderStatus = o.status?.toLowerCase()
+        if (orderStatus === 'pending') currentStats.pending++
+        else if (['processing', 'confirmed', 'packed', 'ready_for_pickup', 'shipped'].includes(orderStatus)) currentStats.processing++
+        else if (['delivered', 'picked_up'].includes(orderStatus)) currentStats.delivered++
+        else if (['cancelled', 'returned', 'cancel_requested', 'return_requested'].includes(orderStatus)) currentStats.cancelled++
       })
       setStats(currentStats)
     } catch (error) {
@@ -100,10 +112,9 @@ export default function AdminOrders() {
     }
   }
 
-  // Show skeleton if loading and no orders yet (initial load)
-if (isLoading) {
-  return <OrdersSkeleton />;
-}
+  if (isLoading) {
+    return <OrdersSkeleton />
+  }
 
   return (
     <>
@@ -247,12 +258,13 @@ if (isLoading) {
                       </td>
                       <td className="px-6 py-5 text-right whitespace-nowrap">
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation()
                             setSelectedOrder(order)
                             setModalOpen(true)
                           }}
-                          className="text-sm font-medium text-[#0B57D0] hover:text-[#A8C7FA] bg-[#0B57D0]/10 hover:bg-[#0B57D0]/20 px-4 py-2 rounded-full transition-colors cursor-pointer"
+                          className="text-sm font-medium text-[#0B57D0] hover:text-[#A8C7FA] bg-[#0B57D0]/10 hover:bg-[#0B57D0]/20 px-4 py-2 rounded-full transition-colors cursor-pointer border-none outline-none"
                         >
                           View
                         </button>

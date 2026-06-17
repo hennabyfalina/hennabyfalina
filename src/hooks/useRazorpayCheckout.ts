@@ -24,6 +24,8 @@ interface CheckoutPayload {
 export function useRazorpayCheckout() {
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
+  const [processingText, setProcessingText] = useState('Finalizing your order')
+  const [processingSubText, setProcessingSubText] = useState('Please stay on this page')
   const clearCart = useCartStore((state) => state.persistCartClear || state.clearCart)
   
   const isProcessingRef = useRef(false)
@@ -40,6 +42,8 @@ export function useRazorpayCheckout() {
     }
     
     isProcessingRef.current = true
+    setProcessingText('Initializing Secure Session')
+    setProcessingSubText('Preparing your payment gateway...')
     setIsProcessingCheckout(true)
     setCheckoutError(null)
 
@@ -128,6 +132,8 @@ export function useRazorpayCheckout() {
         },
         theme: { color: '#000000' },
         handler: async function (response: any) {
+          setProcessingText('Verifying Transaction')
+          setProcessingSubText("Please don't close or refresh this page...")
           setIsProcessingCheckout(true) 
           try {
             const res = await fetch('/api/razorpay/verify', {
@@ -152,6 +158,8 @@ export function useRazorpayCheckout() {
         modal: {
           ondismiss: async function() {
             try {
+              setProcessingText('Cancelling Transaction')
+              setProcessingSubText('Returning you to checkout securely...')
               await recordPaymentFailure(order.id, 'Transaction was cancelled.')
               onFinalize('failed', order.id, 'Transaction was cancelled.', order.order_number, finalTotal)
             } finally {
@@ -167,6 +175,8 @@ export function useRazorpayCheckout() {
         const errorMsg = response.error?.description || 'Transaction declined by bank.'
         console.error('[Checkout] Transaction declined or failed by bank limits:', errorMsg)
         try {
+          setProcessingText('Payment Failed')
+          setProcessingSubText('Retrieving error details securely...')
           await recordPaymentFailure(order.id, errorMsg)
           onFinalize('failed', order.id, errorMsg, order.order_number, finalTotal)
         } finally {
@@ -183,5 +193,5 @@ export function useRazorpayCheckout() {
     }
   }, [])
 
-  return { processPayment, isProcessingCheckout, checkoutError }
+  return { processPayment, isProcessingCheckout, checkoutError, processingText, processingSubText }
 }

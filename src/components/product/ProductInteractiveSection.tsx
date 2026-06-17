@@ -318,6 +318,44 @@ export default function ProductInteractiveSection({ product, hasStock }: Product
             </p>
           </div>
         </div>
+
+        <div className="border-b border-gray-100 pb-3">
+          <button type="button" onClick={() => toggleTab('details')} className="w-full flex justify-between py-2 items-center text-left cursor-pointer group outline-none border-none bg-transparent">
+            <span className="text-[16px] font-medium text-gray-950 transition-colors group-hover:text-black">Other Details</span>
+            <span className="text-gray-400 shrink-0">{activeTab === 'details' ? <Minus className="w-3.5 h-3.5" strokeWidth={1.5} /> : <Plus className="w-3.5 h-3.5" strokeWidth={1.5} />}</span>
+          </button>
+          <div className={`transition-all duration-300 overflow-hidden ${activeTab === 'details' ? 'max-h-60 mt-1' : 'max-h-0'}`}>
+            <div className="grid grid-cols-2 gap-y-3 py-2">
+              {product.weight && (
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Weight</span>
+                  <span className="text-[15px] text-gray-800 font-medium">{product.weight} {product.weight_unit || ''}</span>
+                </div>
+              )}
+              {product.gsm && (
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">GSM</span>
+                  <span className="text-[15px] text-gray-800 font-medium">{product.gsm}</span>
+                </div>
+              )}
+              {product.dimensions && (
+                <div className="flex flex-col col-span-2">
+                  <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Dimensions</span>
+                  <span className="text-[15px] text-gray-800 font-medium">
+                    {typeof product.dimensions === 'object' && product.dimensions !== null
+                      ? `${product.dimensions.length || ''}${product.dimensions.width ? ` x ${product.dimensions.width}` : ''}${
+                          product.dimensions.height ? ` x ${product.dimensions.height}` : ''
+                        }`
+                      : String(product.dimensions)}
+                  </span>
+                </div>
+              )}
+              {!product.weight && !product.gsm && !product.dimensions && (
+                <p className="text-[14px] text-gray-400 italic">No additional specifications available.</p>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div id="desktop-dock-scroll-trigger" className="h-px w-full mt-12" aria-hidden="true" />

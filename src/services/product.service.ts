@@ -15,7 +15,7 @@ const productMutationSchema = z.object({
   sku: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   stock: z.number().int().nonnegative(),
-  category_id: z.string().uuid().nullable().optional(),
+  category_id: z.string().nullable().optional(),
   images: z.array(z.string()).optional(),
   
   // 🏛️ STRATEGIC PRODUCT MODES FLAGS
