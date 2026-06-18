@@ -8,6 +8,13 @@ const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID;
 const META_ADMIN_PHONE = process.env.META_ADMIN_PHONE;
 
+/**
+ * 🛠️ STRATEGIC TOGGLE SWITCH: DISABLE NOTIFICATIONS PIPELINE
+ * Set this flag to 'true' to completely silence automatic notifications on Vercel.
+ * Set this flag to 'false' to restore normal template message routing.
+ */
+const DISABLE_WHATSAPP_NOTIFICATIONS = true;
+
 // 🛡️ RUTHLESS SANITIZER FOR META API
 const sanitizeForMeta = (value: any): string => {
   if (!value) return 'N/A';
@@ -17,37 +24,11 @@ const sanitizeForMeta = (value: any): string => {
   return str.trim();
 }
 
-// 🛡️ THE AMAZON-STYLE MINIMALIST SUMMARIZER (UNIFIED FOR ADMIN & CUSTOMER)
+// 🏛️ STANDARD HIGH-VOLUME SUMMARIZER
 function getOrderSummary(orderItems: any[]): string {
   if (!orderItems || orderItems.length === 0) return '0 items';
   const totalQty = orderItems.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
-  
-  const hasFiles = orderItems.some(item => {
-    const data = item.artwork_urls || item.customization_details?.artwork_urls;
-    if (!data) return false;
-    if (Array.isArray(data)) return data.length > 0;
-    if (typeof data === 'string') {
-      try { const parsed = JSON.parse(data); if (Array.isArray(parsed)) return parsed.length > 0; } catch { return data.trim().length > 0; }
-    }
-    return false;
-  });
-
-  const hasNotes = orderItems.some(item => {
-    const note = item.printing_instructions || item.customization_details?.printing_instructions;
-    return typeof note === 'string' && note.trim().length > 0;
-  });
-  
-  if (hasFiles || hasNotes) {
-    const detail = hasFiles && hasNotes ? 'Files & Notes' : hasFiles ? 'Files' : 'Notes';
-    return `${totalQty} item${totalQty > 1 ? 's' : ''} [Includes ${detail}]`;
-  }
-  
-  const hasCustomType = orderItems.some(i => i.printing_type && i.printing_type !== 'None' && i.printing_type !== 'Retail (Readymade)');
-  if (hasCustomType) {
-    return `${totalQty} item${totalQty > 1 ? 's' : ''} [Customized]`;
-  }
-
-  return `${totalQty} item${totalQty > 1 ? 's' : ''} [Retail]`;
+  return `${totalQty} item${totalQty > 1 ? 's' : ''}`;
 }
 
 // 🚨 CORE TEMPLATE SENDER ENGINE
@@ -57,6 +38,7 @@ export async function sendWhatsAppTemplate(
   bodyParams: any[],
   buttonParam?: string 
 ) {
+  if (DISABLE_WHATSAPP_NOTIFICATIONS) return false;
   if (!META_ACCESS_TOKEN || !META_PHONE_NUMBER_ID) {
     console.error('[WhatsApp] Meta credentials missing');
     return false;
@@ -109,7 +91,6 @@ export async function sendWhatsAppTemplate(
     );
 
     const data = await response.json();
-
     if (!response.ok) {
       console.error(`[WhatsApp] Template Error (${templateName}):`, data);
       return false;
@@ -123,10 +104,15 @@ export async function sendWhatsAppTemplate(
   }
 }
 
-// 🚨 ORDER DISPATCH ENGINE
+// 🚨 ORDER DISPATCH lifecycle ORCHESTRATOR
 export async function notifyOrderConfirmed(order: any) {
-  let successCount = 0;
+  // 🏛️ REJECTION GATEWAY: Returns early when notifications are toggled off
+  if (DISABLE_WHATSAPP_NOTIFICATIONS) {
+    console.log(`[WhatsApp Dispatch Bypassed] Automated notification muted by feature flag config.`);
+    return false;
+  }
 
+  let successCount = 0;
   const addressObj = order.addresses || order.shipping_address || {};
   const isPickup = order.shipping_method === 'pickup' || addressObj.delivery_method === 'pickup';
 
@@ -142,11 +128,8 @@ export async function notifyOrderConfirmed(order: any) {
   const itemsArray = order.order_items || order.items || [];
   const unifiedSummary = getOrderSummary(itemsArray);
   const totalAmount = formatCurrency(order.total_amount);
-
-  // 🚨 UNIFIED DELIVERY METHOD LOGIC (Used for both Customer {{2}} and Admin {{4}})
   const deliveryMethodString = isPickup ? 'Store Pickup' : 'Home Delivery';
 
-  // 🚨 SMART FULFILLMENT: Admin Address Line (Variable {{5}})
   let adminAddressLine = '';
   if (isPickup) {
     const pickupPincode = addressObj.pincode || 'N/A';
@@ -168,10 +151,10 @@ export async function notifyOrderConfirmed(order: any) {
         customerPhone,
         'customer_order_receipt',
         [
-          sanitizeForMeta(order.order_number),       // {{1}} Order ID
-          sanitizeForMeta(deliveryMethodString),     // {{2}} Delivery Method
-          sanitizeForMeta(unifiedSummary),           // {{3}} Order Summary
-          sanitizeForMeta(totalAmount)               // {{4}} Total Paid
+          sanitizeForMeta(order.order_number),
+          sanitizeForMeta(deliveryMethodString),
+          sanitizeForMeta(unifiedSummary),
+          sanitizeForMeta(totalAmount)
         ],
         buttonParam 
       );
@@ -179,10 +162,9 @@ export async function notifyOrderConfirmed(order: any) {
     }
   }
 
-  // --- 2. SEND TO ADMIN (UNCLE ISMATH) ---
+  // --- 2. SEND TO ADMIN ---
   if (META_ADMIN_PHONE) {
     const adminPhones = META_ADMIN_PHONE.split(',').map(p => p.trim()).filter(Boolean);
-
     for (const phone of adminPhones) {
       const adminPhone = formatWhatsAppNumber(phone);
       if (adminPhone) {
@@ -190,13 +172,13 @@ export async function notifyOrderConfirmed(order: any) {
           adminPhone,
           'admin_order_notification',
           [
-            sanitizeForMeta(order.order_number),                        // {{1}} Order ID
-            sanitizeForMeta(addressObj.name || order.customer_name),    // {{2}} Customer Name
-            sanitizeForMeta(addressObj.phone),                          // {{3}} Phone
-            sanitizeForMeta(deliveryMethodString),                      // {{4}} Delivery Method
-            sanitizeForMeta(adminAddressLine),                          // {{5}} Address
-            sanitizeForMeta(unifiedSummary),                            // {{6}} Order Summary
-            sanitizeForMeta(totalAmount)                                // {{7}} Total Paid
+            sanitizeForMeta(order.order_number),
+            sanitizeForMeta(addressObj.name || order.customer_name),
+            sanitizeForMeta(addressObj.phone),
+            sanitizeForMeta(deliveryMethodString),
+            sanitizeForMeta(adminAddressLine),
+            sanitizeForMeta(unifiedSummary),
+            sanitizeForMeta(totalAmount)
           ]
         );
         if (sent) successCount++;

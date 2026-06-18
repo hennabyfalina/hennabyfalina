@@ -2,13 +2,13 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { createClient } from '@supabase/supabase-js'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { notifyOrderConfirmed } from '@/services/whatsapp.service'
 import { getIdempotencyRecord, storeIdempotencyRecord } from '@/lib/idempotency'
 import { releaseStockReservation, deductOrderStock } from '@/services/inventory.service'
 import { finalizeOrderAddress } from '@/services/order.service'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // 🔒 SAFE BUILD CHECK: Only initialize if the URL is an actual valid web address, ignoring "***" placeholders
 const ratelimit = process.env.UPSTASH_REDIS_REST_URL
@@ -31,7 +31,7 @@ interface WebhookLog {
 
 async function logWebhook(supabase: any, logData: WebhookLog): Promise<void> {
   try {
-    await supabase.from('webhook_logs').insert({
+    const { error } = await supabase.from('webhook_logs').insert({
       event_type: logData.event_type,
       razorpay_order_id: logData.razorpay_order_id,
       razorpay_payment_id: logData.razorpay_payment_id,
@@ -42,8 +42,11 @@ async function logWebhook(supabase: any, logData: WebhookLog): Promise<void> {
       error_message: logData.error_message || null,
       created_at: new Date().toISOString()
     })
-  } catch (err) {
-    // Non-critical background task fail suppression
+  if (error) {
+      console.error('[CRITICAL] Webhook Log Insert Failed:', error.message)
+    }
+  } catch (err: any) {
+    console.error('[CRITICAL] Webhook Log Function Crashed:', err.message)
   }
 }
 
@@ -84,7 +87,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Configuration setup error' }, { status: 500 })
     }
     
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } })
+    const supabase = createAdminClient()
 
     // Process payment.captured event
     if (event.event === 'payment.captured') {

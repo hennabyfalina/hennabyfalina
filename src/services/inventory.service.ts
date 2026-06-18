@@ -349,7 +349,7 @@ export const getLowStockAlerts = cache(async () => {
 })
 
 export async function getInventoryLogs(productId: string, limit = 50): Promise<InventoryLog[]> {
-  const supabase = await createServerClient()
+  const supabase = createAdminClient()
   
   const { data, error } = await supabase
     .from('inventory_logs')
@@ -375,7 +375,8 @@ export async function updateStock(
 ): Promise<void> {
   const supabase = await createServerClient()
   const adminSupabase = createAdminClient()
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { user }, error: userError } = await adminSupabase.auth.getUser()
+if (userError || !user) throw new Error('Unauthorized operational change request locked.')
   
   const { data: product, error: fetchError } = await adminSupabase
     .from('products')
@@ -422,7 +423,7 @@ export async function updateStock(
       new_stock: newStock,
       change_amount: changeAmount,
       reason: finalReason,
-      user_id: session?.user?.id || null,
+      user_id: user.id,
       checkout_session_id: checkoutSessionId || null,
       created_at: new Date().toISOString()
     })
@@ -431,23 +432,34 @@ export async function updateStock(
 }
 
 export async function getAllInventoryLogs(limit = 100): Promise<InventoryLog[]> {
-  const supabase = await createServerClient()
-  
+  const supabase = createAdminClient()
+
   const { data, error } = await supabase
     .from('inventory_logs')
     .select(`
-      *,
-      products ( name ),
-      users ( name, email )
+      id,
+      product_id,
+      user_id,
+      previous_stock,
+      new_stock,
+      change_amount,
+      reason,
+      created_at,
+      checkout_session_id,
+      products:product_id ( name, sku ),
+      users:user_id ( 
+        name, 
+        email 
+      )
     `)
     .order('created_at', { ascending: false })
     .limit(limit)
-  
+
   if (error) {
-    console.error('🚨 [Inventory] Critical panic reading global historical ledger:', error.message)
+    console.error('🚨 [Inventory] Final verification database fetch failed:', error.message)
     return []
   }
-  
+
   return (data || []) as unknown as InventoryLog[]
 }
 

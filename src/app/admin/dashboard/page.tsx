@@ -27,23 +27,48 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   const { data: { user } } = await supabase.auth.getUser()
   let isSuperAdmin = false
   if (user) {
-    const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).single()
+    const { data: userData } = await supabase.from('users').select('role').eq('id', user.id).limit(1).maybeSingle()
     isSuperAdmin = userData?.role === 'super_admin'
   }
 
+  // ⚡ FREE-TIER OPTIMIZATION: High-performance flat counts using metadata heads
   const { count: totalOrders } = await adminSupabase.from('orders').select('*', { count: 'exact', head: true })
   const { count: totalProducts } = await adminSupabase.from('products').select('*', { count: 'exact', head: true }).eq('is_deleted', false).eq('is_active', true)
   const { count: totalCustomers } = await adminSupabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'customer')
 
-  const { data: lowStockItems } = await adminSupabase.from('products').select('name, stock').lte('stock', 10).limit(3)
+  const { data: lowStockItems } = await adminSupabase.from('products').select('name, stock').lte('stock', 10).eq('is_deleted', false).limit(3)
   const { data: pendingOrders } = await adminSupabase.from('orders').select('order_number').eq('status', 'pending').limit(3)
   const { data: latestOrders } = await adminSupabase.from('orders').select('order_number, total_amount, status, created_at').order('created_at', { ascending: false }).limit(5)
 
-  const { data: topProducts } = await adminSupabase
-    .from('order_items')
-    .select(`quantity, products (id, name, price, images)`)
-    .order('quantity', { ascending: false })
-    .limit(4)
+  // 🏛️ DECOUPLED MEMORY-STITCHING: Top Selling Products
+  const { data: topOrderItems } = await adminSupabase.from('order_items').select('product_id, quantity, price')
+  
+  const topProductCountsMap = new Map<string, { qty: number; revenue: number }>()
+  topOrderItems?.forEach(item => {
+    if (!item.product_id) return
+    const current = topProductCountsMap.get(item.product_id) || { qty: 0, revenue: 0 }
+    topProductCountsMap.set(item.product_id, {
+      qty: current.qty + (item.quantity || 0),
+      revenue: current.revenue + ((item.quantity || 0) * (item.price || 0))
+    })
+  })
+
+  const sortedTopProductIds = Array.from(topProductCountsMap.entries())
+    .sort((a, b) => b[1].qty - a[1].qty)
+    .slice(0, 4)
+
+  const topProductUUIDs = sortedTopProductIds.map(entry => entry[0])
+  const { data: topProductsCatalog } = await adminSupabase.from('products').select('id, name, images').in('id', topProductUUIDs)
+  
+  const topProductsMap = new Map(topProductsCatalog?.map(p => [p.id, p]) || [])
+  const topProducts = sortedTopProductIds.map(([id, stats]) => {
+    const prod = topProductsMap.get(id)
+    return {
+      quantity: stats.qty,
+      revenue: stats.revenue,
+      products: prod ? { id: prod.id, name: prod.name, images: prod.images } : null
+    }
+  }).filter(item => item.products !== null)
 
   let startDate = new Date()
   let endDate = new Date()
@@ -94,13 +119,22 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   }
   const chartData = Array.from(chartDataMap.values())
   
-  const { data: orderItemsData } = await adminSupabase
-    .from('order_items')
-    .select(`quantity, price, products(category:categories(name))`)
+  // 🏛️ DECOUPLED MEMORY-STITCHING: Category Metrics Mapping
+  const { data: orderItemsData } = await adminSupabase.from('order_items').select('quantity, price, product_id')
+  const distinctProductIds = Array.from(new Set(orderItemsData?.map(i => i.product_id).filter(Boolean) || []))
   
+  const [productsCatalogRes, categoriesListRes] = await Promise.all([
+    adminSupabase.from('products').select('id, category_id').in('id', distinctProductIds),
+    adminSupabase.from('categories').select('id, name')
+  ])
+
+  const productCategoryMap = new Map(productsCatalogRes.data?.map(p => [p.id, p.category_id]) || [])
+  const categoryNameMap = new Map(categoriesListRes.data?.map(c => [c.id, c.name]) || [])
+
   const categoryMap = new Map()
   orderItemsData?.forEach(item => {
-    const catName = (item.products as any)?.category?.name || 'Uncategorized'
+    const matchedCategoryId = productCategoryMap.get(item.product_id)
+    const catName = matchedCategoryId ? (categoryNameMap.get(matchedCategoryId) || 'Uncategorized') : 'Uncategorized'
     const val = (item.quantity || 0) * (item.price || 0)
     categoryMap.set(catName, (categoryMap.get(catName) || 0) + val)
   })
@@ -114,11 +148,10 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   })
   const orderStatusData = Array.from(statusMap.entries()).map(([name, value]) => ({ name, value }))
 
-  const { data: inventoryData } = await adminSupabase.from('products').select('name, stock').order('stock', { ascending: true }).limit(6)
+  const { data: inventoryData } = await adminSupabase.from('products').select('name, stock').eq('is_deleted', false).order('stock', { ascending: true }).limit(6)
 
   return (
-    <div className="space-y-8 pt-4 md:pt-6 pb-12">
-      
+    <div className="space-y-8 pt-4 md:pt-6 pb-12 text-left font-sans antialiased select-none">
       <div className="w-full">
         <h1 className="text-[28px] md:text-3xl font-normal admin-text-primary tracking-tight leading-tight mb-2">
           Hi {siteConfig.name}
@@ -126,42 +159,41 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
         <h2 className="text-xl md:text-[28px] admin-text-accent font-medium tracking-tight">
           System Overview & Performance
         </h2>
-
         <DashboardSearchBar />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="admin-bg-card border admin-border rounded-[32px] p-6">
+        <div className="admin-bg-card border border-solid admin-border rounded-[32px] p-6">
           <div className="flex items-center gap-2 mb-6">
             <Bell className="w-4 h-4 admin-text-accent" />
             <h3 className="text-sm font-bold admin-text-primary uppercase tracking-widest">Real-time Activity</h3>
           </div>
           <div className="space-y-3">
             {pendingOrders?.map(o => (
-              <div key={o.order_number} className="flex items-center justify-between p-4 admin-bg-primary rounded-2xl border admin-border/50">
+              <div key={o.order_number} className="flex items-center justify-between p-4 admin-bg-primary rounded-2xl border border-solid admin-border/50">
                 <div className="flex items-center gap-3">
                   <div className="w-2 h-2 rounded-full bg-[#F9AB00] animate-pulse" />
                   <span className="text-sm admin-text-primary">Order <span className="font-mono admin-text-accent">{o.order_number}</span> is pending fulfillment</span>
                 </div>
-                <Link href="/admin/orders" className="admin-text-muted hover:admin-text-primary transition-colors"><ArrowUpRight className="w-4 h-4" /></Link>
+                <Link href="/admin/orders" className="admin-text-muted hover:admin-text-primary transition-colors text-decoration-none outline-none"><ArrowUpRight className="w-4 h-4" /></Link>
               </div>
             ))}
             {lowStockItems?.map(i => (
-              <div key={i.name} className="flex items-center justify-between p-4 bg-[#3C1E0A]/20 rounded-2xl border border-[#4E270D]/40">
+              <div key={i.name} className="flex items-center justify-between p-4 bg-[#3C1E0A]/20 rounded-2xl border border-solid border-[#4E270D]/40">
                 <div className="flex items-center gap-3">
                   <AlertTriangle className="w-4 h-4 text-[#F9AB00]" />
-                  <span className="text-sm text-[#F9AB00] font-medium">Critical Stock: {i.name} ({i.stock} left)</span>
+                  <span className="text-sm text-[#F9AB00] font-medium capitalize">Critical Stock: {i.name.toLowerCase()} ({i.stock} left)</span>
                 </div>
-                <Link href="/admin/inventory" className="text-[#F9AB00] hover:scale-110 transition-transform"><Zap className="w-4 h-4" /></Link>
+                <Link href="/admin/inventory" className="text-[#F9AB00] hover:scale-110 transition-transform text-decoration-none outline-none"><Zap className="w-4 h-4" /></Link>
               </div>
             ))}
             {pendingOrders?.length === 0 && lowStockItems?.length === 0 && (
-              <p className="text-sm text-[#565959] text-center py-4 italic">No critical alerts detected.</p>
+              <p className="text-sm text-[#565959] text-center py-4 italic font-medium">No critical alerts detected.</p>
             )}
           </div>
         </div>
 
-        <div className="admin-bg-card border admin-border rounded-[32px] p-6">
+        <div className="admin-bg-card border border-solid admin-border rounded-[32px] p-6">
           <div className="flex items-center gap-2 mb-6">
             <Zap className="w-4 h-4 admin-text-accent" />
             <h3 className="text-sm font-bold admin-text-primary uppercase tracking-widest">Utility Tools</h3>
@@ -173,9 +205,9 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
               { label: 'Catalog Sync', icon: Package, href: '/admin/products' },
               { label: 'User Directory', icon: Users, href: '/admin/customers' },
             ].map((tool) => (
-              <Link key={tool.label} href={tool.href} className="flex items-center gap-3 p-4 admin-bg-primary hover:admin-bg-elevated border admin-border rounded-2xl transition-all group">
-                <tool.icon className="w-4 h-4 admin-text-muted group-hover:admin-text-accent" />
-                <span className="text-sm admin-text-secondary group-hover:admin-text-primary">{tool.label}</span>
+              <Link key={tool.label} href={tool.href} className="flex items-center gap-3 p-4 admin-bg-primary hover:admin-bg-elevated border border-solid admin-border rounded-2xl transition-all group text-decoration-none outline-none">
+                <tool.icon className="w-4 h-4 admin-text-muted group-hover:admin-text-accent transition-colors" />
+                <span className="text-sm admin-text-secondary group-hover:admin-text-primary transition-colors">{tool.label}</span>
               </Link>
             ))}
           </div>
@@ -192,13 +224,13 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
         <div className="flex items-center justify-between mb-4 z-20 relative px-2 md:px-0">
           <div>
             <h2 className="text-lg font-bold admin-text-primary tracking-tight">Business Intelligence</h2>
-            <p className="text-sm admin-text-muted hidden sm:block">Interactive visualizations and financial metrics.</p>
+            <p className="text-sm admin-text-muted hidden sm:block mt-0.5">Interactive visualizations and trend metrics.</p>
           </div>
           <DashboardDateFilter />
         </div>
 
         {!isSuperAdmin && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center admin-bg-primary/60 backdrop-blur-md rounded-[32px] border admin-border">
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center admin-bg-primary/60 backdrop-blur-md rounded-[32px] border border-solid admin-border">
             <Lock className="w-8 h-8 text-[#F9AB00] mb-3" />
             <p className="admin-text-primary font-medium text-lg">Super Admin Required</p>
             <p className="admin-text-muted text-sm mt-1">Analytics viewing is restricted.</p>
@@ -215,29 +247,28 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        
-        <div className="admin-bg-card rounded-[32px] border admin-border overflow-hidden p-6">
+        <div className="admin-bg-card rounded-[32px] border border-solid admin-border overflow-hidden p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-base font-medium admin-text-primary">Recent Activity</h2>
-            <Link href="/admin/orders" className="text-xs font-bold admin-text-accent hover:underline uppercase">All Orders</Link>
+            <Link href="/admin/orders" className="text-xs font-bold admin-text-accent hover:underline uppercase text-decoration-none outline-none">All Orders</Link>
           </div>
           {(!latestOrders || latestOrders.length === 0) ? (
             <div className="flex flex-col items-center justify-center py-10 text-center animate-in fade-in duration-500">
               <History className="w-10 h-10 admin-text-muted mb-3" />
               <p className="text-base font-medium admin-text-secondary">No recent activity</p>
-              <p className="text-sm admin-text-muted mt-1 max-w-xs mx-auto">When customers place orders, they will appear here in real-time.</p>
+              <p className="text-sm admin-text-muted mt-1 max-w-xs mx-auto leading-relaxed">When customers place orders, they will appear here in real-time.</p>
             </div>
           ) : (
             <div className="space-y-4">
               {latestOrders.map(order => (
-                <div key={order.order_number} className="flex items-center justify-between py-3 border-b admin-border last:border-0">
+                <div key={order.order_number} className="flex items-center justify-between py-3 border-b border-solid admin-border last:border-0">
                   <div>
                     <p className="text-sm font-mono admin-text-primary">{order.order_number}</p>
-                    <p className="text-[11px] admin-text-muted mt-0.5">{formatDate(order.created_at)}</p>
+                    <p className="text-[11px] admin-text-muted mt-0.5 font-mono">{formatDate(order.created_at)}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold admin-text-primary">{formatCurrency(order.total_amount)}</p>
-                    <p className="text-[10px] uppercase font-bold text-[#93D7A4] tracking-tighter">{order.status}</p>
+                    <p className="text-sm font-bold admin-text-primary font-mono">{formatCurrency(order.total_amount)}</p>
+                    <p className="text-[10px] uppercase font-bold text-[#93D7A4] tracking-wider mt-0.5">{order.status.replace(/_/g, ' ')}</p>
                   </div>
                 </div>
               ))}
@@ -245,7 +276,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
           )}
         </div>
 
-        <div className="relative admin-bg-card rounded-[32px] border admin-border overflow-hidden p-2 min-h-[320px] md:min-h-0">
+        <div className="relative admin-bg-card rounded-[32px] border border-solid admin-border overflow-hidden p-6 min-h-[320px] md:min-h-0">
           {!isSuperAdmin && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center admin-bg-primary/60 backdrop-blur-md">
               <Lock className="w-6 h-6 text-[#F9AB00] mb-2" />
@@ -254,33 +285,36 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
             </div>
           )}
           <div className={!isSuperAdmin ? 'opacity-40 pointer-events-none select-none' : ''}>
-            <div className="px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center justify-between mb-5">
               <h2 className="text-base font-medium admin-text-primary">Top Selling Products</h2>
-              <Link href="/admin/products" className="text-xs font-bold admin-text-accent hover:underline uppercase">All Products</Link>
+              <Link href="/admin/products" className="text-xs font-bold admin-text-accent hover:underline uppercase text-decoration-none outline-none">All Products</Link>
             </div>
           </div>
           {(!topProducts || topProducts.length === 0) ? (
             <div className="flex flex-col items-center justify-center py-10 text-center animate-in fade-in duration-500">
               <Package className="w-10 h-10 admin-text-muted mb-3" />
               <p className="text-base font-medium admin-text-secondary">No sales data yet</p>
-              <p className="text-sm admin-text-muted mt-1 max-w-xs mx-auto">Top performing products will be ranked here once sales begin.</p>
+              <p className="text-sm admin-text-muted mt-1 max-w-xs mx-auto leading-relaxed">Top performing products will be ranked here once sales begin.</p>
             </div>
           ) : (
             <div className="space-y-1">
-              {topProducts.map((item: any, index: number) => (
-                <div key={index} className="flex items-center justify-between p-4 rounded-[24px] hover:admin-bg-elevated transition-colors cursor-pointer group">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium admin-text-accent admin-bg-primary border admin-border">{index + 1}</div>
-                    <div>
-                      <p className="text-[15px] font-medium admin-text-primary line-clamp-1">{item.products?.name || 'Unknown'}</p>
-                      <p className="text-sm admin-text-muted mt-0.5">{item.quantity} units sold</p>
+              {topProducts.map((item: any, index: number) => {
+                if (!item.products) return null;
+                return (
+                  <div key={index} className="flex items-center justify-between p-3 rounded-[24px] hover:admin-bg-elevated transition-colors group">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium admin-text-accent admin-bg-primary border border-solid admin-border font-mono">{index + 1}</div>
+                      <div>
+                        <p className="text-[15px] font-medium admin-text-primary line-clamp-1 capitalize">{item.products.name.toLowerCase()}</p>
+                        <p className="text-xs admin-text-muted mt-0.5 font-medium">{item.quantity} units sold</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[15px] font-bold text-[#93D7A4] font-mono">{formatCurrency(item.revenue)}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-[15px] font-medium text-[#93D7A4]">{formatCurrency((item.products?.price || 0) * item.quantity)}</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

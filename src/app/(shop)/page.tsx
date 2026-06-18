@@ -12,8 +12,10 @@ import ContactSection from '@/components/home/ContactSection'
 import { createClient } from '@/lib/supabase/server'
 import RecentlyBoughtCarousel from '@/components/product/RecentlyBoughtCarousel'
 
+// 🏛️ Centralized Service Action Import
+import { getCategoriesWithCounts } from '@/services/category.service'
+
 // ⚡ HIGH-PERFORMANCE STATIC ENGINE: Cache this layout block at the serverless edge CDN container.
-// This completely unburdens your Supabase pooler from handling repeat storefront page views.
 export const revalidate = 3600 // Revalidate layout once per hour
 
 export const metadata: Metadata = {
@@ -27,22 +29,19 @@ export const metadata: Metadata = {
 export default async function HomePage() {
   const supabase = await createClient()
 
-  // Fire all three requests at the exact same time
-  const [allCategoriesRes, collectionsRes, featuredRes] = await Promise.all([
-    supabase.from('categories').select('id, name, slug, image, type, products(id)').order('display_order'),
+  // 🚀 OPTIMIZED PARALLEL ORCHESTRATION
+  // We substitute raw database select joins with our secure, cached service action helper
+  const [categoriesData, collectionsRes, featuredRes] = await Promise.all([
+    getCategoriesWithCounts(),
     supabase.from('collections').select('*').order('display_order'),
     supabase.from('products').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(8)
   ])
 
-  const allCategories = allCategoriesRes.data
   const databaseCollections = collectionsRes.data
   const featuredProducts = featuredRes.data
 
-  const shopCategories = allCategories?.filter(c => c.type === 'shop') || []
-  const categoriesWithCount = shopCategories.map(category => ({
-    ...category,
-    product_count: category.products?.length || 0,
-  }))
+  // Filter out non-shop items to maintain your homepage carousel layout rules cleanly
+  const shopCategories = categoriesData.filter(c => c.type === 'shop' || !c.type)
 
   return (
     <div className="flex-1 flex flex-col w-full bg-white pb-16 select-none font-sans antialiased text-gray-900" suppressHydrationWarning>
@@ -51,15 +50,13 @@ export default async function HomePage() {
         {/* Block 1: Premium Immersive Hero Area */}
         <HeroSection />
         
-        {/* Main Content Layout Block (Clean, un-boxed spacing standard) */}
+        {/* Main Content Layout Block */}
         <div className="px-4 sm:px-8 relative z-10 -mt-8 sm:-mt-16 space-y-4 sm:space-y-8 max-w-[1400px] mx-auto w-full">
           
           {/* Block 2: Visual Mini-Navigation Bubbles */}
-          <CategorySection categories={categoriesWithCount} />
+          <CategorySection categories={shopCategories} />
           
-          {/* Block 3: Returning Shopper Personalization Shelf
-              🚀 NOTE: RecentlyBoughtCarousel handles its own client-side context hooks (`useAuth`)
-              to check for an active profile session invisibly from within the browser window memory. */}
+          {/* Block 3: Returning Shopper Personalization Shelf */}
           <div className="min-h-0">
             <RecentlyBoughtCarousel />
           </div>
@@ -70,10 +67,10 @@ export default async function HomePage() {
             title="Featured collection" 
           />
           
-          {/* 🌟 Block 2.5: Curated Design Portfolios Horizontal Swiper Strip */}
+          {/* Block 2.5: Curated Design Portfolios Horizontal Swiper Strip */}
           <DesignCollectionsSection collections={databaseCollections || []} />
 
-          {/* 🌟 Block 2.6: Bespoke Studio Services Section */}
+          {/* Block 2.6: Bespoke Studio Services Section */}
           <ServicesSection />
 
           {/* Block 5: Core Value Pillars & Trust Framework */}

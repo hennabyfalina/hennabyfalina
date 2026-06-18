@@ -3,8 +3,7 @@
 import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 
-// ─── PART 1: The Handshake (GET) ─────────────────────────────────────────────
-// Meta will ping this URL to verify you own the server
+// ─── PART 1: THE HANDSHAKE (GET) ─────────────────────────────────────────────
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const mode = url.searchParams.get('hub.mode');
@@ -22,11 +21,10 @@ export async function GET(request: Request) {
   }
 }
 
-// ─── PART 2: Receiving Messages (POST) ───────────────────────────────────────
-// Meta will send all customer messages and delivery receipts here
+// ─── PART 2: RECEIVING MESSAGES (POST) ───────────────────────────────────────
 export async function POST(request: Request) {
   try {
-    // 🔒 WEBHOOK SPOOFING SHIELD: Read raw text first to calculate the cryptographic hash
+    // 🔒 WEBHOOK SPOOFING SHIELD
     const rawBody = await request.text();
     const signature = request.headers.get('x-hub-signature-256');
 
@@ -35,29 +33,22 @@ export async function POST(request: Request) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    // You MUST add META_APP_SECRET to your .env.local file (found in your Meta App Dashboard)
     const APP_SECRET = process.env.META_APP_SECRET;
     if (!APP_SECRET) {
       console.error('CRITICAL: META_APP_SECRET is missing from environment variables.');
       return new NextResponse('Server Error', { status: 500 });
     }
 
-    // Calculate our own hash based on the raw payload
     const expectedSignature = `sha256=${crypto.createHmac('sha256', APP_SECRET).update(rawBody).digest('hex')}`;
-
     const sigBuffer = Buffer.from(signature);
     const expectedSigBuffer = Buffer.from(expectedSignature);
 
-    // 🔒 TIMING-SAFE EQUAL: Compare signatures securely to prevent side-channel timing attacks
-    // We MUST check lengths first to prevent timingSafeEqual from throwing an unhandled DoS exception
     if (sigBuffer.length !== expectedSigBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedSigBuffer)) {
       console.error('[Security] Invalid Meta Webhook Signature Detected! Intrusion blocked.');
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    // ✅ SIGNATURE VALIDATED: Safe to parse the JSON and process the business logic
     const body = JSON.parse(rawBody);
-
     const autoReplies: Promise<any>[] = [];
 
     if (body.object === 'whatsapp_business_account') {
@@ -70,11 +61,11 @@ export async function POST(request: Request) {
             console.log(`[WhatsApp Status] Phone ${statusObj.recipient_id} is now: ${statusObj.status}`);
             
             if (statusObj.errors) {
-              console.error(`[WhatsApp Delivery Failure Reason]:`, JSON.stringify(statusObj.errors, null, 2));
+              console.error(`[WhatsApp Delivery Failure]:`, JSON.stringify(statusObj.errors, null, 2));
             }
           }
           
-          // --- THE AUTO-DEFLECTOR (FREE INBOUND REPLIES) ---
+          // --- THE AUTO-DEFLECTOR (FREE INBOUND USER REPLIES) ---
           if (change.value && change.value.messages && change.value.messages[0]) {
             const message = change.value.messages[0];
             const customerPhone = message.from; 
@@ -86,31 +77,30 @@ export async function POST(request: Request) {
             const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID;
 
             if (META_ACCESS_TOKEN && META_PHONE_NUMBER_ID) {
-              // We reply with a standard 'text' type. This is 100% FREE in a user-initiated 24h window.
-              autoReplies.push(fetch(`https://graph.facebook.com/v19.0/${META_PHONE_NUMBER_ID}/messages`, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${META_ACCESS_TOKEN}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  messaging_product: 'whatsapp',
-                  recipient_type: 'individual',
-                  to: customerPhone,
-                  type: 'text',
-                  text: {
-                    preview_url: true,
-                    // 🚨 CHANGE THE WA.ME LINK BELOW TO UNCLE ISMATH'S REAL NUMBER 🚨
-                    body: `Hi! \n\nThis is the automated dispatch system for Henna By Falina.\n\nTo chat directly with our support team regarding your order or custom printing, please click the link below:\n\n https://wa.me/916383151922`
-                  }
-                }),
-              }));
+              autoReplies.push(
+                fetch(`https://graph.facebook.com/v19.0/${META_PHONE_NUMBER_ID}/messages`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${META_ACCESS_TOKEN}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    messaging_product: 'whatsapp',
+                    recipient_type: 'individual',
+                    to: customerPhone,
+                    type: 'text',
+                    text: {
+                      preview_url: true,
+                      body: `Hi ${customerName}!\n\nThis is an automated notification channel.\n\nTo contact our administrative support team directly regarding your order status, please message our primary help line. Thank you!`
+                    }
+                  }),
+                })
+              );
             }
           }
         }
       }
       
-      // ⚡ OPTIMIZATION: Execute all auto-replies concurrently so we don't hold up Meta's webhook timeout
       if (autoReplies.length > 0) {
         await Promise.allSettled(autoReplies);
       }
